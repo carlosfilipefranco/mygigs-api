@@ -6,11 +6,12 @@ const config = {
 	// 	database: "mygigs"
 	// },
 	db: {
-		host: "remotemysql.com",
-		user: "VjRO7NVOz2",
-		password: "RUPpPt85rT",
-		database: "VjRO7NVOz2"
+		host: "sql.freedb.tech",
+		user: "freedb_mygigs",
+		password: "r8YK!#R7HZ4q$B#",
+		database: "freedb_mygigs"
 	},
+
 	listPerPage: 20
 };
 
