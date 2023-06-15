@@ -4,6 +4,9 @@ const config = require("../config");
 const fetch = require("node-fetch");
 const lastFmKey = "aef314af1cb8fbe8e84aca457c5b70e8";
 const fanartKey = "a9722f9e6e7aa1e040c0dd5d3d23e4e2";
+const spotify_client_id = "adc9c5b33c7145a5b7b8967c9c7ba74e";
+const spotify_client_secret = "918d3fc1370245e8bbc151318ccbff2f";
+var spotifyKey = "";
 
 async function getMultiple(page = 1, search = null) {
 	const offset = helper.getOffset(page, config.listPerPage);
@@ -34,25 +37,28 @@ async function get(id) {
 		result = result[0];
 		const gigs = await db.query(`SELECT gig.id, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id WHERE gig.artist_id = ${result.id} ORDER by gig.date DESC `);
 		const lastfm = await fetch("https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=" + result.name + "&api_key=" + lastFmKey + "&format=json&index=" + id);
-		const body = await lastfm.json();
-		let mbid = result.mbid;
-		if (!mbid && body && typeof body.artist.mbid != "undefined") {
-			mbid = body.artist.mbid;
-		}
-		if (mbid) {
-			const fanart = await fetch("http://webservice.fanart.tv/v3/music/" + mbid + "?api_key=" + fanartKey);
-			const data = await fanart.json();
-			let newImage = null;
-			if (data.artistthumb && data.artistthumb.length != 0) {
-				newImage = data.artistthumb[0].url;
-			} else if (data.artistbackground && data.artistbackground.length != 0) {
-				newImage = data.artistbackground[0].url;
-			} else if (data.hdmusiclogo && data.hdmusiclogo.length != 0) {
-				newImage = data.hdmusiclogo[0].url;
+
+		let headers = {
+			"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+		};
+		const spotifyToken = await fetch(`https://accounts.spotify.com/api/token`, { method: "POST", headers, body: `grant_type=client_credentials&client_id=${spotify_client_id}&client_secret=${spotify_client_secret}` });
+		if (spotifyToken.status == 200) {
+			let json = await spotifyToken.json();
+			spotifyKey = json.access_token;
+			headers["Authorization"] = `Bearer ${spotifyKey}`;
+			const spotify = await fetch(`https://api.spotify.com/v1/search?q=${result.name}&type=artist`, { headers });
+			if (spotify.status === 200) {
+				let spotifyJson = await spotify.json();
+
+				if (typeof spotifyJson.artists.items[0].images[0].url != "undefined") {
+					const image = spotifyJson.artists.items[0].images[0].url;
+					result["image"] = image;
+					await db.query(`UPDATE artist SET image="${image}" WHERE id=${id}`);
+				}
 			}
-			await db.query(`UPDATE artist SET image="${newImage}", mbid="${mbid}" WHERE id=${id}`);
-			result["image"] = newImage;
 		}
+
+		const body = await lastfm.json();
 		result["body"] = body;
 		result["gigs"] = gigs;
 	} else {

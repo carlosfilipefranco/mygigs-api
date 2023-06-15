@@ -32,6 +32,16 @@ router.post("/clean", async function (req, res, next) {
 	}
 });
 
+/* GET dashboard */
+router.get("/dashboard", async function (req, res, next) {
+	try {
+		res.json(await gig.dashboard(req.body));
+	} catch (err) {
+		console.error(`Error while creating gig`, err.message);
+		next(err);
+	}
+});
+
 /* PUT gig */
 router.put("/:id", async function (req, res, next) {
 	try {

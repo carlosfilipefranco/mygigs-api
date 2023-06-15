@@ -27,8 +27,20 @@ async function getMultiple(page = 1, search = null) {
 }
 
 async function get(id) {
-	const result = await db.query(`SELECT gig.id, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id WHERE gig.id=${id}`);
+	const result = await db.query(`SELECT gig.id, gig.date, artist.name as artist, artist.image, artist.id as artist_id, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id WHERE gig.id=${id}`);
 	return result[0];
+}
+
+async function dashboard() {
+	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig`);
+	const gigs_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS gig_count FROM gig GROUP BY YEAR(date) ORDER BY YEAR(date);`);
+	const gigs_by_artist = await db.query(`SELECT artist.id, artist.name, artist.image, COUNT(gig.id) AS gig_count FROM artist LEFT JOIN gig ON artist.id = gig.artist_id GROUP BY artist.id, artist.name ORDER BY gig_count DESC;`);
+	const data = {
+		total_gigs: total_gigs[0],
+		gigs_by_year,
+		gigs_by_artist
+	};
+	return data;
 }
 
 async function create(gigs) {
@@ -115,5 +127,6 @@ module.exports = {
 	create,
 	update,
 	remove,
-	clean
+	clean,
+	dashboard
 };
