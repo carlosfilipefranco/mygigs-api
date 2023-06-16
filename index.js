@@ -5,6 +5,7 @@ const artist = require("./routes/artist");
 const venue = require("./routes/venue");
 const city = require("./routes/city");
 const gig = require("./routes/gig");
+const event = require("./routes/event");
 const cors = require("cors");
 
 app.use(cors());
@@ -24,6 +25,7 @@ app.use("/artist", artist);
 app.use("/venue", venue);
 app.use("/city", city);
 app.use("/gig", gig);
+app.use("/event", event);
 
 /* Error handler middleware */
 app.use((err, req, res, next) => {
