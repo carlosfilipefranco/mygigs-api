@@ -8,7 +8,7 @@ async function getMultiple(page = 1, search = null) {
 	if (search) {
 		searchQuery = `WHERE LOWER(event.name) LIKE '%${search}%'`;
 	}
-	const rows = await db.query(`SELECT event.id, event.date, event.name, venue.name as venue, city.name as city FROM event INNER JOIN venue ON event.venue_id = venue.id INNER JOIN city ON event.city_id = city.id ${searchQuery} ORDER by event.date DESC LIMIT ${offset},${config.listPerPage}`);
+	const rows = await db.query(`SELECT event.id, event.date, event.name, event.image, venue.name as venue, city.name as city FROM event INNER JOIN venue ON event.venue_id = venue.id INNER JOIN city ON event.city_id = city.id ${searchQuery} ORDER by event.date DESC LIMIT ${offset},${config.listPerPage}`);
 
 	let count = rows.length;
 	if (!search) {
