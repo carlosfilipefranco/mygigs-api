@@ -12,7 +12,7 @@ async function getMultiple(page = 1, search = null) {
 
 	// createEditions(rows);
 
-	// populateEditionEvent(rows);
+	populateEditionEvent(rows);
 
 	let count = rows.length;
 	if (!search) {
@@ -32,6 +32,38 @@ async function getMultiple(page = 1, search = null) {
 async function get(id) {
 	const result = await db.query(`SELECT festival.id, festival.name, edition.id AS edition_id, edition.name AS edition_name FROM festival JOIN edition ON festival.id = edition.festival_id WHERE festival.id = ${id}`);
 	return result;
+}
+
+async function getEdition(editionId) {
+	try {
+		const edition = await db.query(`
+		  SELECT e.date_start, e.date_end, e.name AS edition_name, v.name AS venue, c.name AS city
+		  FROM edition e
+		  INNER JOIN venue v ON e.venue_id = v.id
+		  INNER JOIN city c ON e.city_id = c.id
+		  WHERE e.id = ${editionId}
+		`);
+
+		const gigs = await db.query(`
+		  SELECT g.id, a.name AS artist, a.image, v.name AS venue
+		  FROM gig g
+		  INNER JOIN artist a ON g.artist_id = a.id
+		  INNER JOIN venue v ON g.venue_id = v.id
+		  INNER JOIN event_gig eg ON g.id = eg.gig_id
+		  INNER JOIN event ev ON eg.event_id = ev.id
+		  INNER JOIN edition_event ee ON ev.id = ee.event_id
+		  WHERE ee.edition_id = ${editionId}
+		  ORDER BY ev.date
+		`);
+
+		return {
+			edition: edition[0],
+			gigs: gigs
+		};
+	} catch (error) {
+		console.error("Ocorreu um erro ao obter os gigs por edition:", error);
+		throw error;
+	}
 }
 
 async function createEditions(rows) {
@@ -123,5 +155,6 @@ async function populateEditionEvent() {
 
 module.exports = {
 	getMultiple,
-	get
+	get,
+	getEdition
 };

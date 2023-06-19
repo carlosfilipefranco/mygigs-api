@@ -22,4 +22,14 @@ router.get("/:id", async function (req, res, next) {
 	}
 });
 
+/* GET edition */
+router.get("/edition/:id", async function (req, res, next) {
+	try {
+		res.json(await festival.getEdition(req.params.id, req.body));
+	} catch (err) {
+		console.error(`Error while updating gig`, err.message);
+		next(err);
+	}
+});
+
 module.exports = router;
