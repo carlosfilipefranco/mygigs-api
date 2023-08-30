@@ -6,7 +6,7 @@ async function getMultiple(page = 1, search = null) {
 	const offset = helper.getOffset(page, config.listPerPage);
 	let searchQuery = "";
 	if (search) {
-		searchQuery = `WHERE LOWER(event.name) LIKE '%${search}%'`;
+		searchQuery = `WHERE LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(event.date) LIKE '%${search}%'`;
 	}
 	const rows = await db.query(`SELECT event.id, event.date, event.name, event.image, venue.name as venue, city.name as city FROM event INNER JOIN venue ON event.venue_id = venue.id INNER JOIN city ON event.city_id = city.id ${searchQuery} ORDER by event.date DESC LIMIT ${offset},${config.listPerPage}`);
 
