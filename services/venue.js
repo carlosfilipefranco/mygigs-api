@@ -27,7 +27,7 @@ async function getMultiple(page = 1, search = null) {
 
 async function get(id) {
 	const venue = await db.query(`SELECT id, name FROM venue WHERE venue.id=${id}`);
-	const gigs = await db.query(`SELECT gig.id, gig.date, artist.name as artist, artist.image, artist.id as artist_id, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id WHERE venue.id=${id}`);
+	const gigs = await db.query(`SELECT gig.id, gig.date, artist.name as artist, artist.image, artist.id as artist_id, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id WHERE venue.id=${id} ORDER by gig.date`);
 	return {
 		gigs,
 		venue: venue[0]
