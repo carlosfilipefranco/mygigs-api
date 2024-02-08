@@ -85,11 +85,11 @@ async function create(artist) {
 		message = "Artist created successfully";
 	}
 
-	return result;
+	return { message };
 }
 
 async function update(id, artist) {
-	const result = await db.query(`UPDATE artist SET name="${artist.name}", image=${artist.image} WHERE id=${id}`);
+	const result = await db.query(`UPDATE artist SET name="${artist.name}", image="${artist.image}" WHERE id=${id}`);
 
 	let message = "Error in updating Artist";
 
