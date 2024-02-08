@@ -22,6 +22,16 @@ router.post("/", async function (req, res, next) {
 	}
 });
 
+/* POST artist */
+router.post("/create-bulk", async function (req, res, next) {
+	try {
+		res.json(await artist.createBulk(req.body));
+	} catch (err) {
+		console.error(`Error while creating artist`, err.message);
+		next(err);
+	}
+});
+
 /* PUT artist */
 router.put("/:id", async function (req, res, next) {
 	try {

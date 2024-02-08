@@ -88,6 +88,24 @@ async function create(artist) {
 	return { message };
 }
 
+async function createBulk(artists) {
+	artists.forEach(async (artist) => {
+		const rows = await db.query(`SELECT id FROM artist WHERE name="${artist}"`);
+		var result;
+
+		if (rows.length) {
+			const id = rows[0].id;
+			result = await db.query(`UPDATE artist SET name="${artist}" WHERE id=${id}`);
+		} else {
+			result = await db.query(`INSERT INTO artist (name)  VALUES  ("${artist}")`);
+		}
+	});
+
+	let message = "Artists created successfully";
+
+	return { message };
+}
+
 async function update(id, artist) {
 	const result = await db.query(`UPDATE artist SET name="${artist.name}", image="${artist.image}" WHERE id=${id}`);
 
@@ -117,5 +135,6 @@ module.exports = {
 	get,
 	create,
 	update,
-	remove
+	remove,
+	createBulk
 };
