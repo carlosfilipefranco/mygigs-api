@@ -28,7 +28,7 @@ async function getMultiple(page = 1, search = null) {
 async function get(id) {
 	try {
 		const edition = await db.query(`
-		  SELECT e.id, e.date_start, e.date_end, e.name AS name, e.image, v.name AS venue, c.name AS city
+		  SELECT e.id, e.date_start, e.date_end, e.name AS name, e.image, v.name AS venue, c.name AS city, c.id AS city_id, v.id AS venue_id
 		  FROM edition e
 		  LEFT JOIN venue v ON e.venue_id = v.id
 		  LEFT JOIN city c ON e.city_id = c.id
@@ -38,7 +38,7 @@ async function get(id) {
 		console.log(id, edition);
 
 		const gigs = await db.query(`
-		  SELECT g.id, a.name AS artist, a.image, v.name AS venue
+		  SELECT g.id, g.date, a.name AS artist, a.image, v.name AS venue
 		  FROM gig g
 		  INNER JOIN artist a ON g.artist_id = a.id
 		  INNER JOIN venue v ON g.venue_id = v.id
@@ -50,7 +50,15 @@ async function get(id) {
 		`);
 
 		return {
-			edition: edition[0],
+			edition: {
+				id: edition[0].id,
+				date_start: edition[0].date_start,
+				date_end: edition[0].date_end,
+				name: edition[0].name,
+				image: edition[0].image,
+				venue: { id: edition[0].venue_id, name: edition[0].venue },
+				city: { id: edition[0].city_id, name: edition[0].city }
+			},
 			gigs: gigs
 		};
 	} catch (error) {
@@ -65,9 +73,9 @@ async function create(edition) {
 
 	if (rows.length) {
 		const id = rows[0].id;
-		result = await db.query(`UPDATE edition SET name="${edition.name}", festival_id="${edition.festival_id}", image="${edition.image}" WHERE id=${id}`);
+		result = await db.query(`UPDATE edition SET name="${edition.name}", festival_id="${edition.festival_id}", image="${edition.image}", city_id="${edition.city.id}", venue_id="${edition.venue.id}" WHERE id=${id}`);
 	} else {
-		result = await db.query(`INSERT INTO edition (name, festival_id, image) VALUES  ("${edition.name}", "${edition.festival_id}", "${edition.image}")`);
+		result = await db.query(`INSERT INTO edition (name, festival_id, image, city_id, venue_id) VALUES  ("${edition.name}", "${edition.festival_id}", "${edition.image}", "${edition.city.id}", "${edition.venue.id}")`);
 	}
 
 	let message = "Error in creating Edition";
@@ -98,7 +106,7 @@ async function createBulk(editions) {
 }
 
 async function update(id, edition) {
-	const result = await db.query(`UPDATE edition SET name="${edition.name}", festival_id="${edition.festival_id}", image="${edition.image}" WHERE id=${id}`);
+	const result = await db.query(`UPDATE edition SET name="${edition.name}", image="${edition.image}", city_id="${edition.city.id}", venue_id="${edition.venue.id}" WHERE id=${id}`);
 
 	let message = "Error in updating Edition";
 

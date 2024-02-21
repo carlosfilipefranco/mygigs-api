@@ -2,11 +2,16 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 
-async function getMultiple(page = 1) {
-	const offset = helper.getOffset(page, config.listPerPage);
-	const rows = await db.query(`SELECT id, name FROM city LIMIT ${offset},${config.listPerPage}`);
-	const data = helper.emptyOrRows(rows);
-	const meta = { page };
+async function getMultiple(page) {
+	let offset = null;
+	let limit = "";
+	if (page) {
+		offset = helper.getOffset(page, config.listPerPage);
+		limit = `LIMIT ${offset},${config.listPerPage}`;
+	}
+	let rows = await db.query(`SELECT id, name FROM city ${limit}`);
+	let data = helper.emptyOrRows(rows);
+	let meta = { page };
 
 	return {
 		data,
