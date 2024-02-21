@@ -39,38 +39,6 @@ async function get(id) {
 	};
 }
 
-async function getEdition(editionId) {
-	try {
-		const edition = await db.query(`
-		  SELECT e.date_start, e.date_end, e.name AS edition_name, v.name AS venue, c.name AS city
-		  FROM edition e
-		  INNER JOIN venue v ON e.venue_id = v.id
-		  INNER JOIN city c ON e.city_id = c.id
-		  WHERE e.id = ${editionId}
-		`);
-
-		const gigs = await db.query(`
-		  SELECT g.id, a.name AS artist, a.image, v.name AS venue
-		  FROM gig g
-		  INNER JOIN artist a ON g.artist_id = a.id
-		  INNER JOIN venue v ON g.venue_id = v.id
-		  INNER JOIN event_gig eg ON g.id = eg.gig_id
-		  INNER JOIN event ev ON eg.event_id = ev.id
-		  INNER JOIN edition_event ee ON ev.id = ee.event_id
-		  WHERE ee.edition_id = ${editionId}
-		  ORDER BY ev.date
-		`);
-
-		return {
-			edition: edition[0],
-			gigs: gigs
-		};
-	} catch (error) {
-		console.error("Ocorreu um erro ao obter os gigs por edition:", error);
-		throw error;
-	}
-}
-
 async function createEditions(rows) {
 	for (const festival of rows) {
 		const venues = await db.query(`SELECT id FROM venue WHERE name = '${festival.name}'`);
@@ -125,8 +93,73 @@ async function populateEditionEvent() {
 	}
 }
 
+async function create(festival) {
+	const rows = await db.query(`SELECT id FROM festival WHERE name="${festival.name}"`);
+	var result;
+
+	if (rows.length) {
+		const id = rows[0].id;
+		result = await db.query(`UPDATE festival SET name="${festival.name}", image="${festival.image}" WHERE id=${id}`);
+	} else {
+		result = await db.query(`INSERT INTO festival (name, image) VALUES ("${festival.name}", "${festival.image}")`);
+	}
+
+	let message = "Error in creating Festival";
+
+	if (result.affectedRows) {
+		message = "Festival created successfully";
+	}
+
+	return { message };
+}
+
+async function createBulk(festivals) {
+	festivals.forEach(async (festival) => {
+		const rows = await db.query(`SELECT id FROM festival WHERE name="${festival}"`);
+		var result;
+
+		if (rows.length) {
+			const id = rows[0].id;
+			result = await db.query(`UPDATE festival SET name="${festival}" WHERE id=${id}`);
+		} else {
+			result = await db.query(`INSERT INTO festival (name)  VALUES  ("${festival}")`);
+		}
+	});
+
+	let message = "Festivals created successfully";
+
+	return { message };
+}
+
+async function update(id, festival) {
+	const result = await db.query(`UPDATE festival SET name="${festival.name}", image="${festival.image}" WHERE id=${id}`);
+
+	let message = "Error in updating Festival";
+
+	if (result.affectedRows) {
+		message = "Festival updated successfully";
+	}
+
+	return { message };
+}
+
+async function remove(id) {
+	const result = await db.query(`DELETE FROM festival WHERE id=${id}`);
+
+	let message = "Error in deleting Festival";
+
+	if (result.affectedRows) {
+		message = "Festival deleted successfully";
+	}
+
+	return { message };
+}
+
 module.exports = {
 	getMultiple,
 	get,
-	getEdition
+	create,
+	update,
+	remove,
+	createBulk
 };

@@ -35,13 +35,39 @@ async function get(id) {
 }
 
 async function create(venue) {
-	const result = await db.query(`INSERT INTO venue (name)  VALUES  ("${venue.name}")`);
+	const rows = await db.query(`SELECT id FROM venue WHERE name="${venue.name}"`);
+	var result;
 
-	let message = "Error in creating venue";
+	if (rows.length) {
+		const id = rows[0].id;
+		result = await db.query(`UPDATE venue SET name="${venue.name}" WHERE id=${id}`);
+	} else {
+		result = await db.query(`INSERT INTO venue (name)  VALUES  ("${venue.name}")`);
+	}
+
+	let message = "Error in creating Venue";
 
 	if (result.affectedRows) {
-		message = "venue created successfully";
+		message = "Venue created successfully";
 	}
+
+	return { message };
+}
+
+async function createBulk(venues) {
+	venues.forEach(async (venue) => {
+		const rows = await db.query(`SELECT id FROM venue WHERE name="${venue}"`);
+		var result;
+
+		if (rows.length) {
+			const id = rows[0].id;
+			result = await db.query(`UPDATE venue SET name="${venue}" WHERE id=${id}`);
+		} else {
+			result = await db.query(`INSERT INTO venue (name)  VALUES  ("${venue}")`);
+		}
+	});
+
+	let message = "Venues created successfully";
 
 	return { message };
 }
@@ -49,10 +75,10 @@ async function create(venue) {
 async function update(id, venue) {
 	const result = await db.query(`UPDATE venue SET name="${venue.name}" WHERE id=${id}`);
 
-	let message = "Error in updating venue";
+	let message = "Error in updating Venue";
 
 	if (result.affectedRows) {
-		message = "venue updated successfully";
+		message = "Venue updated successfully";
 	}
 
 	return { message };
@@ -61,10 +87,10 @@ async function update(id, venue) {
 async function remove(id) {
 	const result = await db.query(`DELETE FROM venue WHERE id=${id}`);
 
-	let message = "Error in deleting venue";
+	let message = "Error in deleting Venue";
 
 	if (result.affectedRows) {
-		message = "venue deleted successfully";
+		message = "Venue deleted successfully";
 	}
 
 	return { message };
@@ -75,5 +101,6 @@ module.exports = {
 	create,
 	update,
 	remove,
-	get
+	get,
+	createBulk
 };

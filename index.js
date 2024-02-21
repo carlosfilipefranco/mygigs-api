@@ -7,6 +7,7 @@ const city = require("./routes/city");
 const gig = require("./routes/gig");
 const event = require("./routes/event");
 const festival = require("./routes/festival");
+const edition = require("./routes/edition");
 const cors = require("cors");
 
 app.use(cors());
@@ -28,6 +29,7 @@ app.use("/city", city);
 app.use("/gig", gig);
 app.use("/event", event);
 app.use("/festival", festival);
+app.use("/edition", edition);
 
 /* Error handler middleware */
 app.use((err, req, res, next) => {
