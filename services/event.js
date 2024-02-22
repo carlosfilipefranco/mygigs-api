@@ -30,7 +30,47 @@ async function get(id) {
 	return result;
 }
 
+async function create(event) {
+	console.log(event);
+	var resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id) VALUES ("${event.artists[event.artists.length - 1].name}", "${event.date.split("T")[0]}", "${event.city.id}", "${event.venue.id}")`);
+
+	event.artists.forEach(async (artist) => {
+		var resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id) VALUES ("${event.date.split("T")[0]}", "${event.city.id}", "${event.venue.id}", "${artist.id}")`);
+		console.log(resultEvent.insertId, resultGig.insertId);
+		await db.query(`INSERT INTO event_gig (event_id, gig_id) VALUES ( "${resultEvent.insertId}", "${resultGig.insertId}")`);
+		if (event.edition) {
+			await db.query(`INSERT INTO edition_event (edition_id, event_id) VALUES ( "${event.edition.edition_id}", "${resultEvent.insertId}")`);
+		}
+	});
+
+	let message = "Error in creating Edition";
+
+	if (resultEvent.affectedRows) {
+		message = "Event created successfully";
+	}
+
+	return { message };
+}
+
+async function remove(id) {
+	await db.query(`DELETE FROM gig WHERE id IN (SELECT gig_id FROM event_gig WHERE event_id = "${id}")`);
+	await db.query(`DELETE FROM event_gig WHERE event_id=${id}`);
+	await db.query(`DELETE FROM edition_event WHERE event_id=${id}`);
+
+	const result = await db.query(`DELETE FROM event WHERE id=${id}`);
+
+	let message = "Error in deleting Edition";
+
+	if (result.affectedRows) {
+		message = "Edition deleted successfully";
+	}
+
+	return { message };
+}
+
 module.exports = {
 	getMultiple,
-	get
+	get,
+	create,
+	remove
 };
