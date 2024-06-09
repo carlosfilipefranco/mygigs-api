@@ -8,7 +8,7 @@ const config = {
 	// db: {
 	// 	host: "sql.freedb.tech",
 	// 	user: "freedb_mygigs",
-	// 	password: "r8YK!#R7HZ4q$B#",
+	// 	password: "PHf2rntk2M3!Cq9",
 	// 	database: "freedb_mygigs"
 	// },
 
