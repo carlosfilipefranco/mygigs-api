@@ -35,10 +35,36 @@ async function dashboard() {
 	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig`);
 	const gigs_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS gig_count FROM gig GROUP BY YEAR(date) ORDER BY YEAR(date);`);
 	const gigs_by_artist = await db.query(`SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(gig.id) AS gig_count FROM artist LEFT JOIN gig ON artist.id = gig.artist_id GROUP BY artist.id, artist.name ORDER BY gig_count DESC;`);
+	const editions_by_festival = await db.query(`
+        SELECT 
+            festival.id, 
+            festival.name, 
+            festival.image, 
+            COUNT(edition.id) AS edition_count,
+            IFNULL(SUM(event_count), 0) AS total_events
+        FROM 
+            festival 
+        LEFT JOIN 
+            edition ON festival.id = edition.festival_id 
+        LEFT JOIN (
+            SELECT 
+                edition_id, 
+                COUNT(event_id) AS event_count 
+            FROM 
+                edition_event 
+            GROUP BY 
+                edition_id
+        ) AS edition_events ON edition.id = edition_events.edition_id
+        GROUP BY 
+            festival.id, festival.name 
+        ORDER BY 
+            edition_count DESC;
+    `);
 	const data = {
 		total_gigs: total_gigs[0],
 		gigs_by_year,
-		gigs_by_artist
+		gigs_by_artist,
+		editions_by_festival
 	};
 	return data;
 }
