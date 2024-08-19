@@ -72,4 +72,14 @@ router.delete("/:id", async function (req, res, next) {
 	}
 });
 
+/* SORT gigs */
+router.post("/sort", async function (req, res, next) {
+	try {
+		res.json(await gig.sort(req.body));
+	} catch (err) {
+		console.error(`Error while creating gig`, err.message);
+		next(err);
+	}
+});
+
 module.exports = router;

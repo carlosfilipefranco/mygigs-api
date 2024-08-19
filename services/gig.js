@@ -103,6 +103,16 @@ async function create(gigs) {
 	return { message };
 }
 
+async function sort(gigs) {
+	gigs.forEach(async (gig) => {
+		result = await db.query(`UPDATE gig SET position="${gig.position}" WHERE id="${gig.id}"`);
+	});
+
+	let message = "finished";
+
+	return { message };
+}
+
 async function update(id, gig) {
 	const rows = await db.query(`SELECT id FROM city WHERE name="${gig.city}"`);
 	console.log(rows);
@@ -154,5 +164,6 @@ module.exports = {
 	update,
 	remove,
 	clean,
-	dashboard
+	dashboard,
+	sort
 };
