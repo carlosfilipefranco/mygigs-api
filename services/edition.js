@@ -46,7 +46,7 @@ async function get(id) {
 		  INNER JOIN event ev ON eg.event_id = ev.id
 		  INNER JOIN edition_event ee ON ev.id = ee.event_id
 		  WHERE ee.edition_id = ${id}
-		  ORDER BY ev.date
+		  ORDER BY ev.date, g.position
 		`);
 
 		return {
