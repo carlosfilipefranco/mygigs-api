@@ -50,11 +50,13 @@ async function get(id) {
 			if (spotify.status === 200) {
 				let spotifyJson = await spotify.json();
 
-				if (typeof spotifyJson.artists.items[0].images[0].url != "undefined") {
-					const image = spotifyJson.artists.items[0].images[0].url;
-					result["image"] = image;
-					await db.query(`UPDATE artist SET image="${image}" WHERE id=${id}`);
-				}
+				try {
+					if (typeof spotifyJson.artists.items[0].images[0].url != "undefined") {
+						const image = spotifyJson.artists.items[0].images[0].url;
+						result["image"] = image;
+						await db.query(`UPDATE artist SET image="${image}" WHERE id=${id}`);
+					}
+				} catch {}
 			}
 		}
 
