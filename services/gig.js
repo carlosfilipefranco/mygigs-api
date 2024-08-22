@@ -27,8 +27,31 @@ async function getMultiple(page = 1, search = null) {
 }
 
 async function get(id) {
-	const result = await db.query(`SELECT gig.id, gig.date, artist.name as artist, artist.image, artist.id as artist_id, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id WHERE gig.id=${id}`);
-	return result[0];
+	const result = await db.query(`
+        SELECT 
+            gig.id, 
+            gig.date, 
+            artist.name AS artist, 
+            artist.image, 
+            artist.id AS artist_id, 
+            venue.name AS venue,
+            venue.id AS venue_id,
+            city.name AS city,
+            festival.id AS festival_id, 
+            festival.name AS festival_name,
+            edition.id AS edition_id,
+            edition.name AS edition_name
+        FROM gig 
+        INNER JOIN artist ON gig.artist_id = artist.id 
+        INNER JOIN venue ON gig.venue_id = venue.id 
+        INNER JOIN city ON gig.city_id = city.id 
+        LEFT JOIN event_gig eg ON gig.id = eg.gig_id
+        LEFT JOIN edition_event ee ON eg.event_id = ee.event_id
+        LEFT JOIN edition ON ee.edition_id = edition.id
+        LEFT JOIN festival ON edition.festival_id = festival.id
+        WHERE gig.id = ${id}
+    `);
+    return result[0];	
 }
 
 async function dashboard() {

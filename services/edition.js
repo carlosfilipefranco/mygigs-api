@@ -28,10 +28,11 @@ async function getMultiple(page = 1, search = null) {
 async function get(id) {
 	try {
 		const edition = await db.query(`
-		  SELECT e.id, e.date_start, e.date_end, e.name AS name, e.image, v.name AS venue, c.name AS city, c.id AS city_id, v.id AS venue_id
+		  SELECT e.id, e.date_start, e.date_end, e.name AS name, e.image, v.name AS venue, c.name AS city, c.id AS city_id, v.id AS venue_id, festival.image as festival_image
 		  FROM edition e
 		  LEFT JOIN venue v ON e.venue_id = v.id
 		  LEFT JOIN city c ON e.city_id = c.id
+      LEFT JOIN festival ON e.festival_id = festival.id
 		  WHERE e.id = ${id}
 		`);
 
@@ -55,7 +56,7 @@ async function get(id) {
 				date_start: edition[0].date_start,
 				date_end: edition[0].date_end,
 				name: edition[0].name,
-				image: edition[0].image,
+				image: edition[0].image ? edition[0].image : edition[0].festival_image,
 				venue: { id: edition[0].venue_id, name: edition[0].venue },
 				city: { id: edition[0].city_id, name: edition[0].city }
 			},
