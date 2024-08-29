@@ -5,7 +5,7 @@ const gig = require("../services/gig");
 /* GET gig. */
 router.get("/", async function (req, res, next) {
 	try {
-		res.json(await gig.getMultiple(req.query.page, req.query.search));
+		res.json(await gig.getMultiple(req.query.page, req.query.search, req.query.favorite));
 	} catch (err) {
 		console.error(`Error while getting gig `, err.message);
 		next(err);
@@ -76,6 +76,16 @@ router.delete("/:id", async function (req, res, next) {
 router.post("/sort", async function (req, res, next) {
 	try {
 		res.json(await gig.sort(req.body));
+	} catch (err) {
+		console.error(`Error while creating gig`, err.message);
+		next(err);
+	}
+});
+
+/* FAVORITE gigs */
+router.post("/favorite", async function (req, res, next) {
+	try {
+		res.json(await gig.favorite(req.body));
 	} catch (err) {
 		console.error(`Error while creating gig`, err.message);
 		next(err);

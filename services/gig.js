@@ -2,14 +2,21 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 
-async function getMultiple(page = 1, search = null) {
+async function getMultiple(page = 1, search = null, favorite = null) {
 	console.log(page, search);
 	const offset = helper.getOffset(page, config.listPerPage);
 	let searchQuery = "";
 	if (search) {
 		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(gig.date) LIKE '%${search}%'`;
 	}
-	const rows = await db.query(`SELECT gig.id, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id ${searchQuery} ORDER by gig.date DESC, gig.position LIMIT ${offset},${config.listPerPage}`);
+	if (favorite) {
+		if (searchQuery === "") {
+			searchQuery = "WHERE gig.favorite = 1";
+		} else {
+			searchQuery += "AND gig.favorite = 1";
+		}
+	}
+	const rows = await db.query(`SELECT gig.id, gig.date, gig.favorite, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id ${searchQuery} ORDER by gig.date DESC, gig.position LIMIT ${offset},${config.listPerPage}`);
 
 	let count = rows.length;
 	if (!search) {
@@ -51,7 +58,7 @@ async function get(id) {
         LEFT JOIN festival ON edition.festival_id = festival.id
         WHERE gig.id = ${id}
     `);
-    return result[0];	
+	return result[0];
 }
 
 async function dashboard() {
@@ -180,6 +187,14 @@ async function clean() {
 	return { message };
 }
 
+async function favorite(data) {
+	let result = await db.query(`UPDATE gig SET favorite="${data.isFavorite}" WHERE id="${data.id}"`);
+
+	let message = "finished";
+
+	return { message };
+}
+
 module.exports = {
 	getMultiple,
 	get,
@@ -188,5 +203,6 @@ module.exports = {
 	remove,
 	clean,
 	dashboard,
-	sort
+	sort,
+	favorite
 };
