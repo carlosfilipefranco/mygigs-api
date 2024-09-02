@@ -23,6 +23,10 @@ async function getMultiple(page = 1, search = null, favorite = null) {
 		let row = await db.query(`SELECT COUNT(*) as count FROM gig`);
 		count = row[0].count;
 	}
+	if (favorite) {
+		let row = await db.query(`SELECT COUNT(*) as count FROM gig WHERE favorite = 1`);
+		count = row[0].count;
+	}
 
 	const data = helper.emptyOrRows(rows);
 	const meta = { page, count };
@@ -58,7 +62,26 @@ async function get(id) {
         LEFT JOIN festival ON edition.festival_id = festival.id
         WHERE gig.id = ${id}
     `);
-	return result[0];
+
+	// Verifica se há algum resultado
+	if (result.length === 0) {
+		return null; // Ou outro valor apropriado se o gig não for encontrado
+	}
+
+	const gig = result[0];
+
+	// Consulta adicional para obter as imagens associadas ao gig
+	const images = await db.query(`
+        SELECT 
+            url
+        FROM gig_image
+        WHERE gig_id = ${id}
+    `);
+
+	// Anexa as imagens ao objeto gig
+	gig.images = images.map((image) => image.url);
+
+	return gig;
 }
 
 async function dashboard() {
@@ -134,11 +157,25 @@ async function create(gigs) {
 }
 
 async function sort(gigs) {
+	let result = "";
 	gigs.forEach(async (gig) => {
 		result = await db.query(`UPDATE gig SET position="${gig.position}" WHERE id="${gig.id}"`);
 	});
 
 	let message = "finished";
+
+	return { message };
+}
+
+async function images(images) {
+	for (const image of images) {
+		await db.query(`
+            INSERT INTO gig_image (gig_id, url) 
+            VALUES ("${image.gig_id}", "${image.url}")
+        `);
+	}
+
+	let message = "All images inserted successfully";
 
 	return { message };
 }
@@ -156,9 +193,6 @@ async function update(id, gig) {
 	if (result.affectedRows) {
 		message = "gig updated successfully";
 	}
-
-	console.log(id, gig.city);
-	console.log(result);
 
 	return { message };
 }
@@ -204,5 +238,6 @@ module.exports = {
 	clean,
 	dashboard,
 	sort,
-	favorite
+	favorite,
+	images
 };

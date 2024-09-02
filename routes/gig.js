@@ -92,4 +92,14 @@ router.post("/favorite", async function (req, res, next) {
 	}
 });
 
+/* IMAGES gigs */
+router.post("/images", async function (req, res, next) {
+	try {
+		res.json(await gig.favorite(req.body));
+	} catch (err) {
+		console.error(`Error while creating gig`, err.message);
+		next(err);
+	}
+});
+
 module.exports = router;
