@@ -1,6 +1,6 @@
 const config = {
 	db: {
-		host: "mysql://root:JTjmNVhzqmjFjdrUPxJqeYRivsDAfVAZ@autorack.proxy.rlwy.net:35936/railway",
+		host: "autorack.proxy.rlwy.net",
 		user: "root",
 		password: "JTjmNVhzqmjFjdrUPxJqeYRivsDAfVAZ",
 		database: "railway"
