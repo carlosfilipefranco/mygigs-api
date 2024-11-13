@@ -1,9 +1,10 @@
 const config = {
 	db: {
-		host: "autorack.proxy.rlwy.net:35936",
+		host: "autorack.proxy.rlwy.net",
 		user: "root",
 		password: "JTjmNVhzqmjFjdrUPxJqeYRivsDAfVAZ",
-		database: "railway"
+		database: "railway",
+		port: 35936
 	},
 	// db: {
 	// 	host: "127.0.0.1",
