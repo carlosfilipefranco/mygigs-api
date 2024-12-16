@@ -14,7 +14,7 @@ async function getMultiple(page = 1, search = null, type = 1) {
 	if (search) {
 		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%'`;
 	}
-	const rows = await db.query(`SELECT id, name, image FROM artist ${searchQuery} ORDER BY name LIMIT ${offset},${config.listPerPage} WHERE type=${type}`);
+	const rows = await db.query(`SELECT id, name, image FROM artist ${searchQuery} WHERE type=${type} ORDER BY name LIMIT ${offset},${config.listPerPage}`);
 	const data = helper.emptyOrRows(rows);
 
 	let count = rows.length;
