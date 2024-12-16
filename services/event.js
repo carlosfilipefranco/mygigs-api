@@ -2,7 +2,7 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 
-async function getMultiple(page = 1, search = null) {
+async function getMultiple(page = 1, search = null, type = 1) {
 	const offset = helper.getOffset(page, config.listPerPage);
 	let searchQuery = `WHERE event.type=${type}`;
 	if (search) {
