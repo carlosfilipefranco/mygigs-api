@@ -5,15 +5,15 @@ const config = require("../config");
 async function getMultiple(page = 1, search = null, favorite = null, type = 1) {
 	console.log(page, search);
 	const offset = helper.getOffset(page, config.listPerPage);
-	let searchQuery = `WHERE type=${type}`;
+	let searchQuery = `WHERE gig.type=${type}`;
 	if (search) {
-		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(gig.date) LIKE '%${search}% AND type=${type}'`;
+		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(gig.date) LIKE '%${search}% AND gig.type=${type}'`;
 	}
 	if (favorite) {
 		if (searchQuery === "") {
-			searchQuery = "WHERE gig.favorite = 1 AND type=${type}";
+			searchQuery = "WHERE gig.favorite = 1 AND gig.type=${type}";
 		} else {
-			searchQuery += "AND gig.favorite = 1 AND type=${type}";
+			searchQuery += "AND gig.favorite = 1 AND gig.type=${type}";
 		}
 	}
 	const rows = await db.query(`SELECT gig.id, gig.date, gig.favorite, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id ${searchQuery} ORDER by gig.date DESC, gig.position LIMIT ${offset},${config.listPerPage}`);
