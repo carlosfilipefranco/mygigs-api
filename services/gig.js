@@ -10,11 +10,7 @@ async function getMultiple(page = 1, search = null, favorite = null, type = 1) {
 		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(gig.date) LIKE '%${search}% AND gig.type=${type}'`;
 	}
 	if (favorite) {
-		if (searchQuery === "") {
-			searchQuery = `WHERE gig.favorite = 1 AND gig.type=${type}`;
-		} else {
-			searchQuery += `AND gig.favorite = 1 AND gig.type=${type}`;
-		}
+		searchQuery += `AND gig.favorite = 1`;
 	}
 	const rows = await db.query(`SELECT gig.id, gig.date, gig.favorite, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id ${searchQuery} ORDER by gig.date DESC, gig.position LIMIT ${offset},${config.listPerPage}`);
 
