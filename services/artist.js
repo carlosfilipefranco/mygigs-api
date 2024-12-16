@@ -10,11 +10,11 @@ var spotifyKey = "";
 
 async function getMultiple(page = 1, search = null, type = 1) {
 	const offset = helper.getOffset(page, config.listPerPage);
-	let searchQuery = "";
+	let searchQuery = `WHERE type=${type}`;
 	if (search) {
-		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%'`;
+		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%' AND type=${type}`;
 	}
-	const rows = await db.query(`SELECT id, name, image FROM artist ${searchQuery} WHERE type=${type} ORDER BY name LIMIT ${offset},${config.listPerPage}`);
+	const rows = await db.query(`SELECT id, name, image FROM artist ${searchQuery} ORDER BY name LIMIT ${offset},${config.listPerPage}`);
 	const data = helper.emptyOrRows(rows);
 
 	let count = rows.length;
