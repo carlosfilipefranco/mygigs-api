@@ -5,7 +5,7 @@ const artist = require("../services/artist");
 /* GET artist. */
 router.get("/", async function (req, res, next) {
 	try {
-		res.json(await artist.getMultiple(req.query.page, req.query.search));
+		res.json(await artist.getMultiple(req.query.page, req.query.search, req.query.type));
 	} catch (err) {
 		console.error(`Error while getting artist `, err.message);
 		next(err);

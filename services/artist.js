@@ -8,13 +8,13 @@ const spotify_client_id = "adc9c5b33c7145a5b7b8967c9c7ba74e";
 const spotify_client_secret = "918d3fc1370245e8bbc151318ccbff2f";
 var spotifyKey = "";
 
-async function getMultiple(page = 1, search = null) {
+async function getMultiple(page = 1, search = null, type = 1) {
 	const offset = helper.getOffset(page, config.listPerPage);
 	let searchQuery = "";
 	if (search) {
 		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%'`;
 	}
-	const rows = await db.query(`SELECT id, name, image FROM artist ${searchQuery} ORDER BY name LIMIT ${offset},${config.listPerPage}`);
+	const rows = await db.query(`SELECT id, name, image FROM artist ${searchQuery} ORDER BY name LIMIT ${offset},${config.listPerPage} WHERE type=${type}`);
 	const data = helper.emptyOrRows(rows);
 
 	let count = rows.length;
