@@ -5,7 +5,7 @@ const gig = require("../services/gig");
 /* GET gig. */
 router.get("/", async function (req, res, next) {
 	try {
-		res.json(await gig.getMultiple(req.query.page, req.query.search, req.query.favorite));
+		res.json(await gig.getMultiple(req.query.page, req.query.search, req.query.favorite, req.query.type));
 	} catch (err) {
 		console.error(`Error while getting gig `, err.message);
 		next(err);

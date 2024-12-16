@@ -5,7 +5,7 @@ const event = require("../services/event");
 /* GET events. */
 router.get("/", async function (req, res, next) {
 	try {
-		res.json(await event.getMultiple(req.query.page, req.query.search));
+		res.json(await event.getMultiple(req.query.page, req.query.search, req.query.type));
 	} catch (err) {
 		console.error(`Error while getting event `, err.message);
 		next(err);
