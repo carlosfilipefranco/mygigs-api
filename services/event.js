@@ -12,7 +12,7 @@ async function getMultiple(page = 1, search = null, type = 1) {
 
 	let count = rows.length;
 	if (!search) {
-		let row = await db.query(`SELECT COUNT(*) as count FROM event`);
+		let row = await db.query(`SELECT COUNT(*) as count FROM event WHERE event.type=${type}`);
 		count = row[0].count;
 	}
 

@@ -16,11 +16,11 @@ async function getMultiple(page = 1, search = null, favorite = null, type = 1) {
 
 	let count = rows.length;
 	if (!search) {
-		let row = await db.query(`SELECT COUNT(*) as count FROM gig`);
+		let row = await db.query(`SELECT COUNT(*) as count FROM gig WHERE gig.type=${type}`);
 		count = row[0].count;
 	}
 	if (favorite) {
-		let row = await db.query(`SELECT COUNT(*) as count FROM gig WHERE favorite = 1`);
+		let row = await db.query(`SELECT COUNT(*) as count FROM gig WHERE favorite = 1 AND gig.type=${type}`);
 		count = row[0].count;
 	}
 
@@ -80,10 +80,10 @@ async function get(id) {
 	return gig;
 }
 
-async function dashboard() {
-	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig`);
-	const gigs_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS gig_count FROM gig GROUP BY YEAR(date) ORDER BY YEAR(date);`);
-	const gigs_by_artist = await db.query(`SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(gig.id) AS gig_count FROM artist LEFT JOIN gig ON artist.id = gig.artist_id GROUP BY artist.id, artist.name ORDER BY gig_count DESC;`);
+async function dashboard(type = 1) {
+	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig WHERE type = ${type}`);
+	const gigs_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS gig_count FROM gig WHERE type = ${type} GROUP BY YEAR(date) ORDER BY YEAR(date);`);
+	const gigs_by_artist = await db.query(`SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(gig.id) AS gig_count FROM artist LEFT JOIN gig ON artist.id = gig.artist_id WHERE gig.type = ${type} GROUP BY artist.id, artist.name ORDER BY gig_count DESC;`);
 	const editions_by_festival = await db.query(`
         SELECT 
             festival.id, 

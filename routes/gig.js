@@ -35,7 +35,7 @@ router.post("/clean", async function (req, res, next) {
 /* GET dashboard */
 router.get("/dashboard", async function (req, res, next) {
 	try {
-		res.json(await gig.dashboard(req.body));
+		res.json(await gig.dashboard(req.query.type));
 	} catch (err) {
 		console.error(`Error while creating gig`, err.message);
 		next(err);
