@@ -32,10 +32,10 @@ async function get(id) {
 
 async function create(event) {
 	console.log(event);
-	var resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id) VALUES ("${event.artists[event.artists.length - 1].name}", "${event.date}", "${event.city.id}", "${event.venue.id}")`);
+	var resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type) VALUES ("${event.artists[event.artists.length - 1].name}", "${event.date}", "${event.city.id}", "${event.venue.id}", "${event.type}")`);
 
 	event.artists.forEach(async (artist) => {
-		var resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id) VALUES ("${event.date}", "${event.city.id}", "${event.venue.id}", "${artist.id}")`);
+		var resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type) VALUES ("${event.date}", "${event.city.id}", "${event.venue.id}", "${artist.id}", "${event.type}")`);
 		console.log(resultEvent.insertId, resultGig.insertId);
 		await db.query(`INSERT INTO event_gig (event_id, gig_id) VALUES ( "${resultEvent.insertId}", "${resultGig.insertId}")`);
 		if (event.edition) {

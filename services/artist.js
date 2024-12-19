@@ -80,7 +80,7 @@ async function create(artist) {
 		const id = rows[0].id;
 		result = await db.query(`UPDATE artist SET name="${artist.name}", image="${artist.image}", mbid="${artist.mbid}" WHERE id=${id}`);
 	} else {
-		result = await db.query(`INSERT INTO artist (name, image, mbid)  VALUES  ("${artist.name}", "${artist.image}", "${artist.mbid}")`);
+		result = await db.query(`INSERT INTO artist (name, image, mbid, type)  VALUES  ("${artist.name}", "${artist.image}", "${artist.mbid}", "${artist.type}")`);
 	}
 
 	let message = "Error in creating Artist";
