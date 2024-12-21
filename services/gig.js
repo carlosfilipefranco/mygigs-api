@@ -7,7 +7,7 @@ async function getMultiple(page = 1, search = null, favorite = null, type = 1) {
 	const offset = helper.getOffset(page, config.listPerPage);
 	let searchQuery = `WHERE gig.type=${type}`;
 	if (search) {
-		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(gig.date) LIKE '%${search}% AND gig.type=${type}'`;
+		searchQuery = `WHERE gig.type=${type} AND (LOWER(artist.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(gig.date) LIKE '%${search}%')`;
 	}
 	if (favorite) {
 		searchQuery += ` AND gig.favorite = 1`;
