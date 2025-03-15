@@ -26,8 +26,44 @@ async function getMultiple(page = 1, search = null, type = 1) {
 }
 
 async function get(id) {
-	const result = await db.query(`SELECT g.date, g.id as id, v.name AS venue, c.name AS city, a.name AS artist, a.image as image FROM event e INNER JOIN event_gig eg ON e.id = eg.event_id INNER JOIN gig g ON eg.gig_id = g.id INNER JOIN venue v ON g.venue_id = v.id INNER JOIN city c ON g.city_id = c.id INNER JOIN artist a ON g.artist_id = a.id WHERE e.id=${id}`);
-	return result;
+	const result = await db.query(`
+		SELECT e.name AS event_name, e.image AS event_image, 
+		       g.date, g.id AS gig_id, 
+		       v.name AS venue, 
+		       c.name AS city, 
+		       a.name AS artist, 
+		       a.image AS artist_image
+		FROM event e
+		INNER JOIN event_gig eg ON e.id = eg.event_id
+		INNER JOIN gig g ON eg.gig_id = g.id
+		INNER JOIN venue v ON g.venue_id = v.id
+		INNER JOIN city c ON g.city_id = c.id
+		INNER JOIN artist a ON g.artist_id = a.id
+		WHERE e.id = ${id}
+	`);
+
+	if (result.length === 0) {
+		return null;
+	}
+
+	// Pegar os dados do evento (assumindo que são os mesmos para todos os gigs)
+	const { event_name, event_image } = result[0];
+
+	// Mapear gigs
+	const gigs = result.map((row) => ({
+		id: row.gig_id,
+		date: row.date,
+		venue: row.venue,
+		city: row.city,
+		artist: row.artist,
+		artist_image: row.artist_image
+	}));
+
+	return {
+		name: event_name,
+		image: event_image,
+		gigs
+	};
 }
 
 async function create(event) {
