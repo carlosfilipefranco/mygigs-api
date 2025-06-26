@@ -113,18 +113,18 @@ async function get(id) {
 		const setsMap = new Map();
 
 		for (const row of setlistRows) {
-			const key = row.encore || 0;
+			const key = row.encore ?? 0;
 			if (!setsMap.has(key)) {
 				setsMap.set(key, []);
 			}
-			const songs = setsMap.get(key);
-			songs.push({ name: row.song_name });
+			setsMap.get(key).push({ name: row.song_name });
 		}
 
-		// Construir o array final de sets
-		const sets = Array.from(setsMap.entries()).map(([encore, songs]) => ({
-			encore: encore > 0 ? encore : undefined,
-			song: songs.map((s, i) => ({ ...s, number: i + 1 }))
+		const orderedKeys = Array.from(setsMap.keys()).sort((a, b) => a - b);
+
+		const sets = orderedKeys.map((encore) => ({
+			...(encore > 0 ? { encore } : {}),
+			song: setsMap.get(encore).map((s, i) => ({ ...s, number: i + 1 }))
 		}));
 
 		gig.setlist = {
