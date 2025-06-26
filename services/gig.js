@@ -34,7 +34,8 @@ async function getMultiple(page = 1, search = null, favorite = null, type = 1) {
 }
 
 async function get(id) {
-	const result = await db.query(`
+	const result = await db.query(
+		`
         SELECT 
             gig.id, 
             gig.date, 
@@ -56,26 +57,47 @@ async function get(id) {
         LEFT JOIN edition_event ee ON eg.event_id = ee.event_id
         LEFT JOIN edition ON ee.edition_id = edition.id
         LEFT JOIN festival ON edition.festival_id = festival.id
-        WHERE gig.id = ${id}
-    `);
+        WHERE gig.id = ?
+    `,
+		[id]
+	);
 
-	// Verifica se há algum resultado
-	if (result.length === 0) {
-		return null; // Ou outro valor apropriado se o gig não for encontrado
-	}
+	if (result.length === 0) return null;
 
 	const gig = result[0];
 
-	// Consulta adicional para obter as imagens associadas ao gig
-	const images = await db.query(`
-        SELECT 
-            url
-        FROM gig_image
-        WHERE gig_id = ${id}
-    `);
-
-	// Anexa as imagens ao objeto gig
+	// Imagens
+	const images = await db.query(`SELECT url FROM gig_image WHERE gig_id = ?`, [id]);
 	gig.images = images.map((image) => image.url);
+
+	// Procurar setlist local
+	const setlistRows = await db.query(
+		`
+        SELECT s.id AS setlist_id, ss.song_id, ss.position, song.name AS song_name
+        FROM setlist s
+        JOIN setlist_song ss ON ss.setlist_id = s.id
+        JOIN song ON ss.song_id = song.id
+        WHERE s.gig_id = ?
+        ORDER BY ss.position ASC
+    `,
+		[id]
+	);
+
+	if (setlistRows.length > 0) {
+		// Agrupar tudo num só set (sem encore info)
+		gig.setlist = {
+			sets: {
+				set: [
+					{
+						song: setlistRows.map((s, i) => ({
+							name: s.song_name,
+							number: i + 1
+						}))
+					}
+				]
+			}
+		};
+	}
 
 	return gig;
 }
