@@ -5,6 +5,7 @@ const config = require("../config");
 async function getMultiple(page = 1, search = null, favorite = null, type = 1) {
 	console.log(page, search);
 	const offset = helper.getOffset(page, config.listPerPage);
+
 	let searchQuery = `WHERE gig.type=${type}`;
 	if (search) {
 		searchQuery = `WHERE gig.type=${type} AND (LOWER(artist.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(gig.date) LIKE '%${search}%')`;
@@ -12,7 +13,26 @@ async function getMultiple(page = 1, search = null, favorite = null, type = 1) {
 	if (favorite) {
 		searchQuery += ` AND gig.favorite = 1`;
 	}
-	const rows = await db.query(`SELECT gig.id, gig.date, gig.favorite, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id ${searchQuery} ORDER by gig.date DESC, gig.position LIMIT ${offset},${config.listPerPage}`);
+
+	const rows = await db.query(`
+		SELECT
+			gig.id,
+			gig.date,
+			gig.favorite,
+			artist.name as artist,
+			artist.image,
+			venue.name as venue,
+			city.name as city,
+			CASE WHEN setlist.id IS NOT NULL THEN TRUE ELSE FALSE END AS has_setlist
+		FROM gig
+		INNER JOIN artist ON gig.artist_id = artist.id
+		INNER JOIN venue ON gig.venue_id = venue.id
+		INNER JOIN city ON gig.city_id = city.id
+		LEFT JOIN setlist ON setlist.gig_id = gig.id
+		${searchQuery}
+		ORDER BY gig.date DESC, gig.position
+		LIMIT ${offset},${config.listPerPage}
+	`);
 
 	let count = rows.length;
 	if (!search) {
@@ -73,33 +93,46 @@ async function get(id) {
 	// Procurar setlist local
 	const setlistRows = await db.query(
 		`
-        SELECT s.id AS setlist_id, ss.song_id, ss.position, song.name AS song_name
-        FROM setlist s
-        JOIN setlist_song ss ON ss.setlist_id = s.id
-        JOIN song ON ss.song_id = song.id
-        WHERE s.gig_id = ?
-        ORDER BY ss.position ASC
-    `,
+    SELECT 
+        s.id AS setlist_id, 
+        ss.song_id, 
+        ss.position, 
+        ss.encore,
+        song.name AS song_name
+    FROM setlist s
+    JOIN setlist_song ss ON ss.setlist_id = s.id
+    JOIN song ON ss.song_id = song.id
+    WHERE s.gig_id = ?
+    ORDER BY ss.encore IS NULL, ss.encore, ss.position
+`,
 		[id]
 	);
 
 	if (setlistRows.length > 0) {
-		// Agrupar tudo num só set (sem encore info)
+		// Agrupar as músicas por set/encore
+		const setsMap = new Map();
+
+		for (const row of setlistRows) {
+			const key = row.encore || 0;
+			if (!setsMap.has(key)) {
+				setsMap.set(key, []);
+			}
+			const songs = setsMap.get(key);
+			songs.push({ name: row.song_name });
+		}
+
+		// Construir o array final de sets
+		const sets = Array.from(setsMap.entries()).map(([encore, songs]) => ({
+			encore: encore > 0 ? encore : undefined,
+			song: songs.map((s, i) => ({ ...s, number: i + 1 }))
+		}));
+
 		gig.setlist = {
 			sets: {
-				set: [
-					{
-						song: setlistRows.map((s, i) => ({
-							name: s.song_name,
-							number: i + 1
-						}))
-					}
-				]
+				set: sets
 			}
 		};
 	}
-
-	return gig;
 }
 
 async function dashboard(type = 1) {
