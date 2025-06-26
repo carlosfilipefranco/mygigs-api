@@ -133,6 +133,8 @@ async function get(id) {
 			}
 		};
 	}
+
+	return gig;
 }
 
 async function dashboard(type = 1) {
