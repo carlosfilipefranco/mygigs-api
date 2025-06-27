@@ -30,6 +30,7 @@ async function getSetlist(gigId, artist, city, date) {
 
 	const data = await response.json();
 	const found = data.setlist?.[0];
+
 	if (!found || !found.sets || !Array.isArray(found.sets.set)) {
 		return null; // Nada para gravar
 	}
@@ -48,54 +49,41 @@ async function getSetlist(gigId, artist, city, date) {
 	const artistId = gigResult[0].artist_id;
 
 	// Criar nova setlist
-	const [setlistResult] = await db.query(`INSERT INTO setlist (gig_id, artist_id) VALUES (?, ?)`, [gigId, artistId]);
+	const setlistResult = await db.query(`INSERT INTO setlist (gig_id, artist_id) VALUES (?, ?)`, [gigId, artistId]);
+	console.log(setlistResult);
 	const setlistId = setlistResult.insertId;
 
-	const setsMap = new Map();
+	let position = 1;
+	let songCount = 0;
+
+	console.log(found);
 
 	for (const set of found.sets.set) {
-		const encore = set.encore ?? null;
-		if (!Array.isArray(set.song)) continue;
+		for (const song of set.song || []) {
+			const songName = song.name?.trim();
+			if (!songName) continue;
 
-		const setSongs = [];
-
-		for (let i = 0; i < set.song.length; i++) {
-			const song = set.song[i];
-			if (!song.name) continue;
-
-			const songName = song.name.trim();
-
-			// Inserir música (ignorar se já existe)
 			await db.query(`INSERT IGNORE INTO song (name, artist_id) VALUES (?, ?)`, [songName, artistId]);
 
-			// Obter ID da música
-			const [songResult] = await db.query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [songName, artistId]);
-			if (!songResult || songResult.length === 0) continue;
+			const songRows = await db.query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [songName, artistId]);
+			if (!Array.isArray(songRows) || songRows.length === 0) {
+				console.warn(`⚠️ Música '${songName}' não encontrada na BD após inserção`);
+				continue;
+			}
 
-			const songId = songResult[0].id;
+			const songId = songRows[0].id;
+			if (!songId) continue;
 
-			// Associar à setlist
-			await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [setlistId, songId, i + 1, encore]);
+			await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position) VALUES (?, ?, ?)`, [setlistId, songId, position]);
 
-			setSongs.push({ name: songName, number: i + 1 });
+			position++;
+			songCount++;
 		}
-
-		const key = encore ?? 0;
-		if (!setsMap.has(key)) setsMap.set(key, []);
-		setsMap.get(key).push(...setSongs);
 	}
 
-	// Preparar retorno no formato esperado
-	const sets = Array.from(setsMap.entries()).map(([encore, songs]) => ({
-		encore: encore > 0 ? encore : undefined,
-		song: songs
-	}));
+	let message = "finished";
 
-	return {
-		sets: {
-			set: sets
-		}
-	};
+	return { message };
 }
 
 async function importSetlists(req, res) {
