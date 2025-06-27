@@ -30,7 +30,7 @@ async function getSetlist(gigId, artist, city, date) {
 
 	const data = await response.json();
 	const found = data.setlist?.[0];
-	if (!found || !found.sets || !found.sets.set?.length) {
+	if (!found || !found.sets || !Array.isArray(found.sets.set)) {
 		return null; // Nada para gravar
 	}
 
@@ -43,7 +43,7 @@ async function getSetlist(gigId, artist, city, date) {
 	// Obter artist_id da tabela gig
 	const gigResult = await db.query(`SELECT artist_id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
 	if (!Array.isArray(gigResult) || gigResult.length === 0) {
-		throw new Error(`❌ Gig ${gigId} não encontrado — verifique se está na BD.`);
+		throw new Error(`Gig com ID ${gigId} não encontrado na base de dados.`);
 	}
 	const artistId = gigResult[0].artist_id;
 
@@ -53,10 +53,9 @@ async function getSetlist(gigId, artist, city, date) {
 
 	const setsMap = new Map();
 
-	// Gravar músicas
 	for (const set of found.sets.set) {
 		const encore = set.encore ?? null;
-		if (!set.song) continue;
+		if (!Array.isArray(set.song)) continue;
 
 		const setSongs = [];
 
@@ -66,19 +65,19 @@ async function getSetlist(gigId, artist, city, date) {
 
 			const songName = song.name.trim();
 
-			// Inserir ou obter música associada ao artista
+			// Inserir música (ignorar se já existe)
 			await db.query(`INSERT IGNORE INTO song (name, artist_id) VALUES (?, ?)`, [songName, artistId]);
 
+			// Obter ID da música
 			const [songResult] = await db.query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [songName, artistId]);
-
 			if (!songResult || songResult.length === 0) continue;
 
 			const songId = songResult[0].id;
 
-			// Guardar ligação à setlist
+			// Associar à setlist
 			await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [setlistId, songId, i + 1, encore]);
 
-			setSongs.push({ name: song.name, number: i + 1 });
+			setSongs.push({ name: songName, number: i + 1 });
 		}
 
 		const key = encore ?? 0;
@@ -86,7 +85,7 @@ async function getSetlist(gigId, artist, city, date) {
 		setsMap.get(key).push(...setSongs);
 	}
 
-	// Agrupar em sets
+	// Preparar retorno no formato esperado
 	const sets = Array.from(setsMap.entries()).map(([encore, songs]) => ({
 		encore: encore > 0 ? encore : undefined,
 		song: songs
@@ -110,20 +109,17 @@ async function importSetlists(req, res) {
 
 			console.log(`\n🎵 A processar gig ID ${gigId} (${item.artist} - ${item.city} - ${item.date})`);
 
-			// Ignorar se setlist for nula ou inválida
 			if (!setlist || !setlist.sets || !Array.isArray(setlist.sets.set)) {
 				console.warn(`⚠️ Setlist inválida ou nula para gig ${gigId}. Ignorado.`);
 				continue;
 			}
 
-			// Verificar se já existe uma setlist para este gig
 			const existingResult = await db.query(`SELECT id FROM setlist WHERE gig_id = ? LIMIT 1`, [gigId]);
 			if (Array.isArray(existingResult) && existingResult.length > 0) {
 				console.log(`✅ Setlist já existe para gig ${gigId}. Ignorado.`);
 				continue;
 			}
 
-			// Obter o artist_id a partir da tabela gig
 			const gigResult = await db.query(`SELECT artist_id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
 			if (!Array.isArray(gigResult) || gigResult.length === 0) {
 				console.warn(`❌ Gig ${gigId} não encontrado — verifique se está na BD.`);
@@ -131,7 +127,6 @@ async function importSetlists(req, res) {
 			}
 			const artistId = gigResult[0].artist_id;
 
-			// Inserir setlist
 			const insertSetlistResult = await db.query(`INSERT INTO setlist (gig_id, artist_id) VALUES (?, ?)`, [gigId, artistId]);
 			const setlistId = insertSetlistResult.insertId;
 			if (!setlistId) {
@@ -143,16 +138,13 @@ async function importSetlists(req, res) {
 			let position = 1;
 			let songCount = 0;
 
-			// Inserir músicas
 			for (const set of setlist.sets.set) {
 				for (const song of set.song || []) {
 					const songName = song.name?.trim();
 					if (!songName) continue;
 
-					// Inserir música (ignorar se já existe)
 					await db.query(`INSERT IGNORE INTO song (name, artist_id) VALUES (?, ?)`, [songName, artistId]);
 
-					// Obter id da música
 					const songRows = await db.query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [songName, artistId]);
 					if (!Array.isArray(songRows) || songRows.length === 0) {
 						console.warn(`⚠️ Música '${songName}' não encontrada na BD após inserção`);
@@ -162,7 +154,6 @@ async function importSetlists(req, res) {
 					const songId = songRows[0].id;
 					if (!songId) continue;
 
-					// Relacionar com a setlist
 					await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position) VALUES (?, ?, ?)`, [setlistId, songId, position]);
 
 					position++;
