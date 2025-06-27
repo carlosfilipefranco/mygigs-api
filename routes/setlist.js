@@ -14,4 +14,6 @@ router.get("/", async function (req, res, next) {
 	}
 });
 
+router.get("/import", setlistService.importSetlists);
+
 module.exports = router;
