@@ -31,7 +31,7 @@ async function getSetlist(gigId, artist, city, date) {
 	const data = await response.json();
 	const found = data.setlist?.[0];
 	if (!found || !found.sets || !found.sets.set?.length) {
-		return null; // Nada para guardar
+		return null; // Nada para gravar
 	}
 
 	// Verificar se já existe
@@ -40,8 +40,15 @@ async function getSetlist(gigId, artist, city, date) {
 		return null; // Já existe, não gravar
 	}
 
+	// Obter artist_id da tabela gig
+	const gigResult = await db.query(`SELECT artist_id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
+	if (!Array.isArray(gigResult) || gigResult.length === 0) {
+		throw new Error(`❌ Gig ${gigId} não encontrado — verifique se está na BD.`);
+	}
+	const artistId = gigResult[0].artist_id;
+
 	// Criar nova setlist
-	const [setlistResult] = await db.query(`INSERT INTO setlist (gig_id) VALUES (?)`, [gigId]);
+	const [setlistResult] = await db.query(`INSERT INTO setlist (gig_id, artist_id) VALUES (?, ?)`, [gigId, artistId]);
 	const setlistId = setlistResult.insertId;
 
 	const setsMap = new Map();
@@ -57,16 +64,16 @@ async function getSetlist(gigId, artist, city, date) {
 			const song = set.song[i];
 			if (!song.name) continue;
 
-			// Verifica se a música já existe ou insere
-			let [songResult] = await db.query(`SELECT id FROM song WHERE name = ?`, [song.name]);
-			let songId;
+			const songName = song.name.trim();
 
-			if (songResult.length > 0) {
-				songId = songResult[0].id;
-			} else {
-				const [insertResult] = await db.query(`INSERT INTO song (name) VALUES (?)`, [song.name]);
-				songId = insertResult.insertId;
-			}
+			// Inserir ou obter música associada ao artista
+			await db.query(`INSERT IGNORE INTO song (name, artist_id) VALUES (?, ?)`, [songName, artistId]);
+
+			const [songResult] = await db.query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [songName, artistId]);
+
+			if (!songResult || songResult.length === 0) continue;
+
+			const songId = songResult[0].id;
 
 			// Guardar ligação à setlist
 			await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [setlistId, songId, i + 1, encore]);
