@@ -36,6 +36,20 @@ async function get(id) {
 	if (result.length) {
 		result = result[0];
 		const gigs = await db.query(`SELECT gig.id, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id WHERE gig.artist_id = ${result.id} ORDER by gig.date DESC `);
+
+		// Buscar músicas do artista ordenadas pelo nº de setlists diferentes em que aparecem
+		const songs = await db.query(`
+			SELECT song.id, song.name, COUNT(DISTINCT setlist_song.setlist_id) AS appearances
+			FROM song
+			INNER JOIN setlist_song ON song.id = setlist_song.song_id
+			INNER JOIN setlist ON setlist_song.setlist_id = setlist.id
+			WHERE song.artist_id = ${result.id}
+			GROUP BY song.id, song.name
+			ORDER BY appearances DESC, song.name ASC
+		`);
+
+		result["songs"] = songs;
+
 		if (result.type == "1") {
 			const lastfm = await fetch("https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=" + result.name + "&api_key=" + lastFmKey + "&format=json&index=" + id);
 
