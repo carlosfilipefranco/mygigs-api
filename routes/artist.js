@@ -52,6 +52,16 @@ router.get("/:id", async function (req, res, next) {
 	}
 });
 
+/* GET artist image */
+router.get("/update-image/:id", async function (req, res, next) {
+	try {
+		res.json(await artist.updateSpotifyImage(req.params.id, req.body));
+	} catch (err) {
+		console.error(`Error while getting artist`, err.message);
+		next(err);
+	}
+});
+
 /* DELETE artist */
 router.delete("/:id", async function (req, res, next) {
 	try {

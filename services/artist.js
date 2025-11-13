@@ -52,29 +52,6 @@ async function get(id) {
 
 		if (result.type == "1") {
 			const lastfm = await fetch("https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=" + result.name + "&api_key=" + lastFmKey + "&format=json&index=" + id);
-
-			let headers = {
-				"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-			};
-			const spotifyToken = await fetch(`https://accounts.spotify.com/api/token`, { method: "POST", headers, body: `grant_type=client_credentials&client_id=${spotify_client_id}&client_secret=${spotify_client_secret}` });
-			if (spotifyToken.status == 200) {
-				let json = await spotifyToken.json();
-				spotifyKey = json.access_token;
-				headers["Authorization"] = `Bearer ${spotifyKey}`;
-				const spotify = await fetch(`https://api.spotify.com/v1/search?q=${result.name}&type=artist`, { headers });
-				if (spotify.status === 200) {
-					let spotifyJson = await spotify.json();
-
-					try {
-						if (typeof spotifyJson.artists.items[0].images[0].url != "undefined") {
-							const image = spotifyJson.artists.items[0].images[0].url;
-							result["image"] = image;
-							await db.query(`UPDATE artist SET image="${image}" WHERE id=${id}`);
-						}
-					} catch {}
-				}
-			}
-
 			const body = await lastfm.json();
 			result["body"] = body;
 		}
@@ -83,6 +60,37 @@ async function get(id) {
 		result = null;
 	}
 
+	return result;
+}
+
+async function updateSpotifyImage(id) {
+	let result = await db.query(`SELECT id, name, image, mbid, type FROM artist WHERE id=${id}`);
+	if (result.length) {
+		result = result[0];
+		let headers = {
+			"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+		};
+		const spotifyToken = await fetch(`https://accounts.spotify.com/api/token`, { method: "POST", headers, body: `grant_type=client_credentials&client_id=${spotify_client_id}&client_secret=${spotify_client_secret}` });
+		if (spotifyToken.status == 200) {
+			let json = await spotifyToken.json();
+			spotifyKey = json.access_token;
+			headers["Authorization"] = `Bearer ${spotifyKey}`;
+			const spotify = await fetch(`https://api.spotify.com/v1/search?q=${result.name}&type=artist`, { headers });
+			if (spotify.status === 200) {
+				let spotifyJson = await spotify.json();
+
+				try {
+					if (typeof spotifyJson.artists.items[0].images[0].url != "undefined") {
+						const image = spotifyJson.artists.items[0].images[0].url;
+						result["image"] = image;
+						await db.query(`UPDATE artist SET image="${image}" WHERE id=${id}`);
+					}
+				} catch {}
+			}
+		}
+	} else {
+		result = null;
+	}
 	return result;
 }
 
@@ -154,5 +162,6 @@ module.exports = {
 	create,
 	update,
 	remove,
-	createBulk
+	createBulk,
+	updateSpotifyImage
 };
