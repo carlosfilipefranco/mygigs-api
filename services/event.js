@@ -104,9 +104,22 @@ async function remove(id) {
 	return { message };
 }
 
+async function update(id, event) {
+	const result = await db.query(`UPDATE event SET name="${event.name}", image="${event.image}" WHERE id=${id}`);
+
+	let message = "Error in updating Event";
+
+	if (result.affectedRows) {
+		message = "Event updated successfully";
+	}
+
+	return { message };
+}
+
 module.exports = {
 	getMultiple,
 	get,
 	create,
-	remove
+	remove,
+	update
 };

@@ -42,4 +42,14 @@ router.delete("/:id", async function (req, res, next) {
 	}
 });
 
+/* PUT artist */
+router.put("/:id", async function (req, res, next) {
+	try {
+		res.json(await event.update(req.params.id, req.body));
+	} catch (err) {
+		console.error(`Error while updating event`, err.message);
+		next(err);
+	}
+});
+
 module.exports = router;
