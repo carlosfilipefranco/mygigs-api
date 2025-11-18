@@ -86,30 +86,32 @@ async function get(id) {
 
 	const gig = result[0];
 
-	// Imagens
-	const images = await db.query(`SELECT url FROM gig_image WHERE gig_id = ?`, [id]);
-	gig.images = images.map((image) => image.url);
+	// 🔥 Buscar media (imagens, videos, links)
+	const mediaRows = await db.query(`SELECT url, type FROM gig_media WHERE gig_id = ?`, [id]);
+
+	gig.images = mediaRows.filter((m) => m.type === "image").map((m) => m.url);
+	gig.videos = mediaRows.filter((m) => m.type === "video").map((m) => m.url);
+	gig.links = mediaRows.filter((m) => m.type === "link").map((m) => m.url);
 
 	// Procurar setlist local
 	const setlistRows = await db.query(
 		`
-    SELECT 
-        s.id AS setlist_id, 
-        ss.song_id, 
-        ss.position, 
-        ss.encore,
-        song.name AS song_name
-    FROM setlist s
-    JOIN setlist_song ss ON ss.setlist_id = s.id
-    JOIN song ON ss.song_id = song.id
-    WHERE s.gig_id = ?
-    ORDER BY ss.encore IS NULL, ss.encore, ss.position
-`,
+			SELECT 
+				s.id AS setlist_id, 
+				ss.song_id, 
+				ss.position, 
+				ss.encore,
+				song.name AS song_name
+			FROM setlist s
+			JOIN setlist_song ss ON ss.setlist_id = s.id
+			JOIN song ON ss.song_id = song.id
+			WHERE s.gig_id = ?
+			ORDER BY ss.encore IS NULL, ss.encore, ss.position
+		`,
 		[id]
 	);
 
 	if (setlistRows.length > 0) {
-		// Agrupar as músicas por set/encore
 		const setsMap = new Map();
 
 		for (const row of setlistRows) {
@@ -282,6 +284,40 @@ async function favorite(data) {
 	return { message };
 }
 
+async function addMedia(gigId, body) {
+	const { url, type } = body;
+
+	if (!url || !type) {
+		throw new Error("url e type são obrigatórios");
+	}
+
+	await db.query(`INSERT INTO gig_media (gig_id, url, type) VALUES (?, ?, ?)`, [gigId, url, type]);
+
+	return { success: true };
+}
+
+async function updateMedia(gigId, mediaId, body) {
+	const { url, type } = body;
+
+	const result = await db.query(`UPDATE gig_media SET url=?, type=? WHERE id=? AND gig_id=?`, [url, type, mediaId, gigId]);
+
+	if (result.affectedRows === 0) {
+		throw new Error("Media não encontrado");
+	}
+
+	return { success: true };
+}
+
+async function deleteMedia(gigId, mediaId) {
+	const result = await db.query(`DELETE FROM gig_media WHERE id=? AND gig_id=?`, [mediaId, gigId]);
+
+	if (result.affectedRows === 0) {
+		throw new Error("Media não encontrado");
+	}
+
+	return { success: true };
+}
+
 module.exports = {
 	getMultiple,
 	get,
@@ -292,5 +328,8 @@ module.exports = {
 	dashboard,
 	sort,
 	favorite,
-	images
+	images,
+	addMedia,
+	updateMedia,
+	deleteMedia
 };

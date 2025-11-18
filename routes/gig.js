@@ -92,12 +92,29 @@ router.post("/favorite", async function (req, res, next) {
 	}
 });
 
-/* IMAGES gigs */
-router.post("/images", async function (req, res, next) {
+router.post("/:id/media", async (req, res, next) => {
 	try {
-		res.json(await gig.favorite(req.body));
+		res.json(await gig.addMedia(req.params.id, req.body));
 	} catch (err) {
-		console.error(`Error while creating gig`, err.message);
+		console.error("Error while adding media", err.message);
+		next(err);
+	}
+});
+
+router.put("/:id/media/:mediaId", async (req, res, next) => {
+	try {
+		res.json(await gig.updateMedia(req.params.id, req.params.mediaId, req.body));
+	} catch (err) {
+		console.error("Error while updating media", err.message);
+		next(err);
+	}
+});
+
+router.delete("/:id/media/:mediaId", async (req, res, next) => {
+	try {
+		res.json(await gig.deleteMedia(req.params.id, req.params.mediaId));
+	} catch (err) {
+		console.error("Error while deleting media", err.message);
 		next(err);
 	}
 });
