@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express();
-const port = 3000;
+const port = 3001;
 const artist = require("./routes/artist");
 const venue = require("./routes/venue");
 const city = require("./routes/city");

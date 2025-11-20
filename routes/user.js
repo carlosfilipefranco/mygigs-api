@@ -1,12 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const user = require("../services/user");
+const authService = require("../services/auth");
 
 /* POST register */
 router.post("/register", async function (req, res, next) {
 	try {
-		const result = await user.create(req.body);
-		res.json(result);
+		const userCreated = await user.create(req.body);
+		const token = authService.generateToken(userCreated);
+		res.json({ ...userCreated, token });
 	} catch (err) {
 		console.error("Error while registering user", err.message);
 		next(err);
@@ -17,13 +19,14 @@ router.post("/register", async function (req, res, next) {
 router.post("/login", async function (req, res, next) {
 	try {
 		const { email, password } = req.body;
-		const result = await user.login(email, password);
+		const userLogged = await user.login(email, password);
 
-		if (!result) {
+		if (!userLogged) {
 			return res.status(401).json({ message: "Invalid credentials" });
 		}
 
-		res.json(result);
+		const token = authService.generateToken(userLogged);
+		res.json({ ...userLogged, token });
 	} catch (err) {
 		console.error("Error while logging in", err.message);
 		next(err);
