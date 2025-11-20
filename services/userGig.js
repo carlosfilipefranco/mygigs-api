@@ -26,7 +26,8 @@ async function getUserGigs(userId) {
 		`
     SELECT g.*, ug.status, ug.has_ticket, ug.favorite
     FROM gig g
-    LEFT JOIN user_gig ug ON ug.gig_id = g.id AND ug.user_id = ?
+    INNER JOIN user_gig ug ON ug.gig_id = g.id
+    WHERE ug.user_id = ?
     `,
 		[userId]
 	);
