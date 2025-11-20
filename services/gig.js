@@ -2,54 +2,76 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 
-async function getMultiple(page = 1, search = null, favorite = null, type = 1) {
-	console.log(page, search);
+async function getMultiple(userId, page = 1, search = null, favorite = null, type = 1) {
 	const offset = helper.getOffset(page, config.listPerPage);
 
 	let searchQuery = `WHERE gig.type=${type}`;
 	if (search) {
 		searchQuery = `WHERE gig.type=${type} AND (LOWER(artist.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(gig.date) LIKE '%${search}%')`;
 	}
+
+	// FAVORITES → agora é pelo user_gig.favorite
 	if (favorite) {
-		searchQuery += ` AND gig.favorite = 1`;
+		searchQuery += ` AND ug.favorite = 1`;
 	}
 
-	const rows = await db.query(`
+	const rows = await db.query(
+		`
 		SELECT
 			gig.id,
 			gig.date,
-			gig.favorite,
-			artist.name as artist,
+			artist.name AS artist,
 			artist.image,
-			venue.name as venue,
-			city.name as city,
-			CASE WHEN setlist.id IS NOT NULL THEN TRUE ELSE FALSE END AS has_setlist
+			venue.name AS venue,
+			city.name AS city,
+			CASE WHEN setlist.id IS NOT NULL THEN TRUE ELSE FALSE END AS has_setlist,
+
+			-- user-specific fields
+			ug.status AS user_status,
+			ug.has_ticket AS user_has_ticket,
+			ug.favorite AS user_favorite
+
 		FROM gig
 		INNER JOIN artist ON gig.artist_id = artist.id
 		INNER JOIN venue ON gig.venue_id = venue.id
 		INNER JOIN city ON gig.city_id = city.id
 		LEFT JOIN setlist ON setlist.gig_id = gig.id
+
+		LEFT JOIN user_gig ug 
+			ON ug.gig_id = gig.id 
+			AND ug.user_id = ?
+
 		${searchQuery}
 		ORDER BY gig.date DESC, gig.position
-		LIMIT ${offset},${config.listPerPage}
-	`);
+		LIMIT ${offset}, ${config.listPerPage}
+	`,
+		[userId]
+	);
 
-	let count = rows.length;
-	if (!search) {
-		let row = await db.query(`SELECT COUNT(*) as count FROM gig WHERE gig.type=${type}`);
+	// COUNT
+	let count = 0;
+	if (!favorite) {
+		let row = await db.query(
+			`SELECT COUNT(*) AS count 
+			 FROM gig 
+			 WHERE type = ?`,
+			[type]
+		);
+		count = row[0].count;
+	} else {
+		let row = await db.query(
+			`SELECT COUNT(*) AS count 
+			 FROM gig 
+			 LEFT JOIN user_gig ug ON ug.gig_id = gig.id AND ug.user_id = ?
+			 WHERE ug.favorite = 1 AND gig.type = ?`,
+			[userId, type]
+		);
 		count = row[0].count;
 	}
-	if (favorite) {
-		let row = await db.query(`SELECT COUNT(*) as count FROM gig WHERE favorite = 1 AND gig.type=${type}`);
-		count = row[0].count;
-	}
-
-	const data = helper.emptyOrRows(rows);
-	const meta = { page, count };
 
 	return {
-		data,
-		meta
+		data: helper.emptyOrRows(rows),
+		meta: { page, count }
 	};
 }
 
@@ -285,14 +307,6 @@ async function clean() {
 	return { message };
 }
 
-async function favorite(data) {
-	let result = await db.query(`UPDATE gig SET favorite="${data.isFavorite}" WHERE id="${data.id}"`);
-
-	let message = "finished";
-
-	return { message };
-}
-
 async function addMedia(gigId, body) {
 	const { url, type } = body;
 
@@ -336,7 +350,6 @@ module.exports = {
 	clean,
 	dashboard,
 	sort,
-	favorite,
 	images,
 	addMedia,
 	updateMedia,
