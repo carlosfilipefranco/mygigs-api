@@ -10,6 +10,7 @@ const festival = require("./routes/festival");
 const edition = require("./routes/edition");
 const setlist = require("./routes/setlist");
 const user = require("./routes/user");
+const userGig = require("./routes/userGig");
 const cors = require("cors");
 
 app.use(cors());
@@ -34,6 +35,7 @@ app.use("/festival", festival);
 app.use("/edition", edition);
 app.use("/setlist", setlist);
 app.use("/user", user);
+app.use("/user-gig", userGig);
 
 /* Error handler middleware */
 app.use((err, req, res, next) => {
