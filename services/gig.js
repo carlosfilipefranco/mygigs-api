@@ -53,32 +53,32 @@ async function getMultiple(page = 1, search = null, favorite = null, type = 1) {
 	};
 }
 
-async function get(id) {
+async function get(id, userId = null) {
 	const result = await db.query(
 		`
-        SELECT 
-            gig.id, 
-            gig.date, 
-            artist.name AS artist, 
-            artist.image, 
-            artist.id AS artist_id, 
-            venue.name AS venue,
-            venue.id AS venue_id,
-            city.name AS city,
-            festival.id AS festival_id, 
-            festival.name AS festival_name,
-            edition.id AS edition_id,
-            edition.name AS edition_name
-        FROM gig 
-        INNER JOIN artist ON gig.artist_id = artist.id 
-        INNER JOIN venue ON gig.venue_id = venue.id 
-        INNER JOIN city ON gig.city_id = city.id 
-        LEFT JOIN event_gig eg ON gig.id = eg.gig_id
-        LEFT JOIN edition_event ee ON eg.event_id = ee.event_id
-        LEFT JOIN edition ON ee.edition_id = edition.id
-        LEFT JOIN festival ON edition.festival_id = festival.id
-        WHERE gig.id = ?
-    `,
+    SELECT 
+        gig.id, 
+        gig.date, 
+        artist.name AS artist, 
+        artist.image, 
+        artist.id AS artist_id, 
+        venue.name AS venue,
+        venue.id AS venue_id,
+        city.name AS city,
+        festival.id AS festival_id, 
+        festival.name AS festival_name,
+        edition.id AS edition_id,
+        edition.name AS edition_name
+    FROM gig 
+    INNER JOIN artist ON gig.artist_id = artist.id 
+    INNER JOIN venue ON gig.venue_id = venue.id 
+    INNER JOIN city ON gig.city_id = city.id 
+    LEFT JOIN event_gig eg ON gig.id = eg.gig_id
+    LEFT JOIN edition_event ee ON eg.event_id = ee.event_id
+    LEFT JOIN edition ON ee.edition_id = edition.id
+    LEFT JOIN festival ON edition.festival_id = festival.id
+    WHERE gig.id = ?
+  `,
 		[id]
 	);
 
@@ -88,26 +88,35 @@ async function get(id) {
 
 	// 🔥 Buscar media (imagens, videos, links)
 	const mediaRows = await db.query(`SELECT url, type FROM gig_media WHERE gig_id = ?`, [id]);
-
 	gig.images = mediaRows.filter((m) => m.type === "image").map((m) => m.url);
 	gig.videos = mediaRows.filter((m) => m.type === "video").map((m) => m.url);
 	gig.links = mediaRows.filter((m) => m.type === "link").map((m) => m.url);
 
+	// 🔥 Se houver login, buscar user_gig
+	if (userId) {
+		const userGigRows = await db.query(`SELECT status, has_ticket, favorite FROM user_gig WHERE gig_id = ? AND user_id = ?`, [id, userId]);
+		if (userGigRows.length > 0) {
+			gig.user_gig = userGigRows[0];
+		} else {
+			gig.user_gig = { status: null, has_ticket: false, favorite: false };
+		}
+	}
+
 	// Procurar setlist local
 	const setlistRows = await db.query(
 		`
-			SELECT 
-				s.id AS setlist_id, 
-				ss.song_id, 
-				ss.position, 
-				ss.encore,
-				song.name AS song_name
-			FROM setlist s
-			JOIN setlist_song ss ON ss.setlist_id = s.id
-			JOIN song ON ss.song_id = song.id
-			WHERE s.gig_id = ?
-			ORDER BY ss.encore IS NULL, ss.encore, ss.position
-		`,
+    SELECT 
+        s.id AS setlist_id, 
+        ss.song_id, 
+        ss.position, 
+        ss.encore,
+        song.name AS song_name
+    FROM setlist s
+    JOIN setlist_song ss ON ss.setlist_id = s.id
+    JOIN song ON ss.song_id = song.id
+    WHERE s.gig_id = ?
+    ORDER BY ss.encore IS NULL, ss.encore, ss.position
+    `,
 		[id]
 	);
 

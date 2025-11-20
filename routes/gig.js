@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const gig = require("../services/gig");
+const authMiddleware = require("../middleware/auth");
 
 /* GET gig. */
 router.get("/", async function (req, res, next) {
@@ -43,11 +44,14 @@ router.get("/dashboard", async function (req, res, next) {
 });
 
 /* PUT gig */
-router.put("/:id", async function (req, res, next) {
+router.get("/:id", authMiddleware, async (req, res, next) => {
 	try {
-		res.json(await gig.update(req.params.id, req.body));
+		// Se estiver logado, req.user.id existe
+		const userId = req.user ? req.user.id : null;
+		const gigData = await gig.get(req.params.id, userId);
+		res.json(gigData);
 	} catch (err) {
-		console.error(`Error while updating gig`, err.message);
+		console.error("Error fetching gig", err.message);
 		next(err);
 	}
 });
