@@ -27,9 +27,9 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 			CASE WHEN setlist.id IS NOT NULL THEN TRUE ELSE FALSE END AS has_setlist,
 
 			-- user-specific fields
-			ug.status AS user_status,
-			ug.has_ticket AS user_has_ticket,
-			ug.favorite AS user_favorite
+			ug.status AS status,
+			ug.has_ticket AS has_ticket,
+			ug.favorite AS favorite
 
 		FROM gig
 		INNER JOIN artist ON gig.artist_id = artist.id

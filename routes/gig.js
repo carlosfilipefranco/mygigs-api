@@ -4,14 +4,12 @@ const gig = require("../services/gig");
 const authMiddleware = require("../middleware/auth");
 
 /* GET gigs (lista) */
-router.get("/", async function (req, res, next) {
+router.get("/", authMiddleware, async function (req, res, next) {
 	try {
-		// ⚡ optional: se o middleware setou req.user
 		const userId = req.user ? req.user.id : null;
-
 		res.json(await gig.getMultiple(userId, req.query.page, req.query.search, req.query.favorite, req.query.type));
 	} catch (err) {
-		console.error(`Error while getting gig list`, err.message);
+		console.error(`Error while getting gig `, err.message);
 		next(err);
 	}
 });
