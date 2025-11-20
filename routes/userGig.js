@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const userGig = require("../services/userGig");
-const authMiddleware = require("../middleware/auth");
+const { requireAuth } = require("../middleware/auth");
 
 /* POST /user-gig/status */
-router.post("/status", authMiddleware, async (req, res, next) => {
+router.post("/status", requireAuth, async (req, res, next) => {
 	try {
 		const { gigId, status } = req.body;
 		await userGig.setStatus(req.user.id, gigId, status);
@@ -15,7 +15,7 @@ router.post("/status", authMiddleware, async (req, res, next) => {
 });
 
 /* POST /user-gig/favorite */
-router.post("/favorite", authMiddleware, async (req, res, next) => {
+router.post("/favorite", requireAuth, async (req, res, next) => {
 	try {
 		const { gigId, favorite } = req.body;
 		await userGig.toggleFavorite(req.user.id, gigId, favorite);
@@ -26,7 +26,7 @@ router.post("/favorite", authMiddleware, async (req, res, next) => {
 });
 
 /* POST /user-gig/ticket */
-router.post("/ticket", authMiddleware, async (req, res, next) => {
+router.post("/ticket", requireAuth, async (req, res, next) => {
 	try {
 		const { gigId, hasTicket } = req.body;
 		await userGig.toggleTicket(req.user.id, gigId, hasTicket);
@@ -37,7 +37,7 @@ router.post("/ticket", authMiddleware, async (req, res, next) => {
 });
 
 /* GET /user-gig */
-router.get("/", authMiddleware, async (req, res, next) => {
+router.get("/", requireAuth, async (req, res, next) => {
 	try {
 		const gigs = await userGig.getUserGigs(req.user.id);
 		res.json(gigs);

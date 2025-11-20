@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const gig = require("../services/gig");
-const authMiddleware = require("../middleware/auth");
+const { optionalAuth } = require("../middleware/auth");
 
 /* GET gigs (lista) */
-router.get("/", authMiddleware, async function (req, res, next) {
+router.get("/", optionalAuth, async function (req, res, next) {
 	try {
 		const userId = req.user ? req.user.id : null;
 		res.json(await gig.getMultiple(userId, req.query.page, req.query.search, req.query.favorite, req.query.type));
@@ -45,7 +45,7 @@ router.get("/dashboard", async function (req, res, next) {
 });
 
 /* PUT gig */
-router.get("/:id", authMiddleware, async (req, res, next) => {
+router.get("/:id", optionalAuth, async (req, res, next) => {
 	try {
 		// Se estiver logado, req.user.id existe
 		const userId = req.user ? req.user.id : null;
