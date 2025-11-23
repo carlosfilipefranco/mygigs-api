@@ -1,11 +1,9 @@
 const fetch = require("node-fetch");
+const { API_BASE_URL } = require("../config");
 
 exports.dashboard = async (req, res) => {
 	try {
-		const base = "http://localhost:3001/api";
-
-		const [usersRes, ticketsRes] = await Promise.all([fetch(`${base}/user/count`).then((r) => r.json()), fetch(`${base}/user-gig/count`).then((r) => r.json())]);
-
+		const [usersRes, ticketsRes] = await Promise.all([fetch(`${API_BASE_URL}/user/count`).then((r) => r.json()), fetch(`${API_BASE_URL}/user-gig/count`).then((r) => r.json())]);
 		console.log(usersRes, ticketsRes);
 
 		const stats = {
