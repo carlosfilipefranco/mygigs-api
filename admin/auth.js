@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const fetch = require("node-fetch");
+const { API_BASE_URL } = require("./config");
 
 router.get("/login", (req, res) => {
 	res.render("login", { error: null });
@@ -8,7 +9,7 @@ router.get("/login", (req, res) => {
 
 router.post("/login", async (req, res) => {
 	try {
-		const response = await fetch("http://localhost:3001/api/user/login", {
+		const response = await fetch(`${API_BASE_URL}/user/login`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
