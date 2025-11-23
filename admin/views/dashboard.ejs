@@ -1,0 +1,34 @@
+<%- include("partials/layout", { body: `
+<section class="content pt-3">
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-lg-3 col-6">
+				<div class="small-box bg-info">
+					<div class="inner">
+						<h3>${stats.users}</h3>
+						<p>Users</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="col-lg-3 col-6">
+				<div class="small-box bg-success">
+					<div class="inner">
+						<h3>${stats.tickets}</h3>
+						<p>Tickets</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="col-lg-3 col-6">
+				<div class="small-box bg-danger">
+					<div class="inner">
+						<h3>${stats.revenue}</h3>
+						<p>Receita</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+` }) %>

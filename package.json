@@ -11,11 +11,15 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
+		"admin-lte": "^4.0.0-rc3",
 		"bcryptjs": "^3.0.3",
 		"cors": "^2.8.5",
+		"ejs": "^3.1.10",
 		"express": "^4.17.2",
+		"express-session": "^1.18.2",
 		"jsonwebtoken": "^9.0.2",
 		"mysql2": "^2.3.3",
-		"node-fetch": "^2.6.7"
+		"node-fetch": "^2.6.7",
+		"path": "^0.12.7"
 	}
 }

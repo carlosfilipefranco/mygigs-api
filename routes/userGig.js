@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const userGig = require("../services/userGig");
 const { requireAuth } = require("../middleware/auth");
+const db = require("../services/db");
 
 /* POST /user-gig/status */
 router.post("/status", requireAuth, async (req, res, next) => {
@@ -41,6 +42,17 @@ router.get("/", requireAuth, async (req, res, next) => {
 	try {
 		const gigs = await userGig.getUserGigs(req.user.id);
 		res.json(gigs);
+	} catch (err) {
+		next(err);
+	}
+});
+
+// GET total de user_gig
+router.get("/count", async (req, res, next) => {
+	try {
+		const rows = await db.query("SELECT COUNT(*) AS total FROM user_gig");
+		const total = rows[0]?.total || 0;
+		res.json({ total });
 	} catch (err) {
 		next(err);
 	}
