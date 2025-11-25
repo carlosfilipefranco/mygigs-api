@@ -15,5 +15,17 @@ router.get("/", async function (req, res, next) {
 });
 
 router.get("/import", setlistService.importSetlists);
+router.get("/import-cities", setlistService.importCities);
+router.get("/import-venues", setlistService.mergeDuplicateVenues);
+
+router.get("/fetch-venues-pt", async (req, res, next) => {
+	try {
+		await setlistService.fetchAllPortugalVenues();
+		res.json({ success: true, message: "Fetch de venues em Portugal iniciado." });
+	} catch (err) {
+		console.error("Erro ao iniciar fetch de venues em Portugal:", err.message);
+		next(err);
+	}
+});
 
 module.exports = router;
