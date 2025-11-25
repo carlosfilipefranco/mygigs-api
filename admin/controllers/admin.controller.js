@@ -8,8 +8,7 @@ exports.dashboard = async (req, res) => {
 
 		const stats = {
 			users: 0,
-			tickets: ticketsRes.total || 0,
-			revenue: "4.210€" // podes substituir quando tiveres endpoint
+			tickets: ticketsRes.total || 0
 		};
 
 		res.render("dashboard", { stats, active: "dashboard" });
