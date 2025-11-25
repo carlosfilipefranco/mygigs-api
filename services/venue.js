@@ -30,6 +30,8 @@ async function get(id) {
 		SELECT 
 			venue.id, 
 			venue.name,
+			venue.lat,
+			venue.lng,
 			city.id AS city_id,
 			city.name AS city
 		FROM venue
