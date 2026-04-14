@@ -118,11 +118,39 @@ async function remove(id) {
 }
 
 async function update(id, event) {
-	const result = await db.query(`UPDATE event SET name="${event.name}", image="${event.image}" WHERE id=${id}`);
+	const result = await db.query(`UPDATE event SET name=?, image=? WHERE id=?`, [event.name, event.image || null, id]);
+	const eventRows = await db.query(`SELECT date, city_id, venue_id, type FROM event WHERE id=?`, [id]);
+	let addedArtists = 0;
+
+	if (eventRows.length && Array.isArray(event.artists)) {
+		const eventData = eventRows[0];
+		const artists = event.artists.filter((artist) => artist && artist.id);
+
+		for (const artist of artists) {
+			const existing = await db.query(
+				`
+				SELECT gig.id
+				FROM gig
+				INNER JOIN event_gig ON event_gig.gig_id = gig.id
+				WHERE event_gig.event_id = ? AND gig.artist_id = ?
+				LIMIT 1
+				`,
+				[id, artist.id]
+			);
+
+			if (existing.length) {
+				continue;
+			}
+
+			const resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type) VALUES (?, ?, ?, ?, ?)`, [eventData.date, eventData.city_id, eventData.venue_id, artist.id, eventData.type]);
+			await db.query(`INSERT INTO event_gig (event_id, gig_id) VALUES (?, ?)`, [id, resultGig.insertId]);
+			addedArtists++;
+		}
+	}
 
 	let message = "Error in updating Event";
 
-	if (result.affectedRows) {
+	if (result.affectedRows || addedArtists) {
 		message = "Event updated successfully";
 	}
 
