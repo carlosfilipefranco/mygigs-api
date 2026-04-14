@@ -12,6 +12,16 @@ router.get("/", async function (req, res, next) {
 	}
 });
 
+/* GET dashboard */
+router.get("/dashboard", async function (req, res, next) {
+	try {
+		res.json(await event.dashboard(req.query.type));
+	} catch (err) {
+		console.error(`Error while getting event dashboard`, err.message);
+		next(err);
+	}
+});
+
 /* GET event */
 router.get("/:id", async function (req, res, next) {
 	try {

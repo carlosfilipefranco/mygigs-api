@@ -35,7 +35,7 @@ async function get(id) {
 	let result = await db.query(`SELECT id, name, image, mbid, type FROM artist WHERE id=${id}`);
 	if (result.length) {
 		result = result[0];
-		const gigs = await db.query(`SELECT gig.id, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id WHERE gig.artist_id = ${result.id} ORDER by gig.date DESC `);
+		const gigs = await db.query(`SELECT gig.id, event.id as event_id, event.name as event_name, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id LEFT JOIN event_gig ON event_gig.gig_id = gig.id LEFT JOIN event ON event.id = event_gig.event_id WHERE gig.artist_id = ${result.id} ORDER by gig.date DESC `);
 
 		// Buscar músicas do artista ordenadas pelo nº de setlists diferentes em que aparecem
 		const songs = await db.query(`
@@ -114,18 +114,20 @@ async function create(artist) {
 	return { message };
 }
 
-async function createBulk(artists) {
-	artists.forEach(async (artist) => {
-		const rows = await db.query(`SELECT id FROM artist WHERE name="${artist}"`);
-		var result;
+async function createBulk(payload) {
+	const artists = (Array.isArray(payload) ? payload : payload.artists || []).map((artist) => (artist || "").toString().trim()).filter(Boolean);
+	const type = Array.isArray(payload) ? 1 : payload.type || 1;
+
+	for (const artist of artists) {
+		const rows = await db.query(`SELECT id FROM artist WHERE name=?`, [artist]);
 
 		if (rows.length) {
 			const id = rows[0].id;
-			result = await db.query(`UPDATE artist SET name="${artist}" WHERE id=${id}`);
+			await db.query(`UPDATE artist SET name=? WHERE id=?`, [artist, id]);
 		} else {
-			result = await db.query(`INSERT INTO artist (name)  VALUES  ("${artist}")`);
+			await db.query(`INSERT INTO artist (name, type) VALUES (?, ?)`, [artist, type]);
 		}
-	});
+	}
 
 	let message = "Artists created successfully";
 

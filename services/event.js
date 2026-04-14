@@ -27,10 +27,11 @@ async function getMultiple(page = 1, search = null, type = 1) {
 
 async function get(id) {
 	const result = await db.query(`
-		SELECT e.name AS event_name, e.image AS event_image, 
+		SELECT e.name AS event_name, e.image AS event_image, e.type AS event_type,
 		       g.date, g.id AS gig_id, 
 		       v.name AS venue, 
 		       c.name AS city, 
+		       a.id AS artist_id,
 		       a.name AS artist, 
 		       a.image AS artist_image
 		FROM event e
@@ -47,7 +48,7 @@ async function get(id) {
 	}
 
 	// Pegar os dados do evento (assumindo que são os mesmos para todos os gigs)
-	const { event_name, event_image } = result[0];
+	const { event_name, event_image, event_type } = result[0];
 
 	// Mapear gigs
 	const gigs = result.map((row) => ({
@@ -55,6 +56,7 @@ async function get(id) {
 		date: row.date,
 		venue: row.venue,
 		city: row.city,
+		artist_id: row.artist_id,
 		artist: row.artist,
 		artist_image: row.artist_image
 	}));
@@ -62,22 +64,23 @@ async function get(id) {
 	return {
 		name: event_name,
 		image: event_image,
+		type: event_type,
 		gigs
 	};
 }
 
 async function create(event) {
-	console.log(event);
-	var resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type) VALUES ("${event.artists[event.artists.length - 1].name}", "${event.date}", "${event.city.id}", "${event.venue.id}", "${event.type}")`);
+	const name = event.name || event.artists[event.artists.length - 1].name;
+	var resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type) VALUES (?, ?, ?, ?, ?)`, [name, event.date, event.city.id, event.venue.id, event.type]);
 
-	event.artists.forEach(async (artist) => {
-		var resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type) VALUES ("${event.date}", "${event.city.id}", "${event.venue.id}", "${artist.id}", "${event.type}")`);
-		console.log(resultEvent.insertId, resultGig.insertId);
-		await db.query(`INSERT INTO event_gig (event_id, gig_id) VALUES ( "${resultEvent.insertId}", "${resultGig.insertId}")`);
-		if (event.edition) {
-			await db.query(`INSERT INTO edition_event (edition_id, event_id) VALUES ( "${event.edition.edition_id}", "${resultEvent.insertId}")`);
-		}
-	});
+	for (const artist of event.artists) {
+		var resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type) VALUES (?, ?, ?, ?, ?)`, [event.date, event.city.id, event.venue.id, artist.id, event.type]);
+		await db.query(`INSERT INTO event_gig (event_id, gig_id) VALUES (?, ?)`, [resultEvent.insertId, resultGig.insertId]);
+	}
+
+	if (event.edition) {
+		await db.query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [event.edition.edition_id, resultEvent.insertId]);
+	}
 
 	let message = "Error in creating Edition";
 
@@ -86,6 +89,16 @@ async function create(event) {
 	}
 
 	return { message };
+}
+
+async function dashboard(type = 1) {
+	const total_events = await db.query(`SELECT COUNT(*) AS total_events FROM event WHERE type = ?`, [type]);
+	const events_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS event_count FROM event WHERE type = ? GROUP BY YEAR(date) ORDER BY YEAR(date);`, [type]);
+
+	return {
+		total_events: total_events[0],
+		events_by_year
+	};
 }
 
 async function remove(id) {
@@ -121,5 +134,6 @@ module.exports = {
 	get,
 	create,
 	remove,
-	update
+	update,
+	dashboard
 };
