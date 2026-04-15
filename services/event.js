@@ -1,6 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const eventImageStorage = require("./eventImageStorage");
 
 async function getMultiple(page = 1, search = null, type = 1) {
 	const offset = helper.getOffset(page, config.listPerPage);
@@ -118,7 +119,13 @@ async function remove(id) {
 }
 
 async function update(id, event) {
-	const result = await db.query(`UPDATE event SET name=?, image=? WHERE id=?`, [event.name, event.image || null, id]);
+	const storedImage = await eventImageStorage.storeEventImage({
+		id,
+		name: event.name,
+		image: event.image,
+		replaceExisting: true
+	});
+	const result = await db.query(`UPDATE event SET name=?, image=? WHERE id=?`, [event.name, storedImage.image || null, id]);
 	const eventRows = await db.query(`SELECT date, city_id, venue_id, type FROM event WHERE id=?`, [id]);
 	let addedArtists = 0;
 

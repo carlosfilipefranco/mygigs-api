@@ -51,6 +51,7 @@ app.set("view engine", "ejs");
 
 // Static files do BackOffice
 app.use("/admin/static", express.static(path.join(__dirname, "admin/public")));
+app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
 // ------------------
 // ADMIN PAGES
