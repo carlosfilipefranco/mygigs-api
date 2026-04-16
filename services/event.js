@@ -3,20 +3,53 @@ const helper = require("../helper");
 const config = require("../config");
 const eventImageStorage = require("./eventImageStorage");
 
-async function getMultiple(page = 1, search = null, type = 1) {
+async function getMultiple(page = 1, search = null, type = 1, period = null, userId = null) {
 	const offset = helper.getOffset(page, config.listPerPage);
-	let searchQuery = `WHERE event.type=${type}`;
+	const filters = ["event.type = ?"];
+	const params = [Number(type) || 1];
+	const normalizedSearch = search ? search.toLowerCase() : null;
+	let orderBy = "event.date DESC";
+
 	if (search) {
-		searchQuery = `WHERE event.type=${type} AND (LOWER(event.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(event.date) LIKE '%${search}%')`;
-	}
-	const rows = await db.query(`SELECT event.id, event.date, event.name, event.image, venue.name as venue, city.name as city FROM event INNER JOIN venue ON event.venue_id = venue.id INNER JOIN city ON event.city_id = city.id ${searchQuery} ORDER by event.date DESC LIMIT ${offset},${config.listPerPage}`);
-
-	let count = rows.length;
-	if (!search) {
-		let row = await db.query(`SELECT COUNT(*) as count FROM event WHERE event.type=${type}`);
-		count = row[0].count;
+		filters.push("(LOWER(event.name) LIKE ? OR LOWER(event.description) LIKE ? OR LOWER(venue.name) LIKE ? OR LOWER(city.name) LIKE ? OR LOWER(event.date) LIKE ?)");
+		params.push(`%${normalizedSearch}%`, `%${normalizedSearch}%`, `%${normalizedSearch}%`, `%${normalizedSearch}%`, `%${normalizedSearch}%`);
 	}
 
+	if (period === "upcoming") {
+		filters.push("event.date >= CURDATE()");
+		orderBy = "event.date ASC";
+	}
+
+	if (period === "past") {
+		filters.push("event.date < CURDATE()");
+		orderBy = "event.date DESC";
+	}
+
+	const where = `WHERE ${filters.join(" AND ")}`;
+	const userEventSelect = userId ? ", user_event.status, user_event.has_ticket, user_event.favorite" : "";
+	const userEventJoin = userId ? "LEFT JOIN user_event ON user_event.event_id = event.id AND user_event.user_id = ?" : "";
+	const queryParams = userId ? [userId, ...params] : params;
+	const rows = await db.query(
+		`SELECT event.id, event.date, event.name, event.image, event.description, venue.name as venue, city.name as city${userEventSelect}
+		FROM event
+		INNER JOIN venue ON event.venue_id = venue.id
+		INNER JOIN city ON event.city_id = city.id
+		${userEventJoin}
+		${where}
+		ORDER BY ${orderBy}
+		LIMIT ${offset},${config.listPerPage}`,
+		queryParams
+	);
+
+	const countRows = await db.query(
+		`SELECT COUNT(*) as count
+		FROM event
+		INNER JOIN venue ON event.venue_id = venue.id
+		INNER JOIN city ON event.city_id = city.id
+		${where}`,
+		params
+	);
+	const count = countRows[0].count;
 	const data = helper.emptyOrRows(rows);
 	const meta = { page, count };
 
@@ -26,12 +59,18 @@ async function getMultiple(page = 1, search = null, type = 1) {
 	};
 }
 
-async function get(id) {
-	const result = await db.query(`
-		SELECT e.name AS event_name, e.image AS event_image, e.type AS event_type,
+async function get(id, userId = null) {
+	const userEventSelect = userId ? ", ue.status AS user_event_status, ue.has_ticket AS user_event_has_ticket, ue.favorite AS user_event_favorite" : "";
+	const userEventJoin = userId ? "LEFT JOIN user_event ue ON ue.event_id = e.id AND ue.user_id = ?" : "";
+	const params = userId ? [userId, id] : [id];
+	const result = await db.query(
+		`
+		SELECT e.name AS event_name, e.image AS event_image, e.description AS event_description, e.type AS event_type${userEventSelect},
 		       g.date, g.id AS gig_id, 
-		       v.name AS venue, 
-		       c.name AS city, 
+		       v.id AS venue_id,
+		       v.name AS venue,
+		       c.id AS city_id,
+		       c.name AS city,
 		       a.id AS artist_id,
 		       a.name AS artist, 
 		       a.image AS artist_image
@@ -41,21 +80,26 @@ async function get(id) {
 		INNER JOIN venue v ON g.venue_id = v.id
 		INNER JOIN city c ON g.city_id = c.id
 		INNER JOIN artist a ON g.artist_id = a.id
-		WHERE e.id = ${id}
-	`);
+		${userEventJoin}
+		WHERE e.id = ?
+	`,
+		params
+	);
 
 	if (result.length === 0) {
 		return null;
 	}
 
 	// Pegar os dados do evento (assumindo que são os mesmos para todos os gigs)
-	const { event_name, event_image, event_type } = result[0];
+	const { event_name, event_image, event_description, event_type } = result[0];
 
 	// Mapear gigs
 	const gigs = result.map((row) => ({
 		id: row.gig_id,
 		date: row.date,
+		venue_id: row.venue_id,
 		venue: row.venue,
+		city_id: row.city_id,
 		city: row.city,
 		artist_id: row.artist_id,
 		artist: row.artist,
@@ -65,14 +109,37 @@ async function get(id) {
 	return {
 		name: event_name,
 		image: event_image,
+		description: event_description,
 		type: event_type,
+		user_event: {
+			status: result[0].user_event_status || null,
+			has_ticket: !!result[0].user_event_has_ticket,
+			favorite: !!result[0].user_event_favorite
+		},
 		gigs
 	};
 }
 
 async function create(event) {
 	const name = event.name || event.artists[event.artists.length - 1].name;
-	var resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type) VALUES (?, ?, ?, ?, ?)`, [name, event.date, event.city.id, event.venue.id, event.type]);
+	var resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?)`, [name, event.date, event.city.id, event.venue.id, event.type, event.description || null]);
+
+	if (event.image) {
+		try {
+			const storedImage = await eventImageStorage.storeEventImage({
+				id: resultEvent.insertId,
+				name,
+				image: event.image,
+				replaceExisting: true
+			});
+
+			if (storedImage.image) {
+				await db.query(`UPDATE event SET image=? WHERE id=?`, [storedImage.image, resultEvent.insertId]);
+			}
+		} catch (error) {
+			console.error(`Error while storing event image`, error.message);
+		}
+	}
 
 	for (const artist of event.artists) {
 		var resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type) VALUES (?, ?, ?, ?, ?)`, [event.date, event.city.id, event.venue.id, artist.id, event.type]);
@@ -125,7 +192,7 @@ async function update(id, event) {
 		image: event.image,
 		replaceExisting: true
 	});
-	const result = await db.query(`UPDATE event SET name=?, image=? WHERE id=?`, [event.name, storedImage.image || null, id]);
+	const result = await db.query(`UPDATE event SET name=?, image=?, description=? WHERE id=?`, [event.name, storedImage.image || null, event.description || null, id]);
 	const eventRows = await db.query(`SELECT date, city_id, venue_id, type FROM event WHERE id=?`, [id]);
 	let addedArtists = 0;
 
