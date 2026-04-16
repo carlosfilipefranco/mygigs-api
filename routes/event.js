@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const event = require("../services/event");
+const eventImport = require("../services/eventImport");
+const { optionalAuth, requireAdmin } = require("../middleware/auth");
 
 /* GET events. */
-router.get("/", async function (req, res, next) {
+router.get("/", optionalAuth, async function (req, res, next) {
 	try {
-		res.json(await event.getMultiple(req.query.page, req.query.search, req.query.type));
+		res.json(await event.getMultiple(req.query.page, req.query.search, req.query.type, req.query.period, req.user?.id));
 	} catch (err) {
 		console.error(`Error while getting event `, err.message);
 		next(err);
@@ -22,10 +24,20 @@ router.get("/dashboard", async function (req, res, next) {
 	}
 });
 
-/* GET event */
-router.get("/:id", async function (req, res, next) {
+/* POST event import preview */
+router.post("/preview-url", requireAdmin, async function (req, res, next) {
 	try {
-		res.json(await event.get(req.params.id, req.body));
+		res.json(await eventImport.previewFromUrl(req.body.url));
+	} catch (err) {
+		console.error(`Error while previewing event url`, err.message);
+		next(err);
+	}
+});
+
+/* GET event */
+router.get("/:id", optionalAuth, async function (req, res, next) {
+	try {
+		res.json(await event.get(req.params.id, req.user?.id));
 	} catch (err) {
 		console.error(`Error while updating event`, err.message);
 		next(err);
@@ -33,7 +45,7 @@ router.get("/:id", async function (req, res, next) {
 });
 
 /* POST event */
-router.post("/", async function (req, res, next) {
+router.post("/", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await event.create(req.body));
 	} catch (err) {
@@ -43,7 +55,7 @@ router.post("/", async function (req, res, next) {
 });
 
 /* DELETE event */
-router.delete("/:id", async function (req, res, next) {
+router.delete("/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await event.remove(req.params.id));
 	} catch (err) {
@@ -53,7 +65,7 @@ router.delete("/:id", async function (req, res, next) {
 });
 
 /* PUT artist */
-router.put("/:id", async function (req, res, next) {
+router.put("/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await event.update(req.params.id, req.body));
 	} catch (err) {
