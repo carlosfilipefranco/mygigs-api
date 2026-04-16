@@ -28,7 +28,6 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 
 			-- user-specific fields
 			ug.status AS status,
-			ug.has_ticket AS has_ticket,
 			ug.favorite AS favorite
 
 		FROM gig
@@ -116,11 +115,11 @@ async function get(id, userId = null) {
 
 	// 🔥 Se houver login, buscar user_gig
 	if (userId) {
-		const userGigRows = await db.query(`SELECT status, has_ticket, favorite FROM user_gig WHERE gig_id = ? AND user_id = ?`, [id, userId]);
+		const userGigRows = await db.query(`SELECT status, favorite FROM user_gig WHERE gig_id = ? AND user_id = ?`, [id, userId]);
 		if (userGigRows.length > 0) {
 			gig.user_gig = userGigRows[0];
 		} else {
-			gig.user_gig = { status: null, has_ticket: false, favorite: false };
+			gig.user_gig = { status: null, favorite: false };
 		}
 	}
 
@@ -170,10 +169,30 @@ async function get(id, userId = null) {
 	return gig;
 }
 
-async function dashboard(type = 1) {
-	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig WHERE type = ${type}`);
-	const gigs_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS gig_count FROM gig WHERE type = ${type} GROUP BY YEAR(date) ORDER BY YEAR(date);`);
-	const gigs_by_artist = await db.query(`SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(gig.id) AS gig_count FROM artist LEFT JOIN gig ON artist.id = gig.artist_id WHERE gig.type = ${type} GROUP BY artist.id, artist.name ORDER BY gig_count DESC;`);
+async function dashboard(type = 1, userId = null) {
+	const normalizedType = Number(type) || 1;
+
+	if (userId) {
+		return normalizedType === 2 ? userEventDashboard(normalizedType, userId) : userGigDashboard(normalizedType, userId);
+	}
+
+	return globalDashboard(normalizedType);
+}
+
+async function globalDashboard(type) {
+	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig WHERE type = ?`, [type]);
+	const gigs_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS gig_count FROM gig WHERE type = ? GROUP BY YEAR(date) ORDER BY YEAR(date);`, [type]);
+	const gigs_by_artist = await db.query(
+		`
+		SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(gig.id) AS gig_count
+		FROM artist
+		LEFT JOIN gig ON artist.id = gig.artist_id
+		WHERE gig.type = ?
+		GROUP BY artist.id, artist.name, artist.image
+		ORDER BY gig_count DESC;
+		`,
+		[type]
+	);
 	const editions_by_festival = await db.query(`
         SELECT 
             festival.id, 
@@ -206,6 +225,132 @@ async function dashboard(type = 1) {
 		editions_by_festival
 	};
 	return data;
+}
+
+async function userGigDashboard(type, userId) {
+	const total_gigs = await db.query(
+		`
+		SELECT COUNT(DISTINCT gig.id) AS total_gigs
+		FROM user_gig
+		INNER JOIN gig ON user_gig.gig_id = gig.id
+		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?
+		`,
+		[userId, type]
+	);
+	const gigs_by_year = await db.query(
+		`
+		SELECT YEAR(gig.date) AS year, COUNT(DISTINCT gig.id) AS gig_count
+		FROM user_gig
+		INNER JOIN gig ON user_gig.gig_id = gig.id
+		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?
+		GROUP BY YEAR(gig.date)
+		ORDER BY YEAR(gig.date)
+		`,
+		[userId, type]
+	);
+	const gigs_by_artist = await db.query(
+		`
+		SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(DISTINCT gig.id) AS gig_count
+		FROM user_gig
+		INNER JOIN gig ON user_gig.gig_id = gig.id
+		INNER JOIN artist ON artist.id = gig.artist_id
+		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?
+		GROUP BY artist.id, artist.name, artist.image
+		ORDER BY gig_count DESC
+		`,
+		[userId, type]
+	);
+	const editions_by_festival = await db.query(
+		`
+		SELECT
+			festival.id,
+			festival.name,
+			festival.image,
+			COUNT(DISTINCT edition.id) AS edition_count,
+			COUNT(DISTINCT event_gig.event_id) AS total_events
+		FROM user_gig
+		INNER JOIN gig ON user_gig.gig_id = gig.id
+		INNER JOIN event_gig ON event_gig.gig_id = gig.id
+		INNER JOIN edition_event ON edition_event.event_id = event_gig.event_id
+		INNER JOIN edition ON edition.id = edition_event.edition_id
+		INNER JOIN festival ON festival.id = edition.festival_id
+		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?
+		GROUP BY festival.id, festival.name, festival.image
+		ORDER BY edition_count DESC, total_events DESC
+		`,
+		[userId, type]
+	);
+
+	return {
+		total_gigs: total_gigs[0],
+		gigs_by_year,
+		gigs_by_artist,
+		editions_by_festival
+	};
+}
+
+async function userEventDashboard(type, userId) {
+	const countedStatuses = ["going", "attended"];
+	const total_gigs = await db.query(
+		`
+		SELECT COUNT(DISTINCT event.id) AS total_gigs
+		FROM user_event
+		INNER JOIN event ON user_event.event_id = event.id
+		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?
+		`,
+		[userId, ...countedStatuses, type]
+	);
+	const gigs_by_year = await db.query(
+		`
+		SELECT YEAR(event.date) AS year, COUNT(DISTINCT event.id) AS gig_count
+		FROM user_event
+		INNER JOIN event ON user_event.event_id = event.id
+		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?
+		GROUP BY YEAR(event.date)
+		ORDER BY YEAR(event.date)
+		`,
+		[userId, ...countedStatuses, type]
+	);
+	const gigs_by_artist = await db.query(
+		`
+		SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(DISTINCT event.id) AS gig_count
+		FROM user_event
+		INNER JOIN event ON user_event.event_id = event.id
+		INNER JOIN event_gig ON event_gig.event_id = event.id
+		INNER JOIN gig ON gig.id = event_gig.gig_id
+		INNER JOIN artist ON artist.id = gig.artist_id
+		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?
+		GROUP BY artist.id, artist.name, artist.image
+		ORDER BY gig_count DESC
+		`,
+		[userId, ...countedStatuses, type]
+	);
+	const editions_by_festival = await db.query(
+		`
+		SELECT
+			festival.id,
+			festival.name,
+			festival.image,
+			COUNT(DISTINCT edition.id) AS edition_count,
+			COUNT(DISTINCT event.id) AS total_events
+		FROM user_event
+		INNER JOIN event ON user_event.event_id = event.id
+		INNER JOIN edition_event ON edition_event.event_id = event.id
+		INNER JOIN edition ON edition.id = edition_event.edition_id
+		INNER JOIN festival ON festival.id = edition.festival_id
+		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?
+		GROUP BY festival.id, festival.name, festival.image
+		ORDER BY edition_count DESC, total_events DESC
+		`,
+		[userId, ...countedStatuses, type]
+	);
+
+	return {
+		total_gigs: total_gigs[0],
+		gigs_by_year,
+		gigs_by_artist,
+		editions_by_festival
+	};
 }
 
 async function create(gigs) {
