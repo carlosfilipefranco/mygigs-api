@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const edition = require("../services/edition");
+const { requireAdmin } = require("../middleware/auth");
 
 /* GET editions. */
 router.get("/", async function (req, res, next) {
@@ -13,7 +14,7 @@ router.get("/", async function (req, res, next) {
 });
 
 /* POST edition */
-router.post("/", async function (req, res, next) {
+router.post("/", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await edition.create(req.body));
 	} catch (err) {
@@ -23,7 +24,7 @@ router.post("/", async function (req, res, next) {
 });
 
 /* PUT edition */
-router.put("/:id", async function (req, res, next) {
+router.put("/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await edition.update(req.params.id, req.body));
 	} catch (err) {
@@ -43,7 +44,7 @@ router.get("/:id", async function (req, res, next) {
 });
 
 /* DELETE edition */
-router.delete("/:id", async function (req, res, next) {
+router.delete("/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await edition.remove(req.params.id));
 	} catch (err) {

@@ -39,7 +39,18 @@ function optionalAuth(req, res, next) {
 	next();
 }
 
+function requireAdmin(req, res, next) {
+	requireAuth(req, res, () => {
+		if (req.user.role !== "admin") {
+			return res.status(403).json({ message: "Admin access required" });
+		}
+
+		next();
+	});
+}
+
 module.exports = {
 	requireAuth,
-	optionalAuth
+	optionalAuth,
+	requireAdmin
 };

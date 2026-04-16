@@ -24,7 +24,8 @@ async function create(user) {
 	return {
 		id: result.insertId,
 		name,
-		email
+		email,
+		role: "user"
 	};
 }
 
@@ -42,7 +43,8 @@ async function login(email, password) {
 	return {
 		id: user.id,
 		name: user.name,
-		email: user.email
+		email: user.email,
+		role: user.role || "user"
 	};
 }
 

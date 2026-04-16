@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const festival = require("../services/festival");
+const { requireAdmin } = require("../middleware/auth");
 
 /* GET festival. */
 router.get("/", async function (req, res, next) {
@@ -13,7 +14,7 @@ router.get("/", async function (req, res, next) {
 });
 
 /* POST festival */
-router.post("/", async function (req, res, next) {
+router.post("/", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await festival.create(req.body));
 	} catch (err) {
@@ -23,7 +24,7 @@ router.post("/", async function (req, res, next) {
 });
 
 /* PUT festival */
-router.put("/:id", async function (req, res, next) {
+router.put("/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await festival.update(req.params.id, req.body));
 	} catch (err) {
@@ -53,7 +54,7 @@ router.get("/edition/:id", async function (req, res, next) {
 });
 
 /* DELETE festival */
-router.delete("/:id", async function (req, res, next) {
+router.delete("/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await festival.remove(req.params.id));
 	} catch (err) {

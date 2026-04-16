@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const artist = require("../services/artist");
+const { requireAdmin } = require("../middleware/auth");
 
 /* GET artist. */
 router.get("/", async function (req, res, next) {
@@ -13,7 +14,7 @@ router.get("/", async function (req, res, next) {
 });
 
 /* POST artist */
-router.post("/", async function (req, res, next) {
+router.post("/", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await artist.create(req.body));
 	} catch (err) {
@@ -23,7 +24,7 @@ router.post("/", async function (req, res, next) {
 });
 
 /* POST artist */
-router.post("/create-bulk", async function (req, res, next) {
+router.post("/create-bulk", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await artist.createBulk(req.body));
 	} catch (err) {
@@ -33,7 +34,7 @@ router.post("/create-bulk", async function (req, res, next) {
 });
 
 /* PUT artist */
-router.put("/:id", async function (req, res, next) {
+router.put("/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await artist.update(req.params.id, req.body));
 	} catch (err) {
@@ -53,7 +54,7 @@ router.get("/:id", async function (req, res, next) {
 });
 
 /* GET artist image */
-router.get("/update-image/:id", async function (req, res, next) {
+router.get("/update-image/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await artist.updateSpotifyImage(req.params.id, req.body));
 	} catch (err) {
@@ -63,7 +64,7 @@ router.get("/update-image/:id", async function (req, res, next) {
 });
 
 /* DELETE artist */
-router.delete("/:id", async function (req, res, next) {
+router.delete("/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await artist.remove(req.params.id));
 	} catch (err) {

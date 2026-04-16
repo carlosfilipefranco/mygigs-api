@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const gig = require("../services/gig");
-const { optionalAuth } = require("../middleware/auth");
+const { optionalAuth, requireAdmin } = require("../middleware/auth");
 
 /* GET gigs (lista) */
 router.get("/", optionalAuth, async function (req, res, next) {
@@ -15,7 +15,7 @@ router.get("/", optionalAuth, async function (req, res, next) {
 });
 
 /* POST gig */
-router.post("/", async function (req, res, next) {
+router.post("/", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await gig.create(req.body));
 	} catch (err) {
@@ -25,7 +25,7 @@ router.post("/", async function (req, res, next) {
 });
 
 /* POST gig */
-router.post("/clean", async function (req, res, next) {
+router.post("/clean", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await gig.clean(req.body));
 	} catch (err) {
@@ -35,9 +35,10 @@ router.post("/clean", async function (req, res, next) {
 });
 
 /* GET dashboard */
-router.get("/dashboard", async function (req, res, next) {
+router.get("/dashboard", optionalAuth, async function (req, res, next) {
 	try {
-		res.json(await gig.dashboard(req.query.type));
+		const userId = req.user ? req.user.id : null;
+		res.json(await gig.dashboard(req.query.type, userId));
 	} catch (err) {
 		console.error(`Error while creating gig`, err.message);
 		next(err);
@@ -68,7 +69,7 @@ router.get("/:id", async function (req, res, next) {
 });
 
 /* DELETE gig */
-router.delete("/:id", async function (req, res, next) {
+router.delete("/:id", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await gig.remove(req.params.id));
 	} catch (err) {
@@ -78,7 +79,7 @@ router.delete("/:id", async function (req, res, next) {
 });
 
 /* SORT gigs */
-router.post("/sort", async function (req, res, next) {
+router.post("/sort", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await gig.sort(req.body));
 	} catch (err) {
@@ -88,7 +89,7 @@ router.post("/sort", async function (req, res, next) {
 });
 
 /* FAVORITE gigs */
-router.post("/favorite", async function (req, res, next) {
+router.post("/favorite", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await gig.favorite(req.body));
 	} catch (err) {
@@ -97,7 +98,7 @@ router.post("/favorite", async function (req, res, next) {
 	}
 });
 
-router.post("/:id/media", async (req, res, next) => {
+router.post("/:id/media", requireAdmin, async (req, res, next) => {
 	try {
 		res.json(await gig.addMedia(req.params.id, req.body));
 	} catch (err) {
@@ -106,7 +107,7 @@ router.post("/:id/media", async (req, res, next) => {
 	}
 });
 
-router.put("/:id/media/:mediaId", async (req, res, next) => {
+router.put("/:id/media/:mediaId", requireAdmin, async (req, res, next) => {
 	try {
 		res.json(await gig.updateMedia(req.params.id, req.params.mediaId, req.body));
 	} catch (err) {
@@ -115,7 +116,7 @@ router.put("/:id/media/:mediaId", async (req, res, next) => {
 	}
 });
 
-router.delete("/:id/media/:mediaId", async (req, res, next) => {
+router.delete("/:id/media/:mediaId", requireAdmin, async (req, res, next) => {
 	try {
 		res.json(await gig.deleteMedia(req.params.id, req.params.mediaId));
 	} catch (err) {
