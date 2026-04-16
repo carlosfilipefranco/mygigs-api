@@ -19,6 +19,7 @@ const edition = require("./routes/edition");
 const setlist = require("./routes/setlist");
 const user = require("./routes/user");
 const userGig = require("./routes/userGig");
+const userEvent = require("./routes/userEvent");
 
 // ------------------
 // ADMIN ROUTER
@@ -82,6 +83,7 @@ app.use("/api/edition", edition);
 app.use("/api/setlist", setlist);
 app.use("/api/user", user);
 app.use("/api/user-gig", userGig);
+app.use("/api/user-event", userEvent);
 
 // ------------------
 // ERROR HANDLER
