@@ -3,8 +3,7 @@ const db = require("./db");
 module.exports = {
 	setStatus,
 	getUserGigs,
-	toggleFavorite,
-	toggleTicket
+	toggleFavorite
 };
 
 // Inserir ou atualizar relação user-gig
@@ -24,7 +23,7 @@ async function setStatus(userId, gigId, status) {
 async function getUserGigs(userId) {
 	return db.query(
 		`
-    SELECT g.*, ug.status, ug.has_ticket, ug.favorite
+    SELECT g.*, ug.status, ug.favorite
     FROM gig g
     INNER JOIN user_gig ug ON ug.gig_id = g.id
     WHERE ug.user_id = ?
@@ -42,17 +41,5 @@ async function toggleFavorite(userId, gigId, favorite) {
     ON DUPLICATE KEY UPDATE favorite = VALUES(favorite)
     `,
 		[userId, gigId, favorite]
-	);
-}
-
-// Alternar bilhete
-async function toggleTicket(userId, gigId, hasTicket) {
-	return db.query(
-		`
-    INSERT INTO user_gig (user_id, gig_id, has_ticket)
-    VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE has_ticket = VALUES(has_ticket)
-    `,
-		[userId, gigId, hasTicket]
 	);
 }

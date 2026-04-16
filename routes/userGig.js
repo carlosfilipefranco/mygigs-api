@@ -26,17 +26,6 @@ router.post("/favorite", requireAuth, async (req, res, next) => {
 	}
 });
 
-/* POST /user-gig/ticket */
-router.post("/ticket", requireAuth, async (req, res, next) => {
-	try {
-		const { gigId, hasTicket } = req.body;
-		await userGig.toggleTicket(req.user.id, gigId, hasTicket);
-		res.json({ success: true });
-	} catch (err) {
-		next(err);
-	}
-});
-
 /* GET /user-gig */
 router.get("/", requireAuth, async (req, res, next) => {
 	try {
