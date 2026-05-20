@@ -38,7 +38,7 @@ router.post("/clean", requireAdmin, async function (req, res, next) {
 router.get("/dashboard", optionalAuth, async function (req, res, next) {
 	try {
 		const userId = req.user ? req.user.id : null;
-		res.json(await gig.dashboard(req.query.type, userId));
+		res.json(await gig.dashboard(req.query.type, userId, req.query.period, req.query.scope));
 	} catch (err) {
 		console.error(`Error while creating gig`, err.message);
 		next(err);
