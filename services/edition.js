@@ -25,7 +25,7 @@ async function getMultiple(page = 1, search = null) {
 	};
 }
 
-async function get(id) {
+async function get(id, userId = null) {
 	try {
 		const edition = await db.query(`
 		  SELECT e.id, e.date_start, e.date_end, e.name AS name, e.image, v.name AS venue, c.name AS city, c.id AS city_id, v.id AS venue_id, festival.image as festival_image
@@ -38,17 +38,36 @@ async function get(id) {
 
 		console.log(id, edition);
 
-		const gigs = await db.query(`
-		  SELECT g.id, g.date, a.name AS artist, a.image, v.name AS venue
+		const userGigSelect = userId ? ", ug.status AS user_gig_status, ug.favorite AS user_gig_favorite" : "";
+		const userGigJoin = userId ? "LEFT JOIN user_gig ug ON ug.gig_id = g.id AND ug.user_id = ?" : "";
+		const gigsParams = userId ? [userId, id] : [id];
+		const gigsRows = await db.query(
+			`
+		  SELECT g.id, g.date, a.name AS artist, a.image, v.name AS venue${userGigSelect}
 		  FROM gig g
 		  INNER JOIN artist a ON g.artist_id = a.id
 		  INNER JOIN venue v ON g.venue_id = v.id
 		  INNER JOIN event_gig eg ON g.id = eg.gig_id
 		  INNER JOIN event ev ON eg.event_id = ev.id
 		  INNER JOIN edition_event ee ON ev.id = ee.event_id
-		  WHERE ee.edition_id = ${id}
+		  ${userGigJoin}
+		  WHERE ee.edition_id = ?
 		  ORDER BY ev.date, g.position
-		`);
+		`,
+			gigsParams
+		);
+
+		const gigs = gigsRows.map((row) => ({
+			id: row.id,
+			date: row.date,
+			artist: row.artist,
+			image: row.image,
+			venue: row.venue,
+			user_gig: {
+				status: row.user_gig_status || "not_going",
+				favorite: !!row.user_gig_favorite
+			}
+		}));
 
 		return {
 			edition: {

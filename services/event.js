@@ -62,10 +62,12 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 async function get(id, userId = null) {
 	const userEventSelect = userId ? ", ue.status AS user_event_status, ue.has_ticket AS user_event_has_ticket, ue.favorite AS user_event_favorite" : "";
 	const userEventJoin = userId ? "LEFT JOIN user_event ue ON ue.event_id = e.id AND ue.user_id = ?" : "";
-	const params = userId ? [userId, id] : [id];
+	const userGigSelect = userId ? ", ug.status AS user_gig_status, ug.favorite AS user_gig_favorite" : "";
+	const userGigJoin = userId ? "LEFT JOIN user_gig ug ON ug.gig_id = g.id AND ug.user_id = ?" : "";
+	const params = userId ? [userId, userId, id] : [id];
 	const result = await db.query(
 		`
-		SELECT e.name AS event_name, e.image AS event_image, e.description AS event_description, e.type AS event_type${userEventSelect},
+		SELECT e.name AS event_name, e.image AS event_image, e.description AS event_description, e.type AS event_type${userEventSelect}${userGigSelect},
 		       g.date, g.id AS gig_id, 
 		       v.id AS venue_id,
 		       v.name AS venue,
@@ -81,6 +83,7 @@ async function get(id, userId = null) {
 		INNER JOIN city c ON g.city_id = c.id
 		INNER JOIN artist a ON g.artist_id = a.id
 		${userEventJoin}
+		${userGigJoin}
 		WHERE e.id = ?
 	`,
 		params
@@ -103,7 +106,11 @@ async function get(id, userId = null) {
 		city: row.city,
 		artist_id: row.artist_id,
 		artist: row.artist,
-		artist_image: row.artist_image
+		artist_image: row.artist_image,
+		user_gig: {
+			status: row.user_gig_status || "not_going",
+			favorite: !!row.user_gig_favorite
+		}
 	}));
 
 	return {

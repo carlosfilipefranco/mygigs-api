@@ -8,7 +8,10 @@ const db = require("../services/db");
 router.post("/status", requireAuth, async (req, res, next) => {
 	try {
 		const { gigId, status } = req.body;
-		await userGig.setStatus(req.user.id, gigId, status);
+		const result = await userGig.setStatus(req.user.id, gigId, status);
+		if (result?.message === "Invalid status") {
+			return res.status(400).json(result);
+		}
 		res.json({ success: true });
 	} catch (err) {
 		next(err);

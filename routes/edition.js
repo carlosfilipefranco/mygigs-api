@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const edition = require("../services/edition");
-const { requireAdmin } = require("../middleware/auth");
+const { requireAdmin, optionalAuth } = require("../middleware/auth");
 
 /* GET editions. */
 router.get("/", async function (req, res, next) {
@@ -34,9 +34,9 @@ router.put("/:id", requireAdmin, async function (req, res, next) {
 });
 
 /* GET edition */
-router.get("/:id", async function (req, res, next) {
+router.get("/:id", optionalAuth, async function (req, res, next) {
 	try {
-		res.json(await edition.get(req.params.id, req.body));
+		res.json(await edition.get(req.params.id, req.user?.id));
 	} catch (err) {
 		console.error(`Error while updating city`, err.message);
 		next(err);
