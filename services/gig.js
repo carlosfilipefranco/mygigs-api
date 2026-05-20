@@ -2,18 +2,48 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 
-async function getMultiple(userId, page = 1, search = null, favorite = null, type = 1) {
+async function getMultiple(userId, page = 1, search = null, favorite = null, type = 1, period = null, mine = null) {
 	const offset = helper.getOffset(page, config.listPerPage);
+	const normalizedType = Number(type) || 1;
+	const normalizedSearch = search ? `${search}`.toLowerCase().trim() : null;
+	const favoriteOnly = favorite === 1 || favorite === "1" || favorite === true || favorite === "true";
+	const mineOnly = mine === 1 || mine === "1" || mine === true || mine === "true";
 
-	let searchQuery = `WHERE gig.type=${type}`;
-	if (search) {
-		searchQuery = `WHERE gig.type=${type} AND (LOWER(artist.name) LIKE '%${search}%' OR LOWER(venue.name) LIKE '%${search}%' OR LOWER(city.name) LIKE '%${search}%' OR LOWER(gig.date) LIKE '%${search}%')`;
+	if (mineOnly && !userId) {
+		return {
+			data: [],
+			meta: { page: Number(page) || 1, count: 0 }
+		};
 	}
 
-	// FAVORITES → agora é pelo user_gig.favorite
-	if (favorite) {
-		searchQuery += ` AND ug.favorite = 1`;
+	const filters = ["gig.type = ?"];
+	const params = [normalizedType];
+	let orderBy = "gig.date DESC, gig.position";
+
+	if (normalizedSearch) {
+		const query = `%${normalizedSearch}%`;
+		filters.push("(LOWER(artist.name) LIKE ? OR LOWER(venue.name) LIKE ? OR LOWER(city.name) LIKE ? OR LOWER(gig.date) LIKE ?)");
+		params.push(query, query, query, query);
 	}
+
+	if (period === "upcoming") {
+		filters.push("gig.date >= CURDATE()");
+		orderBy = "gig.date ASC, gig.position";
+	} else if (period === "past") {
+		filters.push("gig.date < CURDATE()");
+		orderBy = "gig.date DESC, gig.position";
+	}
+
+	if (mineOnly) {
+		filters.push("ug.user_id IS NOT NULL");
+	}
+
+	if (favoriteOnly) {
+		filters.push("ug.favorite = 1");
+	}
+
+	const whereClause = `WHERE ${filters.join(" AND ")}`;
+	const queryParams = [userId, ...params];
 
 	const rows = await db.query(
 		`
@@ -25,52 +55,41 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 			venue.name AS venue,
 			city.name AS city,
 			CASE WHEN setlist.id IS NOT NULL THEN TRUE ELSE FALSE END AS has_setlist,
-
-			-- user-specific fields
 			ug.status AS status,
-			ug.favorite AS favorite
-
+			COALESCE(ug.favorite, 0) AS favorite
 		FROM gig
 		INNER JOIN artist ON gig.artist_id = artist.id
 		INNER JOIN venue ON gig.venue_id = venue.id
 		INNER JOIN city ON gig.city_id = city.id
 		LEFT JOIN setlist ON setlist.gig_id = gig.id
-
-		LEFT JOIN user_gig ug 
-			ON ug.gig_id = gig.id 
+		LEFT JOIN user_gig ug
+			ON ug.gig_id = gig.id
 			AND ug.user_id = ?
-
-		${searchQuery}
-		ORDER BY gig.date DESC, gig.position
+		${whereClause}
+		ORDER BY ${orderBy}
 		LIMIT ${offset}, ${config.listPerPage}
-	`,
-		[userId]
+		`,
+		queryParams
 	);
 
-	// COUNT
-	let count = 0;
-	if (!favorite) {
-		let row = await db.query(
-			`SELECT COUNT(*) AS count 
-			 FROM gig 
-			 WHERE type = ?`,
-			[type]
-		);
-		count = row[0].count;
-	} else {
-		let row = await db.query(
-			`SELECT COUNT(*) AS count 
-			 FROM gig 
-			 LEFT JOIN user_gig ug ON ug.gig_id = gig.id AND ug.user_id = ?
-			 WHERE ug.favorite = 1 AND gig.type = ?`,
-			[userId, type]
-		);
-		count = row[0].count;
-	}
+	const countRows = await db.query(
+		`
+		SELECT COUNT(DISTINCT gig.id) AS count
+		FROM gig
+		INNER JOIN artist ON gig.artist_id = artist.id
+		INNER JOIN venue ON gig.venue_id = venue.id
+		INNER JOIN city ON gig.city_id = city.id
+		LEFT JOIN user_gig ug
+			ON ug.gig_id = gig.id
+			AND ug.user_id = ?
+		${whereClause}
+		`,
+		queryParams
+	);
 
 	return {
 		data: helper.emptyOrRows(rows),
-		meta: { page, count }
+		meta: { page: Number(page) || 1, count: countRows[0]?.count || 0 }
 	};
 }
 
