@@ -86,6 +86,8 @@ async function get(id, userId = null) {
         venue.name AS venue,
         venue.id AS venue_id,
         city.name AS city,
+        ev.id AS event_id,
+        ev.name AS event_name,
         festival.id AS festival_id, 
         festival.name AS festival_name,
         edition.id AS edition_id,
@@ -95,6 +97,7 @@ async function get(id, userId = null) {
     INNER JOIN venue ON gig.venue_id = venue.id 
     INNER JOIN city ON gig.city_id = city.id 
     LEFT JOIN event_gig eg ON gig.id = eg.gig_id
+    LEFT JOIN event ev ON eg.event_id = ev.id
     LEFT JOIN edition_event ee ON eg.event_id = ee.event_id
     LEFT JOIN edition ON ee.edition_id = edition.id
     LEFT JOIN festival ON edition.festival_id = festival.id
