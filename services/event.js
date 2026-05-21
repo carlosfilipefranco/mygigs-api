@@ -30,7 +30,27 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 	const userEventJoin = userId ? "LEFT JOIN user_event ON user_event.event_id = event.id AND user_event.user_id = ?" : "";
 	const queryParams = userId ? [userId, ...params] : params;
 	const rows = await db.query(
-		`SELECT event.id, event.date, event.name, event.image, event.description, venue.name as venue, city.name as city${userEventSelect}
+		`SELECT
+			event.id,
+			event.date,
+			event.name,
+			event.image,
+			event.description,
+			venue.name as venue,
+			city.name as city,
+			(
+				SELECT COUNT(*)
+				FROM user_event uec
+				WHERE uec.event_id = event.id
+				  AND uec.status = 'attended'
+			) AS went_count,
+			(
+				SELECT COUNT(*)
+				FROM user_event uec
+				WHERE uec.event_id = event.id
+				  AND uec.status IN ('wishlist', 'going')
+			) AS interested_count
+			${userEventSelect}
 		FROM event
 		INNER JOIN venue ON event.venue_id = venue.id
 		INNER JOIN city ON event.city_id = city.id
@@ -68,6 +88,18 @@ async function get(id, userId = null) {
 	const result = await db.query(
 		`
 		SELECT e.name AS event_name, e.image AS event_image, e.description AS event_description, e.type AS event_type${userEventSelect}${userGigSelect},
+		       (
+		       	SELECT COUNT(*)
+		       	FROM user_event uec
+		       	WHERE uec.event_id = e.id
+		       	  AND uec.status = 'attended'
+		       ) AS went_count,
+		       (
+		       	SELECT COUNT(*)
+		       	FROM user_event uec
+		       	WHERE uec.event_id = e.id
+		       	  AND uec.status IN ('wishlist', 'going')
+		       ) AS interested_count,
 		       g.date, g.id AS gig_id, 
 		       v.id AS venue_id,
 		       v.name AS venue,
@@ -118,6 +150,8 @@ async function get(id, userId = null) {
 		image: event_image,
 		description: event_description,
 		type: event_type,
+		went_count: Number(result[0].went_count || 0),
+		interested_count: Number(result[0].interested_count || 0),
 		user_event: {
 			status: result[0].user_event_status || null,
 			has_ticket: !!result[0].user_event_has_ticket,

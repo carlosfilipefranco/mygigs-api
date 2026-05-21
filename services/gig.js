@@ -55,6 +55,20 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 			artist.image,
 			venue.name AS venue,
 			city.name AS city,
+			(
+				SELECT COUNT(*)
+				FROM user_gig ugc
+				WHERE ugc.gig_id = gig.id
+				  AND ugc.status = 'going'
+				  AND gig.date < CURDATE()
+			) AS went_count,
+			(
+				SELECT COUNT(*)
+				FROM user_gig ugc
+				WHERE ugc.gig_id = gig.id
+				  AND ugc.status = 'going'
+				  AND gig.date >= CURDATE()
+			) AS interested_count,
 			CASE WHEN setlist.id IS NOT NULL THEN TRUE ELSE FALSE END AS has_setlist,
 			ug.status AS status,
 			COALESCE(ug.favorite, 0) AS favorite
@@ -129,6 +143,21 @@ async function get(id, userId = null) {
 	if (result.length === 0) return null;
 
 	const gig = result[0];
+
+	const crowdRows = await db.query(
+		`
+		SELECT
+			SUM(CASE WHEN ug.status = 'going' AND g.date < CURDATE() THEN 1 ELSE 0 END) AS went_count,
+			SUM(CASE WHEN ug.status = 'going' AND g.date >= CURDATE() THEN 1 ELSE 0 END) AS interested_count
+		FROM gig g
+		LEFT JOIN user_gig ug ON ug.gig_id = g.id
+		WHERE g.id = ?
+		`,
+		[id]
+	);
+
+	gig.went_count = Number(crowdRows?.[0]?.went_count || 0);
+	gig.interested_count = Number(crowdRows?.[0]?.interested_count || 0);
 
 	// 🔥 Buscar media (imagens, videos, links)
 	const mediaRows = await db.query(`SELECT url, type FROM gig_media WHERE gig_id = ?`, [id]);
