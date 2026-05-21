@@ -7,7 +7,7 @@ const { optionalAuth, requireAdmin } = require("../middleware/auth");
 router.get("/", optionalAuth, async function (req, res, next) {
 	try {
 		const userId = req.user ? req.user.id : null;
-		res.json(await gig.getMultiple(userId, req.query.page, req.query.search, req.query.favorite, req.query.type, req.query.period, req.query.mine));
+		res.json(await gig.getMultiple(userId, req.query.page, req.query.search, req.query.favorite, req.query.type, req.query.period, req.query.mine, req.query.order));
 	} catch (err) {
 		console.error(`Error while getting gig `, err.message);
 		next(err);

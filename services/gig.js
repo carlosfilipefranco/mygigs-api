@@ -2,12 +2,13 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 
-async function getMultiple(userId, page = 1, search = null, favorite = null, type = 1, period = null, mine = null) {
+async function getMultiple(userId, page = 1, search = null, favorite = null, type = 1, period = null, mine = null, order = "date") {
 	const offset = helper.getOffset(page, config.listPerPage);
 	const normalizedType = Number(type) || 1;
 	const normalizedSearch = search ? `${search}`.toLowerCase().trim() : null;
 	const favoriteOnly = favorite === 1 || favorite === "1" || favorite === true || favorite === "true";
 	const mineOnly = mine === 1 || mine === "1" || mine === true || mine === "true";
+	const normalizedOrder = order === "latest" ? "latest" : "date";
 
 	if (mineOnly && !userId) {
 		return {
@@ -18,7 +19,7 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 
 	const filters = ["gig.type = ?"];
 	const params = [normalizedType];
-	let orderBy = "gig.date DESC, gig.position";
+	let orderBy = normalizedOrder === "latest" ? "gig.id DESC" : "gig.date DESC, gig.position";
 
 	if (normalizedSearch) {
 		const query = `%${normalizedSearch}%`;
@@ -28,10 +29,10 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 
 	if (period === "upcoming") {
 		filters.push("gig.date >= CURDATE()");
-		orderBy = "gig.date ASC, gig.position";
+		orderBy = normalizedOrder === "latest" ? "gig.id DESC" : "gig.date ASC, gig.position";
 	} else if (period === "past") {
 		filters.push("gig.date < CURDATE()");
-		orderBy = "gig.date DESC, gig.position";
+		orderBy = normalizedOrder === "latest" ? "gig.id DESC" : "gig.date DESC, gig.position";
 	}
 
 	if (mineOnly) {
