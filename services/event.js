@@ -3,6 +3,209 @@ const helper = require("../helper");
 const config = require("../config");
 const eventImageStorage = require("./eventImageStorage");
 
+function normalizeTime(value) {
+	if (!value || typeof value !== "string") {
+		return null;
+	}
+
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const match = trimmed.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+	if (!match) {
+		return null;
+	}
+
+	const hours = Number(match[1]);
+	const minutes = Number(match[2]);
+	const seconds = Number(match[3] || "0");
+
+	if (hours > 23 || minutes > 59 || seconds > 59) {
+		return null;
+	}
+
+	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function normalizeStageName(value) {
+	if (typeof value !== "string") {
+		return null;
+	}
+
+	const trimmed = value.trim();
+	return trimmed || null;
+}
+
+function normalizeStageKey(value) {
+	return normalizeStageName(value)?.toLowerCase() || null;
+}
+
+function normalizeNumber(value) {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed) || parsed <= 0) {
+		return null;
+	}
+	return parsed;
+}
+
+function extractStageName(slot) {
+	return normalizeStageName(slot?.stage_name || slot?.stage?.name || slot?.stage);
+}
+
+function extractArtistId(slot) {
+	return normalizeNumber(slot?.artist_id || slot?.artist?.id || slot?.id);
+}
+
+function normalizeArtistSlots(artists) {
+	if (!Array.isArray(artists)) {
+		return [];
+	}
+
+	return artists
+		.map((entry) => {
+			if (!entry) {
+				return null;
+			}
+
+			const artist = entry.artist && typeof entry.artist === "object" ? entry.artist : entry;
+			const artistId = extractArtistId({ ...entry, artist });
+
+			if (!artistId) {
+				return null;
+			}
+
+			return {
+				artist_id: artistId,
+				stage_id: normalizeNumber(entry.stage_id),
+				stage_name: extractStageName(entry),
+				start_time: normalizeTime(entry.start_time),
+				end_time: normalizeTime(entry.end_time)
+			};
+		})
+		.filter(Boolean);
+}
+
+async function getEventStageRows(eventId) {
+	return db.query(
+		`
+		SELECT id, name, position
+		FROM event_stage
+		WHERE event_id = ?
+		ORDER BY position ASC, id ASC
+		`,
+		[eventId]
+	);
+}
+
+async function ensureEventStages(eventId, stageInput = [], slotInput = []) {
+	const existing = await getEventStageRows(eventId);
+	const byId = new Map(existing.map((stage) => [stage.id, stage]));
+	const byKey = new Map(existing.map((stage) => [normalizeStageKey(stage.name), stage]));
+	const normalizedStages = [];
+
+	if (Array.isArray(stageInput)) {
+		for (let i = 0; i < stageInput.length; i++) {
+			const stage = stageInput[i];
+			if (!stage) {
+				continue;
+			}
+
+			const id = normalizeNumber(stage.id || stage.stage_id);
+			const name = normalizeStageName(stage.name || stage.stage_name || stage.stage);
+			if (!name) {
+				continue;
+			}
+
+			normalizedStages.push({
+				id,
+				name,
+				position: Number.isFinite(Number(stage.position)) ? Number(stage.position) : i + 1
+			});
+		}
+	}
+
+	const stageNamesFromSlots = [];
+	for (const slot of slotInput || []) {
+		const stageName = extractStageName(slot);
+		if (stageName) {
+			stageNamesFromSlots.push(stageName);
+		}
+	}
+
+	for (const stageName of stageNamesFromSlots) {
+		if (!normalizedStages.some((stage) => normalizeStageKey(stage.name) === normalizeStageKey(stageName))) {
+			normalizedStages.push({
+				id: null,
+				name: stageName,
+				position: normalizedStages.length + 1
+			});
+		}
+	}
+
+	for (let i = 0; i < normalizedStages.length; i++) {
+		const stage = normalizedStages[i];
+		const position = Number.isFinite(stage.position) ? stage.position : i + 1;
+		let persistedStage = null;
+
+		if (stage.id && byId.has(stage.id)) {
+			persistedStage = byId.get(stage.id);
+			if (persistedStage.name !== stage.name || Number(persistedStage.position) !== Number(position)) {
+				await db.query(`UPDATE event_stage SET name=?, position=? WHERE id=? AND event_id=?`, [stage.name, position, persistedStage.id, eventId]);
+			}
+		} else {
+			const key = normalizeStageKey(stage.name);
+			if (key && byKey.has(key)) {
+				persistedStage = byKey.get(key);
+				if (Number(persistedStage.position) !== Number(position)) {
+					await db.query(`UPDATE event_stage SET position=? WHERE id=? AND event_id=?`, [position, persistedStage.id, eventId]);
+				}
+			} else {
+				const result = await db.query(`INSERT INTO event_stage (event_id, name, position) VALUES (?, ?, ?)`, [eventId, stage.name, position]);
+				persistedStage = { id: result.insertId, name: stage.name, position };
+			}
+		}
+
+		if (persistedStage) {
+			byId.set(persistedStage.id, persistedStage);
+			const key = normalizeStageKey(persistedStage.name);
+			if (key) {
+				byKey.set(key, persistedStage);
+			}
+		}
+	}
+
+	const rows = await getEventStageRows(eventId);
+	const rowsById = new Map(rows.map((row) => [row.id, row]));
+	const rowsByKey = new Map(rows.map((row) => [normalizeStageKey(row.name), row]));
+
+	return {
+		rows,
+		rowsById,
+		rowsByKey
+	};
+}
+
+function resolveStageId(slot, stageLookup) {
+	if (!slot || !stageLookup) {
+		return null;
+	}
+
+	const explicitStageId = normalizeNumber(slot.stage_id);
+	if (explicitStageId && stageLookup.rowsById.has(explicitStageId)) {
+		return explicitStageId;
+	}
+
+	const stageName = extractStageName(slot);
+	const key = normalizeStageKey(stageName);
+	if (key && stageLookup.rowsByKey.has(key)) {
+		return stageLookup.rowsByKey.get(key).id;
+	}
+
+	return null;
+}
+
 async function getMultiple(page = 1, search = null, type = 1, period = null, userId = null) {
 	const offset = helper.getOffset(page, config.listPerPage);
 	const filters = ["event.type = ?"];
@@ -100,13 +303,21 @@ async function get(id, userId = null) {
 		       	WHERE uec.event_id = e.id
 		       	  AND uec.status IN ('wishlist', 'going')
 		       ) AS interested_count,
-		       g.date, g.id AS gig_id, 
+		       g.date,
+		       g.start_time AS gig_start_time,
+		       g.end_time AS gig_end_time,
+		       eg.start_time AS event_start_time,
+		       eg.end_time AS event_end_time,
+		       eg.stage_id,
+		       es.name AS stage_name,
+		       es.position AS stage_position,
+		       g.id AS gig_id,
 		       v.id AS venue_id,
 		       v.name AS venue,
 		       c.id AS city_id,
 		       c.name AS city,
 		       a.id AS artist_id,
-		       a.name AS artist, 
+		       a.name AS artist,
 		       a.image AS artist_image
 		FROM event e
 		INNER JOIN event_gig eg ON e.id = eg.event_id
@@ -114,9 +325,15 @@ async function get(id, userId = null) {
 		INNER JOIN venue v ON g.venue_id = v.id
 		INNER JOIN city c ON g.city_id = c.id
 		INNER JOIN artist a ON g.artist_id = a.id
+		LEFT JOIN event_stage es ON es.id = eg.stage_id
 		${userEventJoin}
 		${userGigJoin}
 		WHERE e.id = ?
+		ORDER BY
+			CASE WHEN COALESCE(eg.start_time, g.start_time) IS NULL THEN 1 ELSE 0 END,
+			COALESCE(eg.start_time, g.start_time) ASC,
+			es.position ASC,
+			a.name ASC
 	`,
 		params
 	);
@@ -125,13 +342,16 @@ async function get(id, userId = null) {
 		return null;
 	}
 
-	// Pegar os dados do evento (assumindo que são os mesmos para todos os gigs)
+	const stageRows = await getEventStageRows(id);
 	const { event_name, event_image, event_description, event_type } = result[0];
 
-	// Mapear gigs
 	const gigs = result.map((row) => ({
 		id: row.gig_id,
 		date: row.date,
+		start_time: row.event_start_time || row.gig_start_time || null,
+		end_time: row.event_end_time || row.gig_end_time || null,
+		stage_id: row.stage_id || null,
+		stage_name: row.stage_name || null,
 		venue_id: row.venue_id,
 		venue: row.venue,
 		city_id: row.city_id,
@@ -150,6 +370,11 @@ async function get(id, userId = null) {
 		image: event_image,
 		description: event_description,
 		type: event_type,
+		stages: stageRows.map((stage) => ({
+			id: stage.id,
+			name: stage.name,
+			position: stage.position
+		})),
 		went_count: Number(result[0].went_count || 0),
 		interested_count: Number(result[0].interested_count || 0),
 		user_event: {
@@ -162,33 +387,55 @@ async function get(id, userId = null) {
 }
 
 async function create(event) {
-	const name = event.name || event.artists[event.artists.length - 1].name;
-	var resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?)`, [name, event.date, event.city.id, event.venue.id, event.type, event.description || null]);
+	const slots = normalizeArtistSlots(event.artists);
+	const cityId = normalizeNumber(event?.city?.id || event?.city_id || event?.city);
+	const venueId = normalizeNumber(event?.venue?.id || event?.venue_id || event?.venue);
+	const type = Number(event?.type) || 1;
+	let name = event?.name || null;
+
+	if (!name && slots.length) {
+		const fallbackArtist = await db.query(`SELECT name FROM artist WHERE id=? LIMIT 1`, [slots[slots.length - 1].artist_id]);
+		name = fallbackArtist?.[0]?.name || null;
+	}
+
+	if (!name || !event?.date || !cityId || !venueId) {
+		throw new Error("Missing required event fields");
+	}
+
+	const resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?)`, [name, event.date, cityId, venueId, type, event.description || null]);
+	const eventId = resultEvent.insertId;
 
 	if (event.image) {
 		try {
 			const storedImage = await eventImageStorage.storeEventImage({
-				id: resultEvent.insertId,
+				id: eventId,
 				name,
 				image: event.image,
 				replaceExisting: true
 			});
 
 			if (storedImage.image) {
-				await db.query(`UPDATE event SET image=? WHERE id=?`, [storedImage.image, resultEvent.insertId]);
+				await db.query(`UPDATE event SET image=? WHERE id=?`, [storedImage.image, eventId]);
 			}
 		} catch (error) {
 			console.error(`Error while storing event image`, error.message);
 		}
 	}
 
-	for (const artist of event.artists) {
-		var resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type) VALUES (?, ?, ?, ?, ?)`, [event.date, event.city.id, event.venue.id, artist.id, event.type]);
-		await db.query(`INSERT INTO event_gig (event_id, gig_id) VALUES (?, ?)`, [resultEvent.insertId, resultGig.insertId]);
+	const stageLookup = await ensureEventStages(eventId, event.stages, slots);
+
+	for (const slot of slots) {
+		const resultGig = await db.query(
+			`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			[event.date, cityId, venueId, slot.artist_id, type, slot.start_time, slot.end_time]
+		);
+
+		const stageId = resolveStageId(slot, stageLookup);
+		await db.query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [eventId, resultGig.insertId, stageId, slot.start_time, slot.end_time]);
 	}
 
 	if (event.edition) {
-		await db.query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [event.edition.edition_id, resultEvent.insertId]);
+		await db.query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [event.edition.edition_id, eventId]);
 	}
 
 	let message = "Error in creating Edition";
@@ -213,6 +460,7 @@ async function dashboard(type = 1) {
 async function remove(id) {
 	await db.query(`DELETE FROM gig WHERE id IN (SELECT gig_id FROM event_gig WHERE event_id = "${id}")`);
 	await db.query(`DELETE FROM event_gig WHERE event_id=${id}`);
+	await db.query(`DELETE FROM event_stage WHERE event_id=${id}`);
 	await db.query(`DELETE FROM edition_event WHERE event_id=${id}`);
 
 	const result = await db.query(`DELETE FROM event WHERE id=${id}`);
@@ -235,37 +483,70 @@ async function update(id, event) {
 	});
 	const result = await db.query(`UPDATE event SET name=?, image=?, description=? WHERE id=?`, [event.name, storedImage.image || null, event.description || null, id]);
 	const eventRows = await db.query(`SELECT date, city_id, venue_id, type FROM event WHERE id=?`, [id]);
+	const existingGigRows = await db.query(
+		`
+		SELECT eg.gig_id, g.artist_id
+		FROM event_gig eg
+		INNER JOIN gig g ON g.id = eg.gig_id
+		WHERE eg.event_id = ?
+		`,
+		[id]
+	);
+	const existingGigByArtist = new Map(existingGigRows.map((row) => [row.artist_id, row.gig_id]));
+	const incomingSlots = normalizeArtistSlots(event.artists);
+	const incomingGigUpdates = Array.isArray(event.gigs)
+		? event.gigs.map((gig) => ({
+			gig_id: normalizeNumber(gig.id),
+			stage_id: normalizeNumber(gig.stage_id),
+			stage_name: extractStageName(gig),
+			start_time: normalizeTime(gig.start_time),
+			end_time: normalizeTime(gig.end_time)
+		}))
+		: [];
+
+	const stageLookup = await ensureEventStages(id, event.stages, [...incomingSlots, ...incomingGigUpdates]);
 	let addedArtists = 0;
+	let updatedEntries = 0;
 
-	if (eventRows.length && Array.isArray(event.artists)) {
+	if (eventRows.length) {
 		const eventData = eventRows[0];
-		const artists = event.artists.filter((artist) => artist && artist.id);
 
-		for (const artist of artists) {
-			const existing = await db.query(
-				`
-				SELECT gig.id
-				FROM gig
-				INNER JOIN event_gig ON event_gig.gig_id = gig.id
-				WHERE event_gig.event_id = ? AND gig.artist_id = ?
-				LIMIT 1
-				`,
-				[id, artist.id]
-			);
-
-			if (existing.length) {
+		for (const slot of incomingSlots) {
+			if (!slot.artist_id) {
 				continue;
 			}
 
-			const resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type) VALUES (?, ?, ?, ?, ?)`, [eventData.date, eventData.city_id, eventData.venue_id, artist.id, eventData.type]);
-			await db.query(`INSERT INTO event_gig (event_id, gig_id) VALUES (?, ?)`, [id, resultGig.insertId]);
+			const stageId = resolveStageId(slot, stageLookup);
+			const existingGigId = existingGigByArtist.get(slot.artist_id);
+
+			if (existingGigId) {
+				await db.query(`UPDATE event_gig SET stage_id=?, start_time=?, end_time=? WHERE event_id=? AND gig_id=?`, [stageId, slot.start_time, slot.end_time, id, existingGigId]);
+				await db.query(`UPDATE gig SET start_time=?, end_time=? WHERE id=?`, [slot.start_time, slot.end_time, existingGigId]);
+				updatedEntries++;
+				continue;
+			}
+
+			const resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`, [eventData.date, eventData.city_id, eventData.venue_id, slot.artist_id, eventData.type, slot.start_time, slot.end_time]);
+			await db.query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [id, resultGig.insertId, stageId, slot.start_time, slot.end_time]);
+			existingGigByArtist.set(slot.artist_id, resultGig.insertId);
 			addedArtists++;
 		}
 	}
 
+	for (const gigUpdate of incomingGigUpdates) {
+		if (!gigUpdate.gig_id) {
+			continue;
+		}
+
+		const stageId = resolveStageId(gigUpdate, stageLookup);
+		await db.query(`UPDATE event_gig SET stage_id=?, start_time=?, end_time=? WHERE event_id=? AND gig_id=?`, [stageId, gigUpdate.start_time, gigUpdate.end_time, id, gigUpdate.gig_id]);
+		await db.query(`UPDATE gig SET start_time=?, end_time=? WHERE id=?`, [gigUpdate.start_time, gigUpdate.end_time, gigUpdate.gig_id]);
+		updatedEntries++;
+	}
+
 	let message = "Error in updating Event";
 
-	if (result.affectedRows || addedArtists) {
+	if (result.affectedRows || addedArtists || updatedEntries) {
 		message = "Event updated successfully";
 	}
 

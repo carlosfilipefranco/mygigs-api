@@ -129,12 +129,18 @@ async function get(id, userId = null) {
     SELECT 
         gig.id, 
         gig.date, 
+        gig.start_time AS gig_start_time,
+        gig.end_time AS gig_end_time,
         artist.name AS artist, 
         artist.image, 
         artist.id AS artist_id, 
         venue.name AS venue,
         venue.id AS venue_id,
         city.name AS city,
+        eg.stage_id,
+        es.name AS stage_name,
+        eg.start_time AS event_start_time,
+        eg.end_time AS event_end_time,
         ev.id AS event_id,
         ev.name AS event_name,
         festival.id AS festival_id, 
@@ -146,6 +152,7 @@ async function get(id, userId = null) {
     INNER JOIN venue ON gig.venue_id = venue.id 
     INNER JOIN city ON gig.city_id = city.id 
     LEFT JOIN event_gig eg ON gig.id = eg.gig_id
+    LEFT JOIN event_stage es ON es.id = eg.stage_id
     LEFT JOIN event ev ON eg.event_id = ev.id
     LEFT JOIN edition_event ee ON eg.event_id = ee.event_id
     LEFT JOIN edition ON ee.edition_id = edition.id
@@ -158,6 +165,8 @@ async function get(id, userId = null) {
 	if (result.length === 0) return null;
 
 	const gig = result[0];
+	gig.start_time = gig.event_start_time || gig.gig_start_time || null;
+	gig.end_time = gig.event_end_time || gig.gig_end_time || null;
 
 	const crowdRows = await db.query(
 		`
