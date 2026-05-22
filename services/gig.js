@@ -102,8 +102,23 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 		queryParams
 	);
 
+	const rowsWithUserGig = helper.emptyOrRows(rows).map((row) => {
+		const status = row?.status || "not_going";
+		const favorite = Number(row?.favorite || 0) === 1;
+
+		return {
+			...row,
+			user_gig: userId
+				? {
+						status,
+						favorite
+				  }
+				: null
+		};
+	});
+
 	return {
-		data: helper.emptyOrRows(rows),
+		data: rowsWithUserGig,
 		meta: { page: Number(page) || 1, count: countRows[0]?.count || 0 }
 	};
 }
