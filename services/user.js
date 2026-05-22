@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const { OAuth2Client } = require("google-auth-library");
 
 const googleClient = new OAuth2Client();
+const GOOGLE_CLIENT_ID_FALLBACK = "276222082601-rjqv1u7qlaqa5obmr6d882om73mlt3tl.apps.googleusercontent.com";
 
 module.exports = {
 	create,
@@ -120,9 +121,7 @@ function getGoogleAudience() {
 		return envClientIds;
 	}
 
-	const error = new Error("Google login não configurado no servidor (GOOGLE_CLIENT_ID)");
-	error.statusCode = 500;
-	throw error;
+	return [GOOGLE_CLIENT_ID_FALLBACK];
 }
 
 async function get(id) {
