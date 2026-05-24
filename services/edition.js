@@ -27,32 +27,52 @@ async function getMultiple(page = 1, search = null) {
 
 async function get(id, userId = null) {
 	try {
-		const edition = await db.query(`
+		const edition = await db.query(
+			`
 		  SELECT e.id, e.date_start, e.date_end, e.name AS name, e.image, v.name AS venue, c.name AS city, c.id AS city_id, v.id AS venue_id, festival.image as festival_image
 		  FROM edition e
 		  LEFT JOIN venue v ON e.venue_id = v.id
 		  LEFT JOIN city c ON e.city_id = c.id
       LEFT JOIN festival ON e.festival_id = festival.id
-		  WHERE e.id = ${id}
-		`);
+		  WHERE e.id = ?
+		`,
+			[id]
+		);
 
-		console.log(id, edition);
+		if (!edition.length) {
+			return {
+				edition: null,
+				gigs: []
+			};
+		}
 
 		const userGigSelect = userId ? ", ug.status AS user_gig_status, ug.favorite AS user_gig_favorite" : "";
 		const userGigJoin = userId ? "LEFT JOIN user_gig ug ON ug.gig_id = g.id AND ug.user_id = ?" : "";
 		const gigsParams = userId ? [userId, id] : [id];
 		const gigsRows = await db.query(
 			`
-		  SELECT g.id, g.date, a.name AS artist, a.image, v.name AS venue${userGigSelect}
+		  SELECT g.id, g.date, g.artist_id, a.name AS artist, a.image, v.name AS venue, v.id AS venue_id, c.name AS city, c.id AS city_id,
+		         ev.id AS event_id, ev.name AS event_name,
+		         eg.stage_id, es.name AS stage_name,
+		         COALESCE(eg.start_time, g.start_time) AS start_time,
+		         COALESCE(eg.end_time, g.end_time) AS end_time
+		         ${userGigSelect}
 		  FROM gig g
 		  INNER JOIN artist a ON g.artist_id = a.id
 		  INNER JOIN venue v ON g.venue_id = v.id
+		  INNER JOIN city c ON g.city_id = c.id
 		  INNER JOIN event_gig eg ON g.id = eg.gig_id
 		  INNER JOIN event ev ON eg.event_id = ev.id
 		  INNER JOIN edition_event ee ON ev.id = ee.event_id
+		  LEFT JOIN event_stage es ON es.id = eg.stage_id
 		  ${userGigJoin}
 		  WHERE ee.edition_id = ?
-		  ORDER BY ev.date, g.position
+		  ORDER BY g.date ASC,
+		           CASE WHEN COALESCE(eg.start_time, g.start_time) IS NULL THEN 1 ELSE 0 END,
+		           COALESCE(eg.start_time, g.start_time) ASC,
+		           es.position ASC,
+		           g.position ASC,
+		           a.name ASC
 		`,
 			gigsParams
 		);
@@ -60,9 +80,19 @@ async function get(id, userId = null) {
 		const gigs = gigsRows.map((row) => ({
 			id: row.id,
 			date: row.date,
+			artist_id: row.artist_id,
 			artist: row.artist,
 			image: row.image,
 			venue: row.venue,
+			venue_id: row.venue_id,
+			city: row.city,
+			city_id: row.city_id,
+			event_id: row.event_id,
+			event_name: row.event_name,
+			stage_id: row.stage_id,
+			stage_name: row.stage_name,
+			start_time: row.start_time,
+			end_time: row.end_time,
 			user_gig: {
 				status: row.user_gig_status || "not_going",
 				favorite: !!row.user_gig_favorite
