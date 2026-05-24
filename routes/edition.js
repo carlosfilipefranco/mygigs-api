@@ -33,6 +33,16 @@ router.put("/:id", requireAdmin, async function (req, res, next) {
 	}
 });
 
+/* POST edition program import */
+router.post("/:id/import-program", requireAdmin, async function (req, res, next) {
+	try {
+		res.json(await edition.importProgram(req.params.id, req.body));
+	} catch (err) {
+		console.error(`Error while importing edition program`, err.message);
+		next(err);
+	}
+});
+
 /* GET edition */
 router.get("/:id", optionalAuth, async function (req, res, next) {
 	try {

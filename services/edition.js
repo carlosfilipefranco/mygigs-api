@@ -2,6 +2,322 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 
+const PORTUGUESE_MONTHS = {
+	janeiro: 1,
+	fevereiro: 2,
+	marco: 3,
+	março: 3,
+	abril: 4,
+	maio: 5,
+	junho: 6,
+	julho: 7,
+	agosto: 8,
+	setembro: 9,
+	outubro: 10,
+	novembro: 11,
+	dezembro: 12
+};
+
+const LOWERCASE_NAME_WORDS = new Set(["de", "da", "do", "dos", "das", "e", "a", "o", "os", "as", "com", "the", "of", "and", "in", "on"]);
+
+function normalizeWhitespace(value) {
+	return (value || "")
+		.toString()
+		.replace(/\r/g, "")
+		.replace(/\u00A0/g, " ")
+		.replace(/[ \t]+/g, " ")
+		.trim();
+}
+
+function stripAccents(value) {
+	return (value || "")
+		.toString()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "");
+}
+
+function parseIsoDate(value) {
+	if (!value) {
+		return null;
+	}
+
+	if (value instanceof Date && !Number.isNaN(value.getTime())) {
+		const year = value.getFullYear();
+		const month = `${value.getMonth() + 1}`.padStart(2, "0");
+		const day = `${value.getDate()}`.padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	}
+
+	const str = normalizeWhitespace(value);
+	if (!str) {
+		return null;
+	}
+
+	const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+	if (!match) {
+		return null;
+	}
+
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+
+	if (!isValidDateParts(year, month, day)) {
+		return null;
+	}
+
+	return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function isValidDateParts(year, month, day) {
+	if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+		return false;
+	}
+
+	if (month < 1 || month > 12 || day < 1 || day > 31) {
+		return false;
+	}
+
+	const date = new Date(year, month - 1, day);
+	return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+function resolveDateForEdition(day, month, editionStartIso, editionEndIso) {
+	const years = [];
+	if (editionStartIso) {
+		years.push(Number(editionStartIso.slice(0, 4)));
+	}
+	if (editionEndIso) {
+		years.push(Number(editionEndIso.slice(0, 4)));
+	}
+	if (!years.length) {
+		years.push(new Date().getFullYear());
+	}
+
+	const uniqueYears = [...new Set(years.filter((year) => Number.isFinite(year)))];
+	const candidates = uniqueYears
+		.map((year) => `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`)
+		.filter((iso) => parseIsoDate(iso));
+
+	if (editionStartIso && editionEndIso) {
+		const inRange = candidates.find((candidate) => candidate >= editionStartIso && candidate <= editionEndIso);
+		if (inRange) {
+			return inRange;
+		}
+	}
+
+	if (editionStartIso) {
+		const startYear = Number(editionStartIso.slice(0, 4));
+		const fallback = `${String(startYear).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+		if (parseIsoDate(fallback)) {
+			return fallback;
+		}
+	}
+
+	return candidates[0] || null;
+}
+
+function normalizeTimeValue(value) {
+	const raw = normalizeWhitespace(value).toUpperCase();
+	if (!raw) {
+		return null;
+	}
+
+	let normalized = raw.replace(/\s+/g, "").replace(/\./g, ":").replace(/H/g, ":");
+	normalized = normalized.replace(/:+/g, ":").replace(/^:/, "").replace(/:$/, "");
+
+	let hours = null;
+	let minutes = 0;
+
+	const hm = normalized.match(/^(\d{1,2}):(\d{1,2})$/);
+	const hOnly = normalized.match(/^(\d{1,2})$/);
+	const compact = normalized.match(/^(\d{3,4})$/);
+
+	if (hm) {
+		hours = Number(hm[1]);
+		minutes = Number(hm[2]);
+	} else if (hOnly) {
+		hours = Number(hOnly[1]);
+		minutes = 0;
+	} else if (compact) {
+		const chunk = compact[1];
+		hours = Number(chunk.slice(0, chunk.length - 2));
+		minutes = Number(chunk.slice(-2));
+	} else {
+		return null;
+	}
+
+	if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+		return null;
+	}
+
+	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
+}
+
+function capitalizeWord(value) {
+	if (!value) {
+		return value;
+	}
+
+	const first = value.charAt(0).toLocaleUpperCase("pt-PT");
+	const rest = value.slice(1).toLocaleLowerCase("pt-PT");
+	return `${first}${rest}`;
+}
+
+function normalizeWordToken(token, index) {
+	if (!token) {
+		return token;
+	}
+
+	if (/^\d+$/.test(token)) {
+		return token;
+	}
+
+	const onlyLetters = token.replace(/[^A-Za-zÀ-ÿ]/g, "");
+	const isAcronym = onlyLetters.length > 0 && onlyLetters.length <= 4 && /^[A-ZÀ-Ý0-9.&/+-]+$/.test(token);
+	const isDottedAcronym = token.includes(".") && /^[A-ZÀ-Ý0-9.]+$/.test(token);
+	if (isAcronym || isDottedAcronym) {
+		return token.toUpperCase();
+	}
+
+	const lowerToken = token.toLocaleLowerCase("pt-PT");
+	if (index > 0 && LOWERCASE_NAME_WORDS.has(lowerToken)) {
+		return lowerToken;
+	}
+
+	if (token.includes("-")) {
+		return token
+			.split("-")
+			.map((piece, pieceIndex) => normalizeWordToken(piece, pieceIndex))
+			.join("-");
+	}
+
+	if (token.includes("'")) {
+		return token
+			.split("'")
+			.map((piece, pieceIndex) => normalizeWordToken(piece, pieceIndex))
+			.join("'");
+	}
+
+	return capitalizeWord(lowerToken);
+}
+
+function normalizeTitleCase(value) {
+	const clean = normalizeWhitespace(value);
+	if (!clean) {
+		return clean;
+	}
+
+	const words = clean.split(" ");
+	return words.map((word, index) => normalizeWordToken(word, index)).join(" ");
+}
+
+function normalizeStageName(value) {
+	return normalizeTitleCase(value);
+}
+
+function normalizeArtistName(value) {
+	return normalizeTitleCase(value);
+}
+
+function parseDateHeader(line) {
+	const normalized = stripAccents(line).toLocaleLowerCase("pt-PT");
+	const match = normalized.match(/^(\d{1,2})\s*(?:de\s+)?([a-z]+)$/i);
+	if (!match) {
+		return null;
+	}
+
+	const day = Number(match[1]);
+	const monthName = match[2];
+	const month = PORTUGUESE_MONTHS[monthName];
+	if (!month || day < 1 || day > 31) {
+		return null;
+	}
+
+	return { day, month };
+}
+
+function parseProgramText(programText, editionStartIso, editionEndIso) {
+	const lines = (programText || "")
+		.toString()
+		.split("\n")
+		.map((line) => normalizeWhitespace(line))
+		.filter((line) => line.length > 0);
+
+	const entries = [];
+	const warnings = [];
+	let currentDate = null;
+	let currentStage = null;
+	let stagePosition = 0;
+	const stagePositionByDate = new Map();
+
+	for (const line of lines) {
+		const dateHeader = parseDateHeader(line);
+		if (dateHeader) {
+			currentDate = resolveDateForEdition(dateHeader.day, dateHeader.month, editionStartIso, editionEndIso);
+			currentStage = null;
+			stagePosition = 0;
+			if (!currentDate) {
+				warnings.push(`Data inválida ignorada: "${line}"`);
+			} else if (!stagePositionByDate.has(currentDate)) {
+				stagePositionByDate.set(currentDate, new Map());
+			}
+			continue;
+		}
+
+		if (!currentDate) {
+			warnings.push(`Linha ignorada sem data: "${line}"`);
+			continue;
+		}
+
+		const slotMatch = line.match(/^([^|]+)\|(.+)$/);
+		if (slotMatch) {
+			const time = normalizeTimeValue(slotMatch[1]);
+			if (!time) {
+				warnings.push(`Hora inválida ignorada: "${line}"`);
+				continue;
+			}
+
+			const artists = slotMatch[2]
+				.split(/\s*[·•]\s*/g)
+				.map((name) => normalizeArtistName(name))
+				.filter(Boolean);
+
+			if (!artists.length) {
+				warnings.push(`Artista inválido ignorado: "${line}"`);
+				continue;
+			}
+
+			for (const artist of artists) {
+				const stageMap = stagePositionByDate.get(currentDate) || new Map();
+				const normalizedStage = currentStage || "Sem palco";
+				const mappedStagePosition = stageMap.get(normalizedStage) || 999;
+				entries.push({
+					date: currentDate,
+					stage_name: normalizedStage,
+					stage_position: mappedStagePosition,
+					start_time: time,
+					end_time: null,
+					artist_name: artist
+				});
+			}
+			continue;
+		}
+
+		stagePosition += 1;
+		const normalizedStage = normalizeStageName(line);
+		currentStage = normalizedStage || line;
+
+		const stageMap = stagePositionByDate.get(currentDate) || new Map();
+		if (!stageMap.has(currentStage)) {
+			stageMap.set(currentStage, stagePosition);
+			stagePositionByDate.set(currentDate, stageMap);
+		}
+	}
+
+	return { entries, warnings };
+}
+
 async function getMultiple(page = 1, search = null) {
 	const offset = helper.getOffset(page, config.listPerPage);
 	let searchQuery = "";
@@ -179,11 +495,234 @@ async function remove(id) {
 	return { message };
 }
 
+async function importProgram(editionId, payload = {}) {
+	const editionRows = await db.query(
+		`
+		SELECT id, name, city_id, venue_id, date_start, date_end
+		FROM edition
+		WHERE id = ?
+		LIMIT 1
+		`,
+		[editionId]
+	);
+
+	if (!editionRows.length) {
+		throw new Error("Edition not found");
+	}
+
+	const edition = editionRows[0];
+	if (!edition.city_id || !edition.venue_id) {
+		throw new Error("Edition must have city and venue before importing program");
+	}
+
+	const editionStartIso = parseIsoDate(edition.date_start);
+	const editionEndIso = parseIsoDate(edition.date_end) || editionStartIso;
+	const { entries, warnings } = parseProgramText(payload.program, editionStartIso, editionEndIso);
+
+	if (!entries.length) {
+		return {
+			message: "No valid lines found to import",
+			created_artists: 0,
+			created_events: 0,
+			created_gigs: 0,
+			updated_gigs: 0,
+			ignored_duplicates: 0,
+			warnings
+		};
+	}
+
+	const type = Number(payload.type) || 1;
+	const uniqueArtistNames = [...new Set(entries.map((entry) => entry.artist_name).filter(Boolean))];
+	const artistIdByName = new Map();
+	let createdArtists = 0;
+
+	for (const artistName of uniqueArtistNames) {
+		const existingArtistRows = await db.query(`SELECT id, name FROM artist WHERE LOWER(name) = LOWER(?) LIMIT 1`, [artistName]);
+		if (existingArtistRows.length) {
+			const currentName = normalizeWhitespace(existingArtistRows[0].name);
+			if (currentName && currentName === currentName.toUpperCase() && currentName !== artistName) {
+				await db.query(`UPDATE artist SET name = ? WHERE id = ?`, [artistName, existingArtistRows[0].id]);
+			}
+			artistIdByName.set(artistName, existingArtistRows[0].id);
+			continue;
+		}
+
+		const insertArtist = await db.query(`INSERT INTO artist (name, image, mbid, type) VALUES (?, '', '', ?)`, [artistName, type]);
+		artistIdByName.set(artistName, insertArtist.insertId);
+		createdArtists += 1;
+	}
+
+	const entriesByDate = new Map();
+	for (const entry of entries) {
+		if (!entriesByDate.has(entry.date)) {
+			entriesByDate.set(entry.date, []);
+		}
+		entriesByDate.get(entry.date).push(entry);
+	}
+
+	let createdEvents = 0;
+	let createdGigs = 0;
+	let updatedGigs = 0;
+	let ignoredDuplicates = 0;
+
+	for (const [date, dateEntries] of entriesByDate.entries()) {
+		const eventRows = await db.query(
+			`
+			SELECT e.id
+			FROM event e
+			INNER JOIN edition_event ee ON ee.event_id = e.id
+			WHERE ee.edition_id = ? AND e.date = ?
+			ORDER BY e.id ASC
+			LIMIT 1
+			`,
+			[edition.id, date]
+		);
+
+		let eventId = null;
+		if (eventRows.length) {
+			eventId = eventRows[0].id;
+		} else {
+			const eventName = `${edition.name} · ${date}`;
+			const eventDescription = `Programação ${edition.name || ""}`.trim();
+			const insertEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?)`, [
+				eventName,
+				date,
+				edition.city_id,
+				edition.venue_id,
+				type,
+				eventDescription || null
+			]);
+			eventId = insertEvent.insertId;
+			await db.query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [edition.id, eventId]);
+			createdEvents += 1;
+		}
+
+		const stageRows = await db.query(`SELECT id, name, position FROM event_stage WHERE event_id = ? ORDER BY position ASC, id ASC`, [eventId]);
+		const stageByKey = new Map(stageRows.map((row) => [stripAccents((row.name || "").toLowerCase()), row]));
+
+		for (const stageName of [...new Set(dateEntries.map((entry) => entry.stage_name).filter(Boolean))]) {
+			const key = stripAccents(stageName.toLowerCase());
+			if (!key) {
+				continue;
+			}
+
+			const stagePosition = dateEntries.find((entry) => entry.stage_name === stageName)?.stage_position || 999;
+			if (stageByKey.has(key)) {
+				const existingStage = stageByKey.get(key);
+				const currentStageName = normalizeWhitespace(existingStage.name);
+				const shouldRenameStage = currentStageName && currentStageName === currentStageName.toUpperCase() && currentStageName !== stageName;
+				if (shouldRenameStage) {
+					await db.query(`UPDATE event_stage SET name = ? WHERE id = ? AND event_id = ?`, [stageName, existingStage.id, eventId]);
+					existingStage.name = stageName;
+				}
+				if (Number(existingStage.position) !== Number(stagePosition)) {
+					await db.query(`UPDATE event_stage SET position = ? WHERE id = ? AND event_id = ?`, [stagePosition, existingStage.id, eventId]);
+					existingStage.position = stagePosition;
+				}
+				continue;
+			}
+
+			const insertStage = await db.query(`INSERT INTO event_stage (event_id, name, position) VALUES (?, ?, ?)`, [eventId, stageName, stagePosition]);
+			stageByKey.set(key, { id: insertStage.insertId, name: stageName, position: stagePosition });
+		}
+
+		const existingGigRows = await db.query(
+			`
+			SELECT eg.gig_id, eg.stage_id, eg.start_time AS event_start_time, eg.end_time AS event_end_time,
+			       g.artist_id, g.start_time AS gig_start_time, g.end_time AS gig_end_time
+			FROM event_gig eg
+			INNER JOIN gig g ON g.id = eg.gig_id
+			WHERE eg.event_id = ?
+			`,
+			[eventId]
+		);
+
+		const gigKeyMap = new Map();
+		for (const gig of existingGigRows) {
+			const startTime = gig.event_start_time || gig.gig_start_time || null;
+			const endTime = gig.event_end_time || gig.gig_end_time || null;
+			const key = `${gig.artist_id}|${gig.stage_id || 0}|${startTime || ""}|${endTime || ""}`;
+			if (!gigKeyMap.has(key)) {
+				gigKeyMap.set(key, gig);
+			}
+		}
+
+		for (const entry of dateEntries) {
+			const artistId = artistIdByName.get(entry.artist_name);
+			if (!artistId) {
+				warnings.push(`Artista não encontrado após criação: "${entry.artist_name}"`);
+				continue;
+			}
+
+			const stageKey = stripAccents((entry.stage_name || "").toLowerCase());
+			const stageRow = stageByKey.get(stageKey);
+			const stageId = stageRow?.id || null;
+			const startTime = entry.start_time || null;
+			const endTime = entry.end_time || null;
+			const dedupeKey = `${artistId}|${stageId || 0}|${startTime || ""}|${endTime || ""}`;
+
+			if (gigKeyMap.has(dedupeKey)) {
+				ignoredDuplicates += 1;
+				continue;
+			}
+
+			const fallbackKey = `${artistId}|${stageId || 0}||`;
+			if (startTime && gigKeyMap.has(fallbackKey)) {
+				const existingGig = gigKeyMap.get(fallbackKey);
+				await db.query(`UPDATE event_gig SET start_time = ?, end_time = ? WHERE event_id = ? AND gig_id = ?`, [startTime, endTime, eventId, existingGig.gig_id]);
+				await db.query(`UPDATE gig SET start_time = ?, end_time = ? WHERE id = ?`, [startTime, endTime, existingGig.gig_id]);
+				gigKeyMap.delete(fallbackKey);
+				gigKeyMap.set(dedupeKey, {
+					...existingGig,
+					stage_id: stageId,
+					event_start_time: startTime,
+					event_end_time: endTime,
+					gig_start_time: startTime,
+					gig_end_time: endTime
+				});
+				updatedGigs += 1;
+				continue;
+			}
+
+			const insertGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
+				date,
+				edition.city_id,
+				edition.venue_id,
+				artistId,
+				type,
+				startTime,
+				endTime
+			]);
+			await db.query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [eventId, insertGig.insertId, stageId, startTime, endTime]);
+
+			createdGigs += 1;
+			gigKeyMap.set(dedupeKey, {
+				gig_id: insertGig.insertId,
+				artist_id: artistId,
+				stage_id: stageId,
+				event_start_time: startTime,
+				event_end_time: endTime
+			});
+		}
+	}
+
+	return {
+		message: "Program imported successfully",
+		created_artists: createdArtists,
+		created_events: createdEvents,
+		created_gigs: createdGigs,
+		updated_gigs: updatedGigs,
+		ignored_duplicates: ignoredDuplicates,
+		warnings
+	};
+}
+
 module.exports = {
 	getMultiple,
 	create,
 	update,
 	remove,
 	get,
-	createBulk
+	createBulk,
+	importProgram
 };
