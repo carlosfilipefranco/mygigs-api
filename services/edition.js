@@ -19,6 +19,7 @@ const PORTUGUESE_MONTHS = {
 };
 
 const LOWERCASE_NAME_WORDS = new Set(["de", "da", "do", "dos", "das", "e", "a", "o", "os", "as", "com", "the", "of", "and", "in", "on"]);
+const NON_ACRONYM_SHORT_WORDS = new Set(["THE", "AND", "FOR", "COM", "DOS", "DAS", "DE", "DA", "DO", "E", "A", "O", "OS", "AS", "OF", "IN", "ON", "TO"]);
 
 function normalizeWhitespace(value) {
 	return (value || "")
@@ -174,9 +175,11 @@ function normalizeWordToken(token, index) {
 	}
 
 	const onlyLetters = token.replace(/[^A-Za-zÀ-ÿ]/g, "");
-	const isAcronym = onlyLetters.length > 0 && onlyLetters.length <= 4 && /^[A-ZÀ-Ý0-9.&/+-]+$/.test(token);
+	const hasSpecialAcronymChars = /[.&/+-]/.test(token);
+	const isUpperToken = /^[A-ZÀ-Ý0-9.&/+-]+$/.test(token);
+	const isAcronym = onlyLetters.length > 0 && onlyLetters.length <= 3 && isUpperToken && !NON_ACRONYM_SHORT_WORDS.has(token);
 	const isDottedAcronym = token.includes(".") && /^[A-ZÀ-Ý0-9.]+$/.test(token);
-	if (isAcronym || isDottedAcronym) {
+	if (isAcronym || isDottedAcronym || (hasSpecialAcronymChars && isUpperToken)) {
 		return token.toUpperCase();
 	}
 
@@ -540,7 +543,7 @@ async function importProgram(editionId, payload = {}) {
 		const existingArtistRows = await db.query(`SELECT id, name FROM artist WHERE LOWER(name) = LOWER(?) LIMIT 1`, [artistName]);
 		if (existingArtistRows.length) {
 			const currentName = normalizeWhitespace(existingArtistRows[0].name);
-			if (currentName && currentName === currentName.toUpperCase() && currentName !== artistName) {
+			if (currentName && currentName.toLowerCase() === artistName.toLowerCase() && currentName !== artistName) {
 				await db.query(`UPDATE artist SET name = ? WHERE id = ?`, [artistName, existingArtistRows[0].id]);
 			}
 			artistIdByName.set(artistName, existingArtistRows[0].id);
@@ -610,7 +613,7 @@ async function importProgram(editionId, payload = {}) {
 			if (stageByKey.has(key)) {
 				const existingStage = stageByKey.get(key);
 				const currentStageName = normalizeWhitespace(existingStage.name);
-				const shouldRenameStage = currentStageName && currentStageName === currentStageName.toUpperCase() && currentStageName !== stageName;
+				const shouldRenameStage = currentStageName && currentStageName.toLowerCase() === stageName.toLowerCase() && currentStageName !== stageName;
 				if (shouldRenameStage) {
 					await db.query(`UPDATE event_stage SET name = ? WHERE id = ? AND event_id = ?`, [stageName, existingStage.id, eventId]);
 					existingStage.name = stageName;
@@ -637,15 +640,37 @@ async function importProgram(editionId, payload = {}) {
 			[eventId]
 		);
 
-		const gigKeyMap = new Map();
+		const artistIdsForDate = [...new Set(dateEntries.map((entry) => artistIdByName.get(entry.artist_name)).filter(Boolean))];
+		let existingVenueDateGigRows = [];
+		if (artistIdsForDate.length) {
+			const artistPlaceholders = artistIdsForDate.map(() => "?").join(",");
+			existingVenueDateGigRows = await db.query(
+				`
+				SELECT id, artist_id, start_time, end_time
+				FROM gig
+				WHERE venue_id = ? AND date = ? AND artist_id IN (${artistPlaceholders})
+				`,
+				[edition.venue_id, date, ...artistIdsForDate]
+			);
+		}
+
+		const eventGigByArtist = new Map();
+		const eventGigByGigId = new Map();
 		for (const gig of existingGigRows) {
-			const startTime = gig.event_start_time || gig.gig_start_time || null;
-			const endTime = gig.event_end_time || gig.gig_end_time || null;
-			const key = `${gig.artist_id}|${gig.stage_id || 0}|${startTime || ""}|${endTime || ""}`;
-			if (!gigKeyMap.has(key)) {
-				gigKeyMap.set(key, gig);
+			if (!eventGigByArtist.has(gig.artist_id)) {
+				eventGigByArtist.set(gig.artist_id, gig);
+			}
+			eventGigByGigId.set(gig.gig_id, gig);
+		}
+
+		const venueDateGigByArtist = new Map();
+		for (const gig of existingVenueDateGigRows) {
+			if (!venueDateGigByArtist.has(gig.artist_id)) {
+				venueDateGigByArtist.set(gig.artist_id, gig);
 			}
 		}
+
+		const processedArtists = new Set();
 
 		for (const entry of dateEntries) {
 			const artistId = artistIdByName.get(entry.artist_name);
@@ -654,55 +679,102 @@ async function importProgram(editionId, payload = {}) {
 				continue;
 			}
 
+			if (processedArtists.has(artistId)) {
+				ignoredDuplicates += 1;
+				warnings.push(`Artista repetido no mesmo dia ignorado: "${entry.artist_name}" em ${date}`);
+				continue;
+			}
+			processedArtists.add(artistId);
+
 			const stageKey = stripAccents((entry.stage_name || "").toLowerCase());
 			const stageRow = stageByKey.get(stageKey);
 			const stageId = stageRow?.id || null;
 			const startTime = entry.start_time || null;
 			const endTime = entry.end_time || null;
-			const dedupeKey = `${artistId}|${stageId || 0}|${startTime || ""}|${endTime || ""}`;
 
-			if (gigKeyMap.has(dedupeKey)) {
-				ignoredDuplicates += 1;
-				continue;
-			}
+			const existingEventGig = eventGigByArtist.get(artistId);
+			if (existingEventGig) {
+				const currentEventStart = existingEventGig.event_start_time || existingEventGig.gig_start_time || null;
+				const currentEventEnd = existingEventGig.event_end_time || existingEventGig.gig_end_time || null;
+				const currentStageId = existingEventGig.stage_id || null;
+				const hasChanges = currentStageId !== stageId || currentEventStart !== startTime || currentEventEnd !== endTime;
 
-			const fallbackKey = `${artistId}|${stageId || 0}||`;
-			if (startTime && gigKeyMap.has(fallbackKey)) {
-				const existingGig = gigKeyMap.get(fallbackKey);
-				await db.query(`UPDATE event_gig SET start_time = ?, end_time = ? WHERE event_id = ? AND gig_id = ?`, [startTime, endTime, eventId, existingGig.gig_id]);
-				await db.query(`UPDATE gig SET start_time = ?, end_time = ? WHERE id = ?`, [startTime, endTime, existingGig.gig_id]);
-				gigKeyMap.delete(fallbackKey);
-				gigKeyMap.set(dedupeKey, {
-					...existingGig,
-					stage_id: stageId,
-					event_start_time: startTime,
-					event_end_time: endTime,
-					gig_start_time: startTime,
-					gig_end_time: endTime
-				});
+				if (!hasChanges) {
+					ignoredDuplicates += 1;
+					continue;
+				}
+
+				await db.query(`UPDATE event_gig SET stage_id = ?, start_time = ?, end_time = ? WHERE event_id = ? AND gig_id = ?`, [stageId, startTime, endTime, eventId, existingEventGig.gig_id]);
+				await db.query(`UPDATE gig SET start_time = ?, end_time = ? WHERE id = ?`, [startTime, endTime, existingEventGig.gig_id]);
+				existingEventGig.stage_id = stageId;
+				existingEventGig.event_start_time = startTime;
+				existingEventGig.event_end_time = endTime;
+				existingEventGig.gig_start_time = startTime;
+				existingEventGig.gig_end_time = endTime;
 				updatedGigs += 1;
 				continue;
 			}
 
-			const insertGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
-				date,
-				edition.city_id,
-				edition.venue_id,
-				artistId,
-				type,
-				startTime,
-				endTime
-			]);
-			await db.query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [eventId, insertGig.insertId, stageId, startTime, endTime]);
+			let gigIdToUse = null;
+			let createdGigNow = false;
+			const existingVenueDateGig = venueDateGigByArtist.get(artistId);
+			if (existingVenueDateGig?.id) {
+				gigIdToUse = existingVenueDateGig.id;
+				await db.query(`UPDATE gig SET start_time = ?, end_time = ? WHERE id = ?`, [startTime, endTime, gigIdToUse]);
+			} else {
+				try {
+					const insertGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
+						date,
+						edition.city_id,
+						edition.venue_id,
+						artistId,
+						type,
+						startTime,
+						endTime
+					]);
+					gigIdToUse = insertGig.insertId;
+					createdGigNow = true;
+					createdGigs += 1;
+				} catch (error) {
+					if (error?.code !== "ER_DUP_ENTRY") {
+						throw error;
+					}
 
-			createdGigs += 1;
-			gigKeyMap.set(dedupeKey, {
-				gig_id: insertGig.insertId,
+					const duplicateGigRows = await db.query(`SELECT id FROM gig WHERE artist_id = ? AND venue_id = ? AND date = ? LIMIT 1`, [artistId, edition.venue_id, date]);
+					if (!duplicateGigRows.length) {
+						throw error;
+					}
+
+					gigIdToUse = duplicateGigRows[0].id;
+					await db.query(`UPDATE gig SET start_time = ?, end_time = ? WHERE id = ?`, [startTime, endTime, gigIdToUse]);
+				}
+			}
+
+			if (!gigIdToUse) {
+				continue;
+			}
+
+			if (!eventGigByGigId.has(gigIdToUse)) {
+				await db.query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [eventId, gigIdToUse, stageId, startTime, endTime]);
+			} else {
+				await db.query(`UPDATE event_gig SET stage_id = ?, start_time = ?, end_time = ? WHERE event_id = ? AND gig_id = ?`, [stageId, startTime, endTime, eventId, gigIdToUse]);
+			}
+
+			const gigSnapshot = {
+				gig_id: gigIdToUse,
 				artist_id: artistId,
 				stage_id: stageId,
 				event_start_time: startTime,
-				event_end_time: endTime
-			});
+				event_end_time: endTime,
+				gig_start_time: startTime,
+				gig_end_time: endTime
+			};
+			eventGigByArtist.set(artistId, gigSnapshot);
+			eventGigByGigId.set(gigIdToUse, gigSnapshot);
+			venueDateGigByArtist.set(artistId, { id: gigIdToUse, artist_id: artistId, start_time: startTime, end_time: endTime });
+			if (!createdGigNow) {
+				updatedGigs += 1;
+			}
 		}
 	}
 
