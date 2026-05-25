@@ -256,11 +256,16 @@ function resolveScope(userId, scope) {
 	return userId ? "me" : "global";
 }
 
-function buildPeriodClause(period, field = "gig.date") {
+function buildPeriodClause(period, field = "gig.date", options = {}) {
+	const includeNullOnPast = !!options.includeNullOnPast;
+
 	if (period === "upcoming") {
 		return ` AND ${field} >= CURDATE()`;
 	}
 	if (period === "past") {
+		if (includeNullOnPast) {
+			return ` AND (${field} < CURDATE() OR ${field} IS NULL)`;
+		}
 		return ` AND ${field} < CURDATE()`;
 	}
 	return "";
@@ -333,7 +338,7 @@ async function globalDashboard(type, period = null) {
 }
 
 async function userGigDashboard(type, userId, period = null) {
-	const periodClause = buildPeriodClause(period, "gig.date");
+	const periodClause = buildPeriodClause(period, "gig.date", { includeNullOnPast: true });
 	const total_gigs = await db.query(
 		`
 		SELECT COUNT(DISTINCT gig.id) AS total_gigs
