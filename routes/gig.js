@@ -45,10 +45,9 @@ router.get("/dashboard", optionalAuth, async function (req, res, next) {
 	}
 });
 
-/* PUT gig */
+/* GET gig */
 router.get("/:id", optionalAuth, async (req, res, next) => {
 	try {
-		// Se estiver logado, req.user.id existe
 		const userId = req.user ? req.user.id : null;
 		const gigData = await gig.get(req.params.id, userId);
 		res.json(gigData);
@@ -58,10 +57,10 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
 	}
 });
 
-/* GET city */
-router.get("/:id", async function (req, res, next) {
+/* PUT gig */
+router.put("/:id", requireAdmin, async function (req, res, next) {
 	try {
-		res.json(await gig.get(req.params.id, req.body));
+		res.json(await gig.update(req.params.id, req.body));
 	} catch (err) {
 		console.error(`Error while updating gig`, err.message);
 		next(err);

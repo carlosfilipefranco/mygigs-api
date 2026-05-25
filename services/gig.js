@@ -2,6 +2,130 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 
+function hasOwn(object, key) {
+	return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
+
+function normalizeNumber(value) {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed) || parsed <= 0) {
+		return null;
+	}
+
+	return parsed;
+}
+
+function normalizeDate(value) {
+	if (value === null) {
+		return null;
+	}
+
+	if (typeof value !== "string") {
+		return undefined;
+	}
+
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+	if (!match) {
+		return undefined;
+	}
+
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	const date = new Date(year, month - 1, day);
+	const isValid = date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+
+	if (!isValid) {
+		return undefined;
+	}
+
+	return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function normalizeTime(value) {
+	if (value === null) {
+		return null;
+	}
+
+	if (typeof value !== "string") {
+		return undefined;
+	}
+
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const match = trimmed.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+	if (!match) {
+		return undefined;
+	}
+
+	const hours = Number(match[1]);
+	const minutes = Number(match[2]);
+	const seconds = Number(match[3] || "0");
+
+	if (hours > 23 || minutes > 59 || seconds > 59) {
+		return undefined;
+	}
+
+	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function normalizeStageName(value) {
+	if (value === null) {
+		return null;
+	}
+
+	if (typeof value !== "string") {
+		return undefined;
+	}
+
+	const trimmed = value.trim();
+	return trimmed || null;
+}
+
+async function resolveStageId(eventId, inputStageId, inputStageName) {
+	if (!eventId) {
+		return null;
+	}
+
+	const stageId = normalizeNumber(inputStageId);
+	if (stageId) {
+		const stageRows = await db.query(`SELECT id FROM event_stage WHERE id = ? AND event_id = ? LIMIT 1`, [stageId, eventId]);
+		if (stageRows.length) {
+			return stageRows[0].id;
+		}
+	}
+
+	const stageName = normalizeStageName(inputStageName);
+	if (stageName === undefined) {
+		return undefined;
+	}
+	if (!stageName) {
+		return null;
+	}
+
+	const existingRows = await db.query(`SELECT id, name FROM event_stage WHERE event_id = ? AND LOWER(name) = LOWER(?) LIMIT 1`, [eventId, stageName]);
+	if (existingRows.length) {
+		const existing = existingRows[0];
+		if (existing.name !== stageName && existing.name?.toLowerCase() === stageName.toLowerCase()) {
+			await db.query(`UPDATE event_stage SET name = ? WHERE id = ? AND event_id = ?`, [stageName, existing.id, eventId]);
+		}
+		return existing.id;
+	}
+
+	const positionRows = await db.query(`SELECT COALESCE(MAX(position), 0) AS max_position FROM event_stage WHERE event_id = ?`, [eventId]);
+	const nextPosition = Number(positionRows?.[0]?.max_position || 0) + 1;
+	const insertResult = await db.query(`INSERT INTO event_stage (event_id, name, position) VALUES (?, ?, ?)`, [eventId, stageName, nextPosition]);
+	return insertResult.insertId;
+}
+
 async function getMultiple(userId, page = 1, search = null, favorite = null, type = 1, period = null, mine = null, order = "date") {
 	const offset = helper.getOffset(page, config.listPerPage);
 	const normalizedType = Number(type) || 1;
@@ -524,20 +648,100 @@ async function images(images) {
 }
 
 async function update(id, gig) {
-	const rows = await db.query(`SELECT id FROM city WHERE name="${gig.city}"`);
-	console.log(rows);
-	var result;
-	if (rows.length) {
-		result = await db.query(`UPDATE gig SET city_id="${rows[0].id}" WHERE id="${id}"`);
+	const gigId = normalizeNumber(id);
+	if (!gigId) {
+		throw new Error("Gig inválido");
 	}
 
-	let message = "Error in updating gig";
-
-	if (result.affectedRows) {
-		message = "gig updated successfully";
+	const currentRows = await db.query(`SELECT id, date, start_time, end_time FROM gig WHERE id = ? LIMIT 1`, [gigId]);
+	if (!currentRows.length) {
+		throw new Error("Gig não encontrado");
 	}
 
-	return { message };
+	const nextDate = hasOwn(gig, "date") ? normalizeDate(gig.date) : undefined;
+	const nextStartTime = hasOwn(gig, "start_time") ? normalizeTime(gig.start_time) : undefined;
+	const nextEndTime = hasOwn(gig, "end_time") ? normalizeTime(gig.end_time) : undefined;
+	const nextStageName = hasOwn(gig, "stage_name") ? normalizeStageName(gig.stage_name) : undefined;
+	const providedEventId = hasOwn(gig, "event_id") ? normalizeNumber(gig.event_id) : null;
+
+	if (hasOwn(gig, "date") && nextDate === undefined) {
+		throw new Error("Data inválida. Usa o formato YYYY-MM-DD.");
+	}
+	if (hasOwn(gig, "start_time") && nextStartTime === undefined) {
+		throw new Error("Hora de início inválida. Usa HH:mm ou HH:mm:ss.");
+	}
+	if (hasOwn(gig, "end_time") && nextEndTime === undefined) {
+		throw new Error("Hora de fim inválida. Usa HH:mm ou HH:mm:ss.");
+	}
+	if (hasOwn(gig, "stage_name") && nextStageName === undefined) {
+		throw new Error("Nome de palco inválido.");
+	}
+	if (hasOwn(gig, "event_id") && gig.event_id !== null && gig.event_id !== "" && !providedEventId) {
+		throw new Error("event_id inválido.");
+	}
+
+	let affectedRows = 0;
+	const gigFields = [];
+	const gigParams = [];
+
+	if (hasOwn(gig, "date")) {
+		gigFields.push("date = ?");
+		gigParams.push(nextDate);
+	}
+	if (hasOwn(gig, "start_time")) {
+		gigFields.push("start_time = ?");
+		gigParams.push(nextStartTime);
+	}
+	if (hasOwn(gig, "end_time")) {
+		gigFields.push("end_time = ?");
+		gigParams.push(nextEndTime);
+	}
+
+	if (gigFields.length) {
+		const updateResult = await db.query(`UPDATE gig SET ${gigFields.join(", ")} WHERE id = ?`, [...gigParams, gigId]);
+		affectedRows += Number(updateResult.affectedRows || 0);
+	}
+
+	const shouldUpdateEventGig =
+		hasOwn(gig, "event_id") ||
+		hasOwn(gig, "stage_name") ||
+		hasOwn(gig, "stage_id") ||
+		hasOwn(gig, "start_time") ||
+		hasOwn(gig, "end_time");
+
+	if (shouldUpdateEventGig) {
+		const eventGigRows = await db.query(`SELECT event_id, stage_id, start_time, end_time FROM event_gig WHERE gig_id = ?`, [gigId]);
+		if (eventGigRows.length) {
+			let targetRows = eventGigRows;
+			if (providedEventId) {
+				targetRows = eventGigRows.filter((row) => Number(row.event_id) === providedEventId);
+				if (!targetRows.length) {
+					throw new Error("Este concerto não pertence ao evento indicado.");
+				}
+			} else if ((hasOwn(gig, "stage_name") || hasOwn(gig, "stage_id")) && eventGigRows.length > 1) {
+				throw new Error("Indica event_id para editar palco quando o concerto pertence a vários eventos.");
+			}
+
+			for (const row of targetRows) {
+				const eventId = Number(row.event_id);
+				const stageId = hasOwn(gig, "stage_name") || hasOwn(gig, "stage_id") ? await resolveStageId(eventId, gig.stage_id, nextStageName) : row.stage_id;
+				if (stageId === undefined) {
+					throw new Error("Palco inválido.");
+				}
+
+				const eventStartTime = hasOwn(gig, "start_time") ? nextStartTime : row.start_time;
+				const eventEndTime = hasOwn(gig, "end_time") ? nextEndTime : row.end_time;
+				const result = await db.query(`UPDATE event_gig SET stage_id = ?, start_time = ?, end_time = ? WHERE event_id = ? AND gig_id = ?`, [stageId, eventStartTime, eventEndTime, eventId, gigId]);
+				affectedRows += Number(result.affectedRows || 0);
+			}
+		}
+	}
+
+	if (!affectedRows) {
+		return { message: "No changes" };
+	}
+
+	return { message: "gig updated successfully" };
 }
 
 async function remove(id) {
