@@ -12,7 +12,10 @@ const config = {
 	// 	password: "root",
 	// 	database: "mygigs"
 	// },
-	listPerPage: 20
+	listPerPage: 20,
+	seo: {
+		siteUrl: process.env.SEO_SITE_URL || process.env.SITE_URL || "http://mygigs-04.web.app"
+	}
 };
 
 module.exports = config;

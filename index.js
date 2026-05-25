@@ -20,6 +20,7 @@ const setlist = require("./routes/setlist");
 const user = require("./routes/user");
 const userGig = require("./routes/userGig");
 const userEvent = require("./routes/userEvent");
+const seo = require("./routes/seo");
 
 // ------------------
 // ADMIN ROUTER
@@ -69,6 +70,8 @@ app.use("/admin", adminRouter);
 app.get("/", (req, res) => {
 	res.json({ message: "API is running" });
 });
+
+app.use("/", seo);
 
 // ------------------
 // API ROUTES
