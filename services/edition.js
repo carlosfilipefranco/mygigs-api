@@ -1,6 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 
 const PORTUGUESE_MONTHS = {
 	janeiro: 1,
@@ -327,7 +328,7 @@ async function getMultiple(page = 1, search = null) {
 	if (search) {
 		searchQuery = `WHERE LOWER(edition.name) LIKE '%${search}%'`;
 	}
-	const rows = await db.query(`SELECT id, name FROM edition ${searchQuery}  LIMIT ${offset},${config.listPerPage}`);
+	const rows = await db.query(`SELECT id, name, slug FROM edition ${searchQuery}  LIMIT ${offset},${config.listPerPage}`);
 	const data = helper.emptyOrRows(rows);
 
 	let count = rows.length;
@@ -346,16 +347,24 @@ async function getMultiple(page = 1, search = null) {
 
 async function get(id, userId = null) {
 	try {
+		const resolvedId = await resolveEntityIdByIdentifier(db, "edition", id);
+		if (!resolvedId) {
+			return {
+				edition: null,
+				gigs: []
+			};
+		}
+
 		const edition = await db.query(
 			`
-		  SELECT e.id, e.date_start, e.date_end, e.name AS name, e.image, v.name AS venue, c.name AS city, c.id AS city_id, v.id AS venue_id, festival.image as festival_image
+		  SELECT e.id, e.slug, e.date_start, e.date_end, e.name AS name, e.image, v.name AS venue, c.name AS city, c.id AS city_id, v.id AS venue_id, festival.image as festival_image
 		  FROM edition e
 		  LEFT JOIN venue v ON e.venue_id = v.id
 		  LEFT JOIN city c ON e.city_id = c.id
       LEFT JOIN festival ON e.festival_id = festival.id
 		  WHERE e.id = ?
 		`,
-			[id]
+			[resolvedId]
 		);
 
 		if (!edition.length) {
@@ -367,11 +376,11 @@ async function get(id, userId = null) {
 
 		const userGigSelect = userId ? ", ug.status AS user_gig_status, ug.favorite AS user_gig_favorite" : "";
 		const userGigJoin = userId ? "LEFT JOIN user_gig ug ON ug.gig_id = g.id AND ug.user_id = ?" : "";
-		const gigsParams = userId ? [userId, id] : [id];
+		const gigsParams = userId ? [userId, resolvedId] : [resolvedId];
 		const gigsRows = await db.query(
 			`
 		  SELECT g.id, g.date, g.artist_id, a.name AS artist, a.image, v.name AS venue, v.id AS venue_id, c.name AS city, c.id AS city_id,
-		         ev.id AS event_id, ev.name AS event_name,
+		         ev.id AS event_id, ev.name AS event_name, ev.slug AS event_slug,
 		         eg.stage_id, es.name AS stage_name,
 		         COALESCE(eg.start_time, g.start_time) AS start_time,
 		         COALESCE(eg.end_time, g.end_time) AS end_time
@@ -408,6 +417,7 @@ async function get(id, userId = null) {
 			city_id: row.city_id,
 			event_id: row.event_id,
 			event_name: row.event_name,
+			event_slug: row.event_slug,
 			stage_id: row.stage_id,
 			stage_name: row.stage_name,
 			start_time: row.start_time,
@@ -421,6 +431,7 @@ async function get(id, userId = null) {
 		return {
 			edition: {
 				id: edition[0].id,
+				slug: edition[0].slug || null,
 				date_start: edition[0].date_start,
 				date_end: edition[0].date_end,
 				name: edition[0].name,
@@ -439,12 +450,13 @@ async function get(id, userId = null) {
 async function create(edition) {
 	const rows = await db.query(`SELECT id FROM edition WHERE name="${edition.name}"`);
 	var result;
+	const slug = await buildUniqueSlug(db, "edition", edition?.name, rows?.[0]?.id || null);
 
 	if (rows.length) {
 		const id = rows[0].id;
-		result = await db.query(`UPDATE edition SET name="${edition.name}", festival_id="${edition.festival_id}", image="${edition.image}", city_id="${edition.city.id}", venue_id="${edition.venue.id}" WHERE id=${id}`);
+		result = await db.query(`UPDATE edition SET name="${edition.name}", slug="${slug}", festival_id="${edition.festival_id}", image="${edition.image}", city_id="${edition.city.id}", venue_id="${edition.venue.id}" WHERE id=${id}`);
 	} else {
-		result = await db.query(`INSERT INTO edition (name, festival_id, image, city_id, venue_id) VALUES  ("${edition.name}", "${edition.festival_id}", "${edition.image}", "${edition.city.id}", "${edition.venue.id}")`);
+		result = await db.query(`INSERT INTO edition (name, slug, festival_id, image, city_id, venue_id) VALUES  ("${edition.name}", "${slug}", "${edition.festival_id}", "${edition.image}", "${edition.city.id}", "${edition.venue.id}")`);
 	}
 
 	let message = "Error in creating Edition";
@@ -460,12 +472,13 @@ async function createBulk(editions) {
 	editions.forEach(async (edition) => {
 		const rows = await db.query(`SELECT id FROM edition WHERE name="${edition}"`);
 		var result;
+		const slug = await buildUniqueSlug(db, "edition", edition, rows?.[0]?.id || null);
 
 		if (rows.length) {
 			const id = rows[0].id;
-			result = await db.query(`UPDATE edition SET name="${edition}" WHERE id=${id}`);
+			result = await db.query(`UPDATE edition SET name="${edition}", slug="${slug}" WHERE id=${id}`);
 		} else {
-			result = await db.query(`INSERT INTO edition (name)  VALUES  ("${edition}")`);
+			result = await db.query(`INSERT INTO edition (name, slug)  VALUES  ("${edition}", "${slug}")`);
 		}
 	});
 
@@ -475,7 +488,13 @@ async function createBulk(editions) {
 }
 
 async function update(id, edition) {
-	const result = await db.query(`UPDATE edition SET name="${edition.name}", image="${edition.image}", city_id="${edition.city.id}", venue_id="${edition.venue.id}" WHERE id=${id}`);
+	const resolvedId = await resolveEntityIdByIdentifier(db, "edition", id);
+	if (!resolvedId) {
+		return { message: "Edition not found" };
+	}
+
+	const slug = await buildUniqueSlug(db, "edition", edition?.name, resolvedId);
+	const result = await db.query(`UPDATE edition SET name="${edition.name}", slug="${slug}", image="${edition.image}", city_id="${edition.city.id}", venue_id="${edition.venue.id}" WHERE id=${resolvedId}`);
 
 	let message = "Error in updating Edition";
 
@@ -487,7 +506,12 @@ async function update(id, edition) {
 }
 
 async function remove(id) {
-	const result = await db.query(`DELETE FROM edition WHERE id=${id}`);
+	const resolvedId = await resolveEntityIdByIdentifier(db, "edition", id);
+	if (!resolvedId) {
+		return { message: "Edition not found" };
+	}
+
+	const result = await db.query(`DELETE FROM edition WHERE id=${resolvedId}`);
 
 	let message = "Error in deleting Edition";
 
@@ -499,6 +523,11 @@ async function remove(id) {
 }
 
 async function importProgram(editionId, payload = {}) {
+	const resolvedEditionId = await resolveEntityIdByIdentifier(db, "edition", editionId);
+	if (!resolvedEditionId) {
+		throw new Error("Edition not found");
+	}
+
 	const editionRows = await db.query(
 		`
 		SELECT id, name, city_id, venue_id, date_start, date_end
@@ -506,12 +535,8 @@ async function importProgram(editionId, payload = {}) {
 		WHERE id = ?
 		LIMIT 1
 		`,
-		[editionId]
+		[resolvedEditionId]
 	);
-
-	if (!editionRows.length) {
-		throw new Error("Edition not found");
-	}
 
 	const edition = editionRows[0];
 	if (!edition.city_id || !edition.venue_id) {
@@ -543,14 +568,18 @@ async function importProgram(editionId, payload = {}) {
 		const existingArtistRows = await db.query(`SELECT id, name FROM artist WHERE LOWER(name) = LOWER(?) LIMIT 1`, [artistName]);
 		if (existingArtistRows.length) {
 			const currentName = normalizeWhitespace(existingArtistRows[0].name);
+			const artistSlug = await buildUniqueSlug(db, "artist", artistName, existingArtistRows[0].id);
 			if (currentName && currentName.toLowerCase() === artistName.toLowerCase() && currentName !== artistName) {
-				await db.query(`UPDATE artist SET name = ? WHERE id = ?`, [artistName, existingArtistRows[0].id]);
+				await db.query(`UPDATE artist SET name = ?, slug = ? WHERE id = ?`, [artistName, artistSlug, existingArtistRows[0].id]);
+			} else {
+				await db.query(`UPDATE artist SET slug = ? WHERE id = ?`, [artistSlug, existingArtistRows[0].id]);
 			}
 			artistIdByName.set(artistName, existingArtistRows[0].id);
 			continue;
 		}
 
-		const insertArtist = await db.query(`INSERT INTO artist (name, image, mbid, type) VALUES (?, '', '', ?)`, [artistName, type]);
+		const artistSlug = await buildUniqueSlug(db, "artist", artistName);
+		const insertArtist = await db.query(`INSERT INTO artist (name, image, mbid, type, slug) VALUES (?, '', '', ?, ?)`, [artistName, type, artistSlug]);
 		artistIdByName.set(artistName, insertArtist.insertId);
 		createdArtists += 1;
 	}
@@ -587,8 +616,10 @@ async function importProgram(editionId, payload = {}) {
 		} else {
 			const eventName = `${edition.name} · ${date}`;
 			const eventDescription = `Programação ${edition.name || ""}`.trim();
-			const insertEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?)`, [
+			const eventSlug = await buildUniqueSlug(db, "event", eventName);
+			const insertEvent = await db.query(`INSERT INTO event (name, slug, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
 				eventName,
+				eventSlug,
 				date,
 				edition.city_id,
 				edition.venue_id,

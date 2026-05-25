@@ -267,10 +267,12 @@ async function get(id, userId = null) {
         eg.end_time AS event_end_time,
         ev.id AS event_id,
         ev.name AS event_name,
+        ev.slug AS event_slug,
         festival.id AS festival_id, 
         festival.name AS festival_name,
         edition.id AS edition_id,
-        edition.name AS edition_name
+        edition.name AS edition_name,
+        edition.slug AS edition_slug
     FROM gig 
     INNER JOIN artist ON gig.artist_id = artist.id 
     INNER JOIN venue ON gig.venue_id = venue.id 
@@ -424,11 +426,11 @@ async function globalDashboard(type, period = null) {
 	const gigs_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS gig_count FROM gig WHERE type = ?${periodClause} GROUP BY YEAR(date) ORDER BY YEAR(date);`, [type]);
 	const gigs_by_artist = await db.query(
 		`
-		SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(gig.id) AS gig_count
+		SELECT artist.id, artist.name, artist.slug, artist.image, artist.id as artist_id, COUNT(gig.id) AS gig_count
 		FROM artist
 		LEFT JOIN gig ON artist.id = gig.artist_id
 		WHERE gig.type = ?${periodClause}
-		GROUP BY artist.id, artist.name, artist.image
+		GROUP BY artist.id, artist.name, artist.slug, artist.image
 		ORDER BY gig_count DESC;
 		`,
 		[type]
@@ -438,6 +440,7 @@ async function globalDashboard(type, period = null) {
 		SELECT
 			festival.id,
 			festival.name,
+			festival.slug,
 			festival.image,
 			COUNT(DISTINCT edition.id) AS edition_count,
 			COUNT(DISTINCT event_gig.event_id) AS total_events
@@ -447,7 +450,7 @@ async function globalDashboard(type, period = null) {
 		INNER JOIN event_gig ON event_gig.event_id = edition_event.event_id
 		INNER JOIN gig ON gig.id = event_gig.gig_id
 		WHERE gig.type = ?${periodClause}
-		GROUP BY festival.id, festival.name, festival.image
+		GROUP BY festival.id, festival.name, festival.slug, festival.image
 		ORDER BY edition_count DESC, total_events DESC
 		`,
 		[type]
@@ -485,12 +488,12 @@ async function userGigDashboard(type, userId, period = null) {
 	);
 	const gigs_by_artist = await db.query(
 		`
-		SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(DISTINCT gig.id) AS gig_count
+		SELECT artist.id, artist.name, artist.slug, artist.image, artist.id as artist_id, COUNT(DISTINCT gig.id) AS gig_count
 		FROM user_gig
 		INNER JOIN gig ON user_gig.gig_id = gig.id
 		INNER JOIN artist ON artist.id = gig.artist_id
 		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?${periodClause}
-		GROUP BY artist.id, artist.name, artist.image
+		GROUP BY artist.id, artist.name, artist.slug, artist.image
 		ORDER BY gig_count DESC
 		`,
 		[userId, type]
@@ -500,6 +503,7 @@ async function userGigDashboard(type, userId, period = null) {
 		SELECT
 			festival.id,
 			festival.name,
+			festival.slug,
 			festival.image,
 			COUNT(DISTINCT edition.id) AS edition_count,
 			COUNT(DISTINCT event_gig.event_id) AS total_events
@@ -510,7 +514,7 @@ async function userGigDashboard(type, userId, period = null) {
 		INNER JOIN edition ON edition.id = edition_event.edition_id
 		INNER JOIN festival ON festival.id = edition.festival_id
 		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?${periodClause}
-		GROUP BY festival.id, festival.name, festival.image
+		GROUP BY festival.id, festival.name, festival.slug, festival.image
 		ORDER BY edition_count DESC, total_events DESC
 		`,
 		[userId, type]
@@ -549,14 +553,14 @@ async function userEventDashboard(type, userId, period = null) {
 	);
 	const gigs_by_artist = await db.query(
 		`
-		SELECT artist.id, artist.name, artist.image, artist.id as artist_id, COUNT(DISTINCT event.id) AS gig_count
+		SELECT artist.id, artist.name, artist.slug, artist.image, artist.id as artist_id, COUNT(DISTINCT event.id) AS gig_count
 		FROM user_event
 		INNER JOIN event ON user_event.event_id = event.id
 		INNER JOIN event_gig ON event_gig.event_id = event.id
 		INNER JOIN gig ON gig.id = event_gig.gig_id
 		INNER JOIN artist ON artist.id = gig.artist_id
 		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?${periodClause}
-		GROUP BY artist.id, artist.name, artist.image
+		GROUP BY artist.id, artist.name, artist.slug, artist.image
 		ORDER BY gig_count DESC
 		`,
 		[userId, ...countedStatuses, type]
@@ -566,6 +570,7 @@ async function userEventDashboard(type, userId, period = null) {
 		SELECT
 			festival.id,
 			festival.name,
+			festival.slug,
 			festival.image,
 			COUNT(DISTINCT edition.id) AS edition_count,
 			COUNT(DISTINCT event.id) AS total_events
@@ -575,7 +580,7 @@ async function userEventDashboard(type, userId, period = null) {
 		INNER JOIN edition ON edition.id = edition_event.edition_id
 		INNER JOIN festival ON festival.id = edition.festival_id
 		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?${periodClause}
-		GROUP BY festival.id, festival.name, festival.image
+		GROUP BY festival.id, festival.name, festival.slug, festival.image
 		ORDER BY edition_count DESC, total_events DESC
 		`,
 		[userId, ...countedStatuses, type]

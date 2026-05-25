@@ -6,7 +6,8 @@
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"start": "node index.js",
-		"download:event-images": "node scripts/download-event-images.js"
+		"download:event-images": "node scripts/download-event-images.js",
+		"backfill:slugs": "node scripts/backfill-slugs.js"
 	},
 	"keywords": [],
 	"author": "",

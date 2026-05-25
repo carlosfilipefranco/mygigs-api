@@ -1,6 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 
 async function getMultiple(page = 1, search = null) {
 	const offset = helper.getOffset(page, config.listPerPage);
@@ -8,7 +9,7 @@ async function getMultiple(page = 1, search = null) {
 	if (search) {
 		searchQuery = `WHERE LOWER(festival.name) LIKE '%${search}%'`;
 	}
-	const rows = await db.query(`SELECT festival.id, festival.name, festival.image FROM festival ${searchQuery} ORDER by name LIMIT ${offset},${config.listPerPage}`);
+	const rows = await db.query(`SELECT festival.id, festival.name, festival.image, festival.slug FROM festival ${searchQuery} ORDER by name LIMIT ${offset},${config.listPerPage}`);
 
 	// createEditions(rows);
 
@@ -30,8 +31,13 @@ async function getMultiple(page = 1, search = null) {
 }
 
 async function get(id) {
-	const festival = await db.query(`SELECT festival.id, festival.name, festival.image FROM festival WHERE festival.id = ${id}`);
-	const editions = await db.query(`SELECT festival.id, festival.name, edition.id AS edition_id, edition.name AS edition_name FROM festival JOIN edition ON festival.id = edition.festival_id WHERE festival.id = ${id} ORDER by date_start`);
+	const resolvedId = await resolveEntityIdByIdentifier(db, "festival", id);
+	if (!resolvedId) {
+		return { festival: null, editions: [] };
+	}
+
+	const festival = await db.query(`SELECT festival.id, festival.name, festival.image, festival.slug FROM festival WHERE festival.id = ?`, [resolvedId]);
+	const editions = await db.query(`SELECT festival.id, festival.name, edition.id AS edition_id, edition.name AS edition_name, edition.slug AS edition_slug FROM festival JOIN edition ON festival.id = edition.festival_id WHERE festival.id = ? ORDER by date_start`, [resolvedId]);
 
 	return {
 		festival: festival[0],
@@ -96,12 +102,13 @@ async function populateEditionEvent() {
 async function create(festival) {
 	const rows = await db.query(`SELECT id FROM festival WHERE name="${festival.name}"`);
 	var result;
+	const slug = await buildUniqueSlug(db, "festival", festival?.name, rows?.[0]?.id || null);
 
 	if (rows.length) {
 		const id = rows[0].id;
-		result = await db.query(`UPDATE festival SET name="${festival.name}", image="${festival.image}" WHERE id=${id}`);
+		result = await db.query(`UPDATE festival SET name="${festival.name}", image="${festival.image}", slug="${slug}" WHERE id=${id}`);
 	} else {
-		result = await db.query(`INSERT INTO festival (name, image) VALUES ("${festival.name}", "${festival.image}")`);
+		result = await db.query(`INSERT INTO festival (name, image, slug) VALUES ("${festival.name}", "${festival.image}", "${slug}")`);
 	}
 
 	let message = "Error in creating Festival";
@@ -117,12 +124,13 @@ async function createBulk(festivals) {
 	festivals.forEach(async (festival) => {
 		const rows = await db.query(`SELECT id FROM festival WHERE name="${festival}"`);
 		var result;
+		const slug = await buildUniqueSlug(db, "festival", festival, rows?.[0]?.id || null);
 
 		if (rows.length) {
 			const id = rows[0].id;
-			result = await db.query(`UPDATE festival SET name="${festival}" WHERE id=${id}`);
+			result = await db.query(`UPDATE festival SET name="${festival}", slug="${slug}" WHERE id=${id}`);
 		} else {
-			result = await db.query(`INSERT INTO festival (name)  VALUES  ("${festival}")`);
+			result = await db.query(`INSERT INTO festival (name, slug)  VALUES  ("${festival}", "${slug}")`);
 		}
 	});
 
@@ -132,7 +140,13 @@ async function createBulk(festivals) {
 }
 
 async function update(id, festival) {
-	const result = await db.query(`UPDATE festival SET name="${festival.name}", image="${festival.image}" WHERE id=${id}`);
+	const resolvedId = await resolveEntityIdByIdentifier(db, "festival", id);
+	if (!resolvedId) {
+		return { message: "Festival not found" };
+	}
+
+	const slug = await buildUniqueSlug(db, "festival", festival?.name, resolvedId);
+	const result = await db.query(`UPDATE festival SET name="${festival.name}", image="${festival.image}", slug="${slug}" WHERE id=${resolvedId}`);
 
 	let message = "Error in updating Festival";
 
@@ -144,7 +158,12 @@ async function update(id, festival) {
 }
 
 async function remove(id) {
-	const result = await db.query(`DELETE FROM festival WHERE id=${id}`);
+	const resolvedId = await resolveEntityIdByIdentifier(db, "festival", id);
+	if (!resolvedId) {
+		return { message: "Festival not found" };
+	}
+
+	const result = await db.query(`DELETE FROM festival WHERE id=${resolvedId}`);
 
 	let message = "Error in deleting Festival";
 

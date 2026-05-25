@@ -43,6 +43,9 @@ async function get(id) {
 		SELECT 
 			gig.id, 
 			gig.date, 
+			event.id AS event_id,
+			event.name AS event_name,
+			event.slug AS event_slug,
 			artist.name AS artist, 
 			artist.image, 
 			artist.id AS artist_id, 
@@ -52,6 +55,8 @@ async function get(id) {
 		INNER JOIN artist ON gig.artist_id = artist.id 
 		INNER JOIN venue ON gig.venue_id = venue.id 
 		INNER JOIN city ON gig.city_id = city.id 
+		LEFT JOIN event_gig ON event_gig.gig_id = gig.id
+		LEFT JOIN event ON event.id = event_gig.event_id
 		WHERE venue.id = ${id}
 		ORDER BY gig.date
 	`);

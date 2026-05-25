@@ -2,6 +2,7 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 const eventImageStorage = require("./eventImageStorage");
+const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 
 function normalizeTime(value) {
 	if (!value || typeof value !== "string") {
@@ -237,6 +238,7 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 			event.id,
 			event.date,
 			event.name,
+			event.slug,
 			event.image,
 			event.description,
 			venue.name as venue,
@@ -283,14 +285,19 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 }
 
 async function get(id, userId = null) {
+	const resolvedId = await resolveEntityIdByIdentifier(db, "event", id);
+	if (!resolvedId) {
+		return null;
+	}
+
 	const userEventSelect = userId ? ", ue.status AS user_event_status, ue.has_ticket AS user_event_has_ticket, ue.favorite AS user_event_favorite" : "";
 	const userEventJoin = userId ? "LEFT JOIN user_event ue ON ue.event_id = e.id AND ue.user_id = ?" : "";
 	const userGigSelect = userId ? ", ug.status AS user_gig_status, ug.favorite AS user_gig_favorite" : "";
 	const userGigJoin = userId ? "LEFT JOIN user_gig ug ON ug.gig_id = g.id AND ug.user_id = ?" : "";
-	const params = userId ? [userId, userId, id] : [id];
+	const params = userId ? [userId, userId, resolvedId] : [resolvedId];
 	const result = await db.query(
 		`
-		SELECT e.name AS event_name, e.image AS event_image, e.description AS event_description, e.type AS event_type${userEventSelect}${userGigSelect},
+		SELECT e.id AS event_id, e.name AS event_name, e.slug AS event_slug, e.image AS event_image, e.description AS event_description, e.type AS event_type${userEventSelect}${userGigSelect},
 		       (
 		       	SELECT COUNT(*)
 		       	FROM user_event uec
@@ -318,6 +325,7 @@ async function get(id, userId = null) {
 		       c.name AS city,
 		       a.id AS artist_id,
 		       a.name AS artist,
+		       a.slug AS artist_slug,
 		       a.image AS artist_image
 		FROM event e
 		INNER JOIN event_gig eg ON e.id = eg.event_id
@@ -342,7 +350,7 @@ async function get(id, userId = null) {
 		return null;
 	}
 
-	const stageRows = await getEventStageRows(id);
+	const stageRows = await getEventStageRows(resolvedId);
 	const { event_name, event_image, event_description, event_type } = result[0];
 
 	const gigs = result.map((row) => ({
@@ -358,6 +366,7 @@ async function get(id, userId = null) {
 		city: row.city,
 		artist_id: row.artist_id,
 		artist: row.artist,
+		artist_slug: row.artist_slug,
 		artist_image: row.artist_image,
 		user_gig: {
 			status: row.user_gig_status || "not_going",
@@ -366,7 +375,9 @@ async function get(id, userId = null) {
 	}));
 
 	return {
+		id: Number(result[0].event_id),
 		name: event_name,
+		slug: result[0].event_slug || null,
 		image: event_image,
 		description: event_description,
 		type: event_type,
@@ -402,7 +413,8 @@ async function create(event) {
 		throw new Error("Missing required event fields");
 	}
 
-	const resultEvent = await db.query(`INSERT INTO event (name, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?)`, [name, event.date, cityId, venueId, type, event.description || null]);
+	const slug = await buildUniqueSlug(db, "event", name);
+	const resultEvent = await db.query(`INSERT INTO event (name, slug, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?, ?)`, [name, slug, event.date, cityId, venueId, type, event.description || null]);
 	const eventId = resultEvent.insertId;
 
 	if (event.image) {
@@ -458,12 +470,17 @@ async function dashboard(type = 1) {
 }
 
 async function remove(id) {
-	await db.query(`DELETE FROM gig WHERE id IN (SELECT gig_id FROM event_gig WHERE event_id = "${id}")`);
-	await db.query(`DELETE FROM event_gig WHERE event_id=${id}`);
-	await db.query(`DELETE FROM event_stage WHERE event_id=${id}`);
-	await db.query(`DELETE FROM edition_event WHERE event_id=${id}`);
+	const resolvedId = await resolveEntityIdByIdentifier(db, "event", id);
+	if (!resolvedId) {
+		return { message: "Event not found" };
+	}
 
-	const result = await db.query(`DELETE FROM event WHERE id=${id}`);
+	await db.query(`DELETE FROM gig WHERE id IN (SELECT gig_id FROM event_gig WHERE event_id = ?)`, [resolvedId]);
+	await db.query(`DELETE FROM event_gig WHERE event_id=?`, [resolvedId]);
+	await db.query(`DELETE FROM event_stage WHERE event_id=?`, [resolvedId]);
+	await db.query(`DELETE FROM edition_event WHERE event_id=?`, [resolvedId]);
+
+	const result = await db.query(`DELETE FROM event WHERE id=?`, [resolvedId]);
 
 	let message = "Error in deleting Edition";
 
@@ -475,14 +492,20 @@ async function remove(id) {
 }
 
 async function update(id, event) {
+	const resolvedId = await resolveEntityIdByIdentifier(db, "event", id);
+	if (!resolvedId) {
+		throw new Error("Event not found");
+	}
+
+	const slug = await buildUniqueSlug(db, "event", event?.name, resolvedId);
 	const storedImage = await eventImageStorage.storeEventImage({
-		id,
+		id: resolvedId,
 		name: event.name,
 		image: event.image,
 		replaceExisting: true
 	});
-	const result = await db.query(`UPDATE event SET name=?, image=?, description=? WHERE id=?`, [event.name, storedImage.image || null, event.description || null, id]);
-	const eventRows = await db.query(`SELECT date, city_id, venue_id, type FROM event WHERE id=?`, [id]);
+	const result = await db.query(`UPDATE event SET name=?, slug=?, image=?, description=? WHERE id=?`, [event.name, slug, storedImage.image || null, event.description || null, resolvedId]);
+	const eventRows = await db.query(`SELECT date, city_id, venue_id, type FROM event WHERE id=?`, [resolvedId]);
 	const existingGigRows = await db.query(
 		`
 		SELECT eg.gig_id, g.artist_id
@@ -490,7 +513,7 @@ async function update(id, event) {
 		INNER JOIN gig g ON g.id = eg.gig_id
 		WHERE eg.event_id = ?
 		`,
-		[id]
+		[resolvedId]
 	);
 	const existingGigByArtist = new Map(existingGigRows.map((row) => [row.artist_id, row.gig_id]));
 	const incomingSlots = normalizeArtistSlots(event.artists);
@@ -504,7 +527,7 @@ async function update(id, event) {
 		}))
 		: [];
 
-	const stageLookup = await ensureEventStages(id, event.stages, [...incomingSlots, ...incomingGigUpdates]);
+	const stageLookup = await ensureEventStages(resolvedId, event.stages, [...incomingSlots, ...incomingGigUpdates]);
 	let addedArtists = 0;
 	let updatedEntries = 0;
 
@@ -520,14 +543,14 @@ async function update(id, event) {
 			const existingGigId = existingGigByArtist.get(slot.artist_id);
 
 			if (existingGigId) {
-				await db.query(`UPDATE event_gig SET stage_id=?, start_time=?, end_time=? WHERE event_id=? AND gig_id=?`, [stageId, slot.start_time, slot.end_time, id, existingGigId]);
+				await db.query(`UPDATE event_gig SET stage_id=?, start_time=?, end_time=? WHERE event_id=? AND gig_id=?`, [stageId, slot.start_time, slot.end_time, resolvedId, existingGigId]);
 				await db.query(`UPDATE gig SET start_time=?, end_time=? WHERE id=?`, [slot.start_time, slot.end_time, existingGigId]);
 				updatedEntries++;
 				continue;
 			}
 
 			const resultGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`, [eventData.date, eventData.city_id, eventData.venue_id, slot.artist_id, eventData.type, slot.start_time, slot.end_time]);
-			await db.query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [id, resultGig.insertId, stageId, slot.start_time, slot.end_time]);
+			await db.query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [resolvedId, resultGig.insertId, stageId, slot.start_time, slot.end_time]);
 			existingGigByArtist.set(slot.artist_id, resultGig.insertId);
 			addedArtists++;
 		}
@@ -539,7 +562,7 @@ async function update(id, event) {
 		}
 
 		const stageId = resolveStageId(gigUpdate, stageLookup);
-		await db.query(`UPDATE event_gig SET stage_id=?, start_time=?, end_time=? WHERE event_id=? AND gig_id=?`, [stageId, gigUpdate.start_time, gigUpdate.end_time, id, gigUpdate.gig_id]);
+		await db.query(`UPDATE event_gig SET stage_id=?, start_time=?, end_time=? WHERE event_id=? AND gig_id=?`, [stageId, gigUpdate.start_time, gigUpdate.end_time, resolvedId, gigUpdate.gig_id]);
 		await db.query(`UPDATE gig SET start_time=?, end_time=? WHERE id=?`, [gigUpdate.start_time, gigUpdate.end_time, gigUpdate.gig_id]);
 		updatedEntries++;
 	}

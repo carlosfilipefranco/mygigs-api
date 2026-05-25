@@ -1,6 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 const fetch = require("node-fetch");
 const lastFmKey = "aef314af1cb8fbe8e84aca457c5b70e8";
 const fanartKey = "a9722f9e6e7aa1e040c0dd5d3d23e4e2";
@@ -14,7 +15,7 @@ async function getMultiple(page = 1, search = null, type = 1) {
 	if (search) {
 		searchQuery = `WHERE LOWER(artist.name) LIKE '%${search}%' AND type=${type}`;
 	}
-	const rows = await db.query(`SELECT id, name, image FROM artist ${searchQuery} ORDER BY name LIMIT ${offset},${config.listPerPage}`);
+	const rows = await db.query(`SELECT id, name, image, slug FROM artist ${searchQuery} ORDER BY name LIMIT ${offset},${config.listPerPage}`);
 	const data = helper.emptyOrRows(rows);
 
 	let count = rows.length;
@@ -32,10 +33,26 @@ async function getMultiple(page = 1, search = null, type = 1) {
 }
 
 async function get(id) {
-	let result = await db.query(`SELECT id, name, image, mbid, type FROM artist WHERE id=${id}`);
+	const resolvedId = await resolveEntityIdByIdentifier(db, "artist", id);
+	if (!resolvedId) {
+		return null;
+	}
+
+	let result = await db.query(`SELECT id, name, image, mbid, type, slug FROM artist WHERE id=? LIMIT 1`, [resolvedId]);
 	if (result.length) {
 		result = result[0];
-		const gigs = await db.query(`SELECT gig.id, event.id as event_id, event.name as event_name, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id INNER JOIN city ON gig.city_id = city.id LEFT JOIN event_gig ON event_gig.gig_id = gig.id LEFT JOIN event ON event.id = event_gig.event_id WHERE gig.artist_id = ${result.id} ORDER by gig.date DESC `);
+		const gigs = await db.query(
+			`SELECT gig.id, event.id as event_id, event.name as event_name, event.slug as event_slug, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city
+			FROM gig
+			INNER JOIN artist ON gig.artist_id = artist.id
+			INNER JOIN venue ON gig.venue_id = venue.id
+			INNER JOIN city ON gig.city_id = city.id
+			LEFT JOIN event_gig ON event_gig.gig_id = gig.id
+			LEFT JOIN event ON event.id = event_gig.event_id
+			WHERE gig.artist_id = ?
+			ORDER by gig.date DESC`,
+			[result.id]
+		);
 
 		// Buscar músicas do artista ordenadas pelo nº de setlists diferentes em que aparecem
 		const songs = await db.query(`
@@ -43,10 +60,10 @@ async function get(id) {
 			FROM song
 			INNER JOIN setlist_song ON song.id = setlist_song.song_id
 			INNER JOIN setlist ON setlist_song.setlist_id = setlist.id
-			WHERE song.artist_id = ${result.id}
+			WHERE song.artist_id = ?
 			GROUP BY song.id, song.name
 			ORDER BY appearances DESC, song.name ASC
-		`);
+		`, [result.id]);
 
 		result["songs"] = songs;
 
@@ -97,12 +114,13 @@ async function updateSpotifyImage(id) {
 async function create(artist) {
 	const rows = await db.query(`SELECT id FROM artist WHERE name="${artist.name}"`);
 	var result;
+	const slug = await buildUniqueSlug(db, "artist", artist?.name, rows?.[0]?.id || null);
 
 	if (rows.length) {
 		const id = rows[0].id;
-		result = await db.query(`UPDATE artist SET name="${artist.name}", image="${artist.image}", mbid="${artist.mbid}" WHERE id=${id}`);
+		result = await db.query(`UPDATE artist SET name="${artist.name}", image="${artist.image}", mbid="${artist.mbid}", slug="${slug}" WHERE id=${id}`);
 	} else {
-		result = await db.query(`INSERT INTO artist (name, image, mbid, type)  VALUES  ("${artist.name}", "${artist.image}", "${artist.mbid}", "${artist.type}")`);
+		result = await db.query(`INSERT INTO artist (name, image, mbid, type, slug)  VALUES  ("${artist.name}", "${artist.image}", "${artist.mbid}", "${artist.type}", "${slug}")`);
 	}
 
 	let message = "Error in creating Artist";
@@ -120,12 +138,13 @@ async function createBulk(payload) {
 
 	for (const artist of artists) {
 		const rows = await db.query(`SELECT id FROM artist WHERE name=?`, [artist]);
+		const slug = await buildUniqueSlug(db, "artist", artist, rows?.[0]?.id || null);
 
 		if (rows.length) {
 			const id = rows[0].id;
-			await db.query(`UPDATE artist SET name=? WHERE id=?`, [artist, id]);
+			await db.query(`UPDATE artist SET name=?, slug=? WHERE id=?`, [artist, slug, id]);
 		} else {
-			await db.query(`INSERT INTO artist (name, type) VALUES (?, ?)`, [artist, type]);
+			await db.query(`INSERT INTO artist (name, type, slug) VALUES (?, ?, ?)`, [artist, type, slug]);
 		}
 	}
 
@@ -135,7 +154,13 @@ async function createBulk(payload) {
 }
 
 async function update(id, artist) {
-	const result = await db.query(`UPDATE artist SET name="${artist.name}", image="${artist.image}" WHERE id=${id}`);
+	const resolvedId = await resolveEntityIdByIdentifier(db, "artist", id);
+	if (!resolvedId) {
+		return { message: "Artist not found" };
+	}
+
+	const slug = await buildUniqueSlug(db, "artist", artist?.name, resolvedId);
+	const result = await db.query(`UPDATE artist SET name="${artist.name}", image="${artist.image}", slug="${slug}" WHERE id=${resolvedId}`);
 
 	let message = "Error in updating Artist";
 
@@ -147,7 +172,12 @@ async function update(id, artist) {
 }
 
 async function remove(id) {
-	const result = await db.query(`DELETE FROM artist WHERE id=${id}`);
+	const resolvedId = await resolveEntityIdByIdentifier(db, "artist", id);
+	if (!resolvedId) {
+		return { message: "Artist not found" };
+	}
+
+	const result = await db.query(`DELETE FROM artist WHERE id=${resolvedId}`);
 
 	let message = "Error in deleting Artist";
 
