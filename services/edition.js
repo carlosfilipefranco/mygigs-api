@@ -175,6 +175,10 @@ function normalizeWordToken(token, index) {
 		return token;
 	}
 
+	if (/[a-zà-ÿ]/.test(token) && /[A-ZÀ-Ý]/.test(token.slice(1))) {
+		return token;
+	}
+
 	const onlyLetters = token.replace(/[^A-Za-zÀ-ÿ]/g, "");
 	const hasSpecialAcronymChars = /[.&/+-]/.test(token);
 	const isUpperToken = /^[A-ZÀ-Ý0-9.&/+-]+$/.test(token);
@@ -241,6 +245,18 @@ function parseDateHeader(line) {
 	return { day, month };
 }
 
+function parseProgramSlotLine(line) {
+	const slotMatch = line.match(/^(\d{1,2}(?:\s*(?:[:hH.])\s*\d{0,2})?)\s*(?:\||-|–|—)\s*(.+)$/);
+	if (!slotMatch) {
+		return null;
+	}
+
+	return {
+		rawTime: slotMatch[1],
+		rawArtists: slotMatch[2]
+	};
+}
+
 function parseProgramText(programText, editionStartIso, editionEndIso) {
 	const lines = (programText || "")
 		.toString()
@@ -274,15 +290,15 @@ function parseProgramText(programText, editionStartIso, editionEndIso) {
 			continue;
 		}
 
-		const slotMatch = line.match(/^([^|]+)\|(.+)$/);
-		if (slotMatch) {
-			const time = normalizeTimeValue(slotMatch[1]);
+		const slot = parseProgramSlotLine(line);
+		if (slot) {
+			const time = normalizeTimeValue(slot.rawTime);
 			if (!time) {
 				warnings.push(`Hora inválida ignorada: "${line}"`);
 				continue;
 			}
 
-			const artists = slotMatch[2]
+			const artists = slot.rawArtists
 				.split(/\s*[·•]\s*/g)
 				.map((name) => normalizeArtistName(name))
 				.filter(Boolean);
@@ -397,7 +413,11 @@ async function get(id, userId = null) {
 		  WHERE ee.edition_id = ?
 		  ORDER BY g.date ASC,
 		           CASE WHEN COALESCE(eg.start_time, g.start_time) IS NULL THEN 1 ELSE 0 END,
-		           COALESCE(eg.start_time, g.start_time) ASC,
+		           CASE
+		             WHEN COALESCE(eg.start_time, g.start_time) < '12:00:00'
+		             THEN TIME_TO_SEC(COALESCE(eg.start_time, g.start_time)) + 86400
+		             ELSE TIME_TO_SEC(COALESCE(eg.start_time, g.start_time))
+		           END ASC,
 		           es.position ASC,
 		           g.position ASC,
 		           a.name ASC
