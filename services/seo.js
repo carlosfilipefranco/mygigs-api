@@ -1,7 +1,7 @@
 const db = require("./db");
 const { slugify } = require("./slug");
 
-const STATIC_PATHS = ["/", "/home", "/gigs", "/events", "/artists", "/festivals", "/venues", "/search", "/contact"];
+const STATIC_PATHS = ["/", "/home", "/gigs", "/events", "/artists", "/festivals", "/venues", "/search", "/contact", "/privacy", "/terms"];
 
 function normalizeSiteUrl(siteUrl) {
 	return `${siteUrl || ""}`.trim().replace(/\/+$/, "");
