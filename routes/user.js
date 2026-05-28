@@ -45,6 +45,26 @@ router.post("/google", async function (req, res, next) {
 	}
 });
 
+/* GET current user */
+router.get("/me", requireAuth, async function (req, res, next) {
+	try {
+		res.json(await user.get(req.user.id));
+	} catch (err) {
+		console.error("Error while fetching current user", err.message);
+		next(err);
+	}
+});
+
+/* PUT current user profile */
+router.put("/me", requireAuth, async function (req, res, next) {
+	try {
+		res.json(await user.updateProfile(req.user.id, req.body));
+	} catch (err) {
+		console.error("Error while updating user profile", err.message);
+		next(err);
+	}
+});
+
 /* DELETE current user account */
 router.delete("/me", requireAuth, async function (req, res, next) {
 	try {
@@ -55,10 +75,15 @@ router.delete("/me", requireAuth, async function (req, res, next) {
 	}
 });
 
-/* GET user */
+/* GET public user profile */
 router.get("/:id", async function (req, res, next) {
 	try {
-		res.json(await user.get(req.params.id));
+		const profile = await user.getPublicProfile(req.params.id);
+		if (!profile) {
+			return res.status(404).json({ message: "User not found" });
+		}
+
+		res.json(profile);
 	} catch (err) {
 		console.error("Error while fetching user", err.message);
 		next(err);

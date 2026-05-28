@@ -309,6 +309,19 @@ async function get(id, userId = null) {
 	gig.went_count = Number(crowdRows?.[0]?.went_count || 0);
 	gig.interested_count = Number(crowdRows?.[0]?.interested_count || 0);
 
+	gig.attendees = await db.query(
+		`
+		SELECT user.id, user.name, user.image
+		FROM user_gig ug
+		INNER JOIN user ON user.id = ug.user_id
+		WHERE ug.gig_id = ?
+		  AND ug.status = 'going'
+		ORDER BY user.name ASC
+		LIMIT 12
+		`,
+		[id]
+	);
+
 	// 🔥 Buscar media (imagens, videos, links)
 	const mediaRows = await db.query(`SELECT url, type FROM gig_media WHERE gig_id = ?`, [id]);
 	gig.images = mediaRows.filter((m) => m.type === "image").map((m) => m.url);
