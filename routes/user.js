@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const user = require("../services/user");
 const authService = require("../services/auth");
+const { requireAuth } = require("../middleware/auth");
 
 /* POST register */
 router.post("/register", async function (req, res, next) {
@@ -40,6 +41,16 @@ router.post("/google", async function (req, res, next) {
 		res.json({ ...userLogged, token });
 	} catch (err) {
 		console.error("Error while logging in with Google", err.message);
+		next(err);
+	}
+});
+
+/* DELETE current user account */
+router.delete("/me", requireAuth, async function (req, res, next) {
+	try {
+		res.json(await user.remove(req.user.id));
+	} catch (err) {
+		console.error("Error while deleting user account", err.message);
 		next(err);
 	}
 });

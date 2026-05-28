@@ -9,7 +9,8 @@ module.exports = {
 	create,
 	login,
 	loginWithGoogle,
-	get
+	get,
+	remove
 };
 
 async function create(user) {
@@ -128,4 +129,26 @@ async function get(id) {
 	const users = await db.query(`SELECT id, name, email, created_at FROM user WHERE id = ?`, [id]);
 
 	return users.length ? users[0] : null;
+}
+
+async function remove(id) {
+	const userId = Number(id);
+	if (!Number.isFinite(userId) || userId <= 0) {
+		const error = new Error("Invalid user");
+		error.statusCode = 400;
+		throw error;
+	}
+
+	const users = await db.query(`SELECT id FROM user WHERE id = ? LIMIT 1`, [userId]);
+	if (!users.length) {
+		const error = new Error("User not found");
+		error.statusCode = 404;
+		throw error;
+	}
+
+	await db.query(`DELETE FROM user_gig WHERE user_id = ?`, [userId]);
+	await db.query(`DELETE FROM user_event WHERE user_id = ?`, [userId]);
+	await db.query(`DELETE FROM user WHERE id = ?`, [userId]);
+
+	return { message: "Account deleted successfully" };
 }
