@@ -160,7 +160,7 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 	}
 
 	if (mineOnly) {
-		filters.push("ug.user_id IS NOT NULL");
+		filters.push("ug.status = 'going'");
 	}
 
 	if (favoriteOnly) {
