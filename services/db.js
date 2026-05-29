@@ -18,6 +18,29 @@ async function query(sql, params) {
 	return results;
 }
 
+async function transaction(callback) {
+	const db = await start();
+	const connection = await db.getConnection();
+
+	try {
+		await connection.beginTransaction();
+		const transactionQuery = async (sql, params) => {
+			const [results] = await connection.execute(sql, params);
+			return results;
+		};
+
+		const result = await callback(transactionQuery);
+		await connection.commit();
+		return result;
+	} catch (error) {
+		await connection.rollback();
+		throw error;
+	} finally {
+		connection.release();
+	}
+}
+
 module.exports = {
-	query
+	query,
+	transaction
 };

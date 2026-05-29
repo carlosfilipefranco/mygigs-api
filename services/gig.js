@@ -763,15 +763,24 @@ async function update(id, gig) {
 }
 
 async function remove(id) {
-	const result = await db.query(`DELETE FROM gig WHERE id=${id}`);
-
-	let message = "Error in deleting gig";
-
-	if (result.affectedRows) {
-		message = "gig deleted successfully";
+	const gigId = normalizeNumber(id);
+	if (!gigId) {
+		throw new Error("Gig inválido");
 	}
 
-	return { message };
+	const result = await db.transaction(async (query) => {
+		await query(`DELETE FROM setlist_song WHERE setlist_id IN (SELECT id FROM setlist WHERE gig_id = ?)`, [gigId]);
+		await query(`DELETE FROM setlist WHERE gig_id = ?`, [gigId]);
+		await query(`DELETE FROM gig_media WHERE gig_id = ?`, [gigId]);
+		await query(`DELETE FROM user_gig WHERE gig_id = ?`, [gigId]);
+		await query(`DELETE FROM event_gig WHERE gig_id = ?`, [gigId]);
+
+		return query(`DELETE FROM gig WHERE id = ?`, [gigId]);
+	});
+
+	return {
+		message: result.affectedRows ? "gig deleted successfully" : "Error in deleting gig"
+	};
 }
 
 async function clean() {
