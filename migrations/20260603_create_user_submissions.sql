@@ -1,0 +1,20 @@
+CREATE TABLE user_submission (
+	id INT NOT NULL AUTO_INCREMENT,
+	user_id INT NOT NULL,
+	entity_type VARCHAR(40) NOT NULL,
+	submission_action VARCHAR(40) NOT NULL DEFAULT 'create',
+	status VARCHAR(20) NOT NULL DEFAULT 'pending',
+	payload LONGTEXT NOT NULL,
+	admin_note TEXT NULL,
+	reviewed_by INT NULL,
+	reviewed_at DATETIME NULL,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	PRIMARY KEY (id),
+	KEY idx_user_submission_user (user_id),
+	KEY idx_user_submission_status (status),
+	KEY idx_user_submission_entity (entity_type),
+	KEY idx_user_submission_reviewer (reviewed_by),
+	CONSTRAINT fk_user_submission_user FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+	CONSTRAINT fk_user_submission_reviewer FOREIGN KEY (reviewed_by) REFERENCES user (id) ON DELETE SET NULL
+);
