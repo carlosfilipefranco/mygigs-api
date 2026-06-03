@@ -32,7 +32,7 @@ async function getMultiple(page = 1, search = null, type = 1) {
 	};
 }
 
-async function get(id) {
+async function get(id, userId = null) {
 	const resolvedId = await resolveEntityIdByIdentifier(db, "artist", id);
 	if (!resolvedId) {
 		return null;
@@ -41,29 +41,42 @@ async function get(id) {
 	let result = await db.query(`SELECT id, name, image, mbid, type, slug FROM artist WHERE id=? LIMIT 1`, [resolvedId]);
 	if (result.length) {
 		result = result[0];
+		const userGigSelect = userId ? ", user_gig.status AS user_gig_status, user_gig.favorite AS user_gig_favorite" : "";
+		const userGigJoin = userId ? "LEFT JOIN user_gig ON user_gig.gig_id = gig.id AND user_gig.user_id = ?" : "";
+		const gigParams = userId ? [userId, result.id] : [result.id];
 		const gigs = await db.query(
-			`SELECT gig.id, event.id as event_id, event.name as event_name, event.slug as event_slug, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city
+			`SELECT gig.id, event.id as event_id, event.name as event_name, event.slug as event_slug, gig.date, artist.name as artist, artist.image, venue.name as venue, city.name as city${userGigSelect}
 			FROM gig
 			INNER JOIN artist ON gig.artist_id = artist.id
 			INNER JOIN venue ON gig.venue_id = venue.id
 			INNER JOIN city ON gig.city_id = city.id
 			LEFT JOIN event_gig ON event_gig.gig_id = gig.id
 			LEFT JOIN event ON event.id = event_gig.event_id
+			${userGigJoin}
 			WHERE gig.artist_id = ?
 			ORDER by gig.date DESC`,
-			[result.id]
+			gigParams
 		);
 
-		// Buscar músicas do artista ordenadas pelo nº de setlists diferentes em que aparecem
-		const songs = await db.query(`
-			SELECT song.id, song.name, COUNT(DISTINCT setlist_song.setlist_id) AS appearances
-			FROM song
-			INNER JOIN setlist_song ON song.id = setlist_song.song_id
-			INNER JOIN setlist ON setlist_song.setlist_id = setlist.id
-			WHERE song.artist_id = ?
-			GROUP BY song.id, song.name
-			ORDER BY appearances DESC, song.name ASC
-		`, [result.id]);
+		const songs = userId
+			? await db.query(
+				`
+				SELECT song.id, song.name, COUNT(DISTINCT setlist.id) AS appearances
+				FROM song
+				INNER JOIN setlist_song ON song.id = setlist_song.song_id
+				INNER JOIN setlist ON setlist_song.setlist_id = setlist.id
+				INNER JOIN gig ON gig.id = setlist.gig_id
+				INNER JOIN user_gig ON user_gig.gig_id = gig.id
+				WHERE song.artist_id = ?
+				  AND user_gig.user_id = ?
+				  AND user_gig.status = 'going'
+				  AND gig.date < CURDATE()
+				GROUP BY song.id, song.name
+				ORDER BY appearances DESC, song.name ASC
+				`,
+				[result.id, userId]
+			)
+			: [];
 
 		result["songs"] = songs;
 
@@ -72,7 +85,13 @@ async function get(id) {
 			const body = await lastfm.json();
 			result["body"] = body;
 		}
-		result["gigs"] = gigs;
+		result["gigs"] = gigs.map((gig) => ({
+			...gig,
+			user_gig: {
+				status: gig.user_gig_status || "not_going",
+				favorite: !!gig.user_gig_favorite
+			}
+		}));
 	} else {
 		result = null;
 	}
