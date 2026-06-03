@@ -70,7 +70,7 @@ router.put("/:id", requireAdmin, async function (req, res, next) {
 /* DELETE gig */
 router.delete("/:id", requireAdmin, async function (req, res, next) {
 	try {
-		res.json(await gig.remove(req.params.id));
+		res.json(await gig.remove(req.params.id, req.body || {}));
 	} catch (err) {
 		console.error(`Error while deleting gig`, err.message);
 		next(err);

@@ -21,6 +21,7 @@ const user = require("./routes/user");
 const userGig = require("./routes/userGig");
 const userEvent = require("./routes/userEvent");
 const seo = require("./routes/seo");
+const adminTools = require("./routes/adminTools");
 
 // ------------------
 // ADMIN ROUTER
@@ -87,6 +88,7 @@ app.use("/api/setlist", setlist);
 app.use("/api/user", user);
 app.use("/api/user-gig", userGig);
 app.use("/api/user-event", userEvent);
+app.use("/api/admin-tools", adminTools);
 
 // ------------------
 // ERROR HANDLER

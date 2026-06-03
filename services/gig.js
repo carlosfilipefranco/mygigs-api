@@ -671,17 +671,21 @@ async function update(id, gig) {
 		throw new Error("Gig inválido");
 	}
 
-	const currentRows = await db.query(`SELECT id, date, start_time, end_time FROM gig WHERE id = ? LIMIT 1`, [gigId]);
+	const currentRows = await db.query(`SELECT id, date, start_time, end_time, artist_id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
 	if (!currentRows.length) {
 		throw new Error("Gig não encontrado");
 	}
 
+	const nextArtistId = hasOwn(gig, "artist_id") ? normalizeNumber(gig.artist_id) : undefined;
 	const nextDate = hasOwn(gig, "date") ? normalizeDate(gig.date) : undefined;
 	const nextStartTime = hasOwn(gig, "start_time") ? normalizeTime(gig.start_time) : undefined;
 	const nextEndTime = hasOwn(gig, "end_time") ? normalizeTime(gig.end_time) : undefined;
 	const nextStageName = hasOwn(gig, "stage_name") ? normalizeStageName(gig.stage_name) : undefined;
 	const providedEventId = hasOwn(gig, "event_id") ? normalizeNumber(gig.event_id) : null;
 
+	if (hasOwn(gig, "artist_id") && !nextArtistId) {
+		throw new Error("Artista inválido.");
+	}
 	if (hasOwn(gig, "date") && nextDate === undefined) {
 		throw new Error("Data inválida. Usa o formato YYYY-MM-DD.");
 	}
@@ -697,11 +701,21 @@ async function update(id, gig) {
 	if (hasOwn(gig, "event_id") && gig.event_id !== null && gig.event_id !== "" && !providedEventId) {
 		throw new Error("event_id inválido.");
 	}
+	if (nextArtistId) {
+		const artistRows = await db.query(`SELECT id FROM artist WHERE id = ? LIMIT 1`, [nextArtistId]);
+		if (!artistRows.length) {
+			throw new Error("Artista não encontrado.");
+		}
+	}
 
 	let affectedRows = 0;
 	const gigFields = [];
 	const gigParams = [];
 
+	if (hasOwn(gig, "artist_id")) {
+		gigFields.push("artist_id = ?");
+		gigParams.push(nextArtistId);
+	}
 	if (hasOwn(gig, "date")) {
 		gigFields.push("date = ?");
 		gigParams.push(nextDate);
@@ -718,6 +732,10 @@ async function update(id, gig) {
 	if (gigFields.length) {
 		const updateResult = await db.query(`UPDATE gig SET ${gigFields.join(", ")} WHERE id = ?`, [...gigParams, gigId]);
 		affectedRows += Number(updateResult.affectedRows || 0);
+	}
+	if (hasOwn(gig, "artist_id")) {
+		const setlistUpdate = await db.query(`UPDATE setlist SET artist_id = ? WHERE gig_id = ?`, [nextArtistId, gigId]);
+		affectedRows += Number(setlistUpdate.affectedRows || 0);
 	}
 
 	const shouldUpdateEventGig =
@@ -762,10 +780,17 @@ async function update(id, gig) {
 	return { message: "gig updated successfully" };
 }
 
-async function remove(id) {
+async function remove(id, options = {}) {
 	const gigId = normalizeNumber(id);
 	if (!gigId) {
 		throw new Error("Gig inválido");
+	}
+
+	const expectedConfirmation = `APAGAR ${gigId}`;
+	if (options.confirmation !== expectedConfirmation) {
+		const error = new Error(`Confirmação inválida. Escreve "${expectedConfirmation}" para apagar este concerto.`);
+		error.statusCode = 400;
+		throw error;
 	}
 
 	const result = await db.transaction(async (query) => {

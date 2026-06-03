@@ -246,7 +246,7 @@ function parseDateHeader(line) {
 }
 
 function parseProgramSlotLine(line) {
-	const slotMatch = line.match(/^(\d{1,2}(?:\s*(?:[:hH.])\s*\d{0,2})?)\s*(?:\||-|–|—)\s*(.+)$/);
+	const slotMatch = line.match(/^(\d{1,2}(?:\s*(?:[:hH.])\s*\d{0,2})?)\s*(?:(?:\||-|–|—)\s*)?(.+)$/);
 	if (!slotMatch) {
 		return null;
 	}
@@ -336,6 +336,17 @@ function parseProgramText(programText, editionStartIso, editionEndIso) {
 	}
 
 	return { entries, warnings };
+}
+
+function getImportActionLabel(action) {
+	const labels = {
+		create_artist_and_gig: "Criar artista e concerto",
+		create_gig: "Criar concerto",
+		update_gig: "Atualizar concerto",
+		ignore_duplicate: "Ignorar duplicado"
+	};
+
+	return labels[action] || action;
 }
 
 async function getMultiple(page = 1, search = null) {
@@ -540,6 +551,184 @@ async function remove(id) {
 	}
 
 	return { message };
+}
+
+async function previewProgram(editionId, payload = {}) {
+	const resolvedEditionId = await resolveEntityIdByIdentifier(db, "edition", editionId);
+	if (!resolvedEditionId) {
+		throw new Error("Edition not found");
+	}
+
+	const editionRows = await db.query(
+		`
+		SELECT id, name, city_id, venue_id, date_start, date_end
+		FROM edition
+		WHERE id = ?
+		LIMIT 1
+		`,
+		[resolvedEditionId]
+	);
+
+	const edition = editionRows[0];
+	if (!edition.city_id || !edition.venue_id) {
+		throw new Error("Edition must have city and venue before importing program");
+	}
+
+	const editionStartIso = parseIsoDate(edition.date_start);
+	const editionEndIso = parseIsoDate(edition.date_end) || editionStartIso;
+	const { entries, warnings } = parseProgramText(payload.program, editionStartIso, editionEndIso);
+
+	const summary = {
+		total_lines: entries.length,
+		create_artist_and_gig: 0,
+		create_gig: 0,
+		update_gig: 0,
+		ignore_duplicate: 0,
+		warnings: warnings.length
+	};
+
+	if (!entries.length) {
+		return {
+			message: "No valid lines found to preview",
+			summary,
+			entries: [],
+			warnings
+		};
+	}
+
+	const uniqueArtistNames = [...new Set(entries.map((entry) => entry.artist_name).filter(Boolean))];
+	const artistRowsByName = new Map();
+	for (const artistName of uniqueArtistNames) {
+		const existingArtistRows = await db.query(`SELECT id, name FROM artist WHERE LOWER(name) = LOWER(?) LIMIT 1`, [artistName]);
+		if (existingArtistRows.length) {
+			artistRowsByName.set(artistName, existingArtistRows[0]);
+		}
+	}
+
+	const entriesByDate = new Map();
+	for (const entry of entries) {
+		if (!entriesByDate.has(entry.date)) {
+			entriesByDate.set(entry.date, []);
+		}
+		entriesByDate.get(entry.date).push(entry);
+	}
+
+	const previewEntries = [];
+
+	for (const [date, dateEntries] of entriesByDate.entries()) {
+		const eventRows = await db.query(
+			`
+			SELECT e.id
+			FROM event e
+			INNER JOIN edition_event ee ON ee.event_id = e.id
+			WHERE ee.edition_id = ? AND e.date = ?
+			ORDER BY e.id ASC
+			LIMIT 1
+			`,
+			[edition.id, date]
+		);
+
+		const eventId = eventRows?.[0]?.id || null;
+		const existingGigRows = eventId
+			? await db.query(
+					`
+					SELECT eg.gig_id, eg.stage_id, eg.start_time AS event_start_time, eg.end_time AS event_end_time,
+					       g.artist_id, g.start_time AS gig_start_time, g.end_time AS gig_end_time,
+					       es.name AS stage_name
+					FROM event_gig eg
+					INNER JOIN gig g ON g.id = eg.gig_id
+					LEFT JOIN event_stage es ON es.id = eg.stage_id
+					WHERE eg.event_id = ?
+					`,
+					[eventId]
+			  )
+			: [];
+
+		const existingEventGigByArtist = new Map();
+		for (const gig of existingGigRows) {
+			if (!existingEventGigByArtist.has(gig.artist_id)) {
+				existingEventGigByArtist.set(gig.artist_id, gig);
+			}
+		}
+
+		const existingArtistIdsForDate = [...new Set(dateEntries.map((entry) => artistRowsByName.get(entry.artist_name)?.id).filter(Boolean))];
+		let existingVenueDateGigRows = [];
+		if (existingArtistIdsForDate.length) {
+			const artistPlaceholders = existingArtistIdsForDate.map(() => "?").join(",");
+			existingVenueDateGigRows = await db.query(
+				`
+				SELECT id, artist_id, start_time, end_time
+				FROM gig
+				WHERE venue_id = ? AND date = ? AND artist_id IN (${artistPlaceholders})
+				`,
+				[edition.venue_id, date, ...existingArtistIdsForDate]
+			);
+		}
+
+		const existingVenueDateGigByArtist = new Map();
+		for (const gig of existingVenueDateGigRows) {
+			if (!existingVenueDateGigByArtist.has(gig.artist_id)) {
+				existingVenueDateGigByArtist.set(gig.artist_id, gig);
+			}
+		}
+
+		const processedArtistKeys = new Set();
+
+		for (const entry of dateEntries) {
+			const artist = artistRowsByName.get(entry.artist_name) || null;
+			const artistKey = artist?.id ? `id:${artist.id}` : `name:${entry.artist_name.toLowerCase()}`;
+			let action = "create_artist_and_gig";
+			let existingGigId = null;
+			let note = "";
+
+			if (processedArtistKeys.has(artistKey)) {
+				action = "ignore_duplicate";
+				note = "Artista repetido no mesmo dia.";
+			} else if (artist?.id) {
+				const existingEventGig = existingEventGigByArtist.get(artist.id);
+				const existingVenueDateGig = existingVenueDateGigByArtist.get(artist.id);
+
+				if (existingEventGig) {
+					existingGigId = existingEventGig.gig_id;
+					const currentEventStart = existingEventGig.event_start_time || existingEventGig.gig_start_time || null;
+					const currentEventEnd = existingEventGig.event_end_time || existingEventGig.gig_end_time || null;
+					const currentStageName = existingEventGig.stage_name || null;
+					const hasChanges = currentEventStart !== (entry.start_time || null) || currentEventEnd !== (entry.end_time || null) || (currentStageName || null) !== (entry.stage_name || null);
+					action = hasChanges ? "update_gig" : "ignore_duplicate";
+					note = hasChanges ? "Já existe, mas palco/horário será atualizado." : "Já existe sem alterações.";
+				} else if (existingVenueDateGig) {
+					existingGigId = existingVenueDateGig.id;
+					action = "update_gig";
+					note = "Concerto existente neste local/dia será associado ao evento.";
+				} else {
+					action = "create_gig";
+				}
+			}
+
+			processedArtistKeys.add(artistKey);
+			summary[action] += 1;
+
+			previewEntries.push({
+				date: entry.date,
+				stage_name: entry.stage_name,
+				start_time: entry.start_time,
+				end_time: entry.end_time,
+				artist_name: entry.artist_name,
+				artist_id: artist?.id || null,
+				existing_gig_id: existingGigId,
+				action,
+				action_label: getImportActionLabel(action),
+				note
+			});
+		}
+	}
+
+	return {
+		message: "Program preview generated successfully",
+		summary,
+		entries: previewEntries,
+		warnings
+	};
 }
 
 async function importProgram(editionId, payload = {}) {
@@ -847,5 +1036,6 @@ module.exports = {
 	remove,
 	get,
 	createBulk,
+	previewProgram,
 	importProgram
 };

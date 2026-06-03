@@ -34,6 +34,16 @@ router.put("/:id", requireAdmin, async function (req, res, next) {
 });
 
 /* POST edition program import */
+router.post("/:id/import-program/preview", requireAdmin, async function (req, res, next) {
+	try {
+		res.json(await edition.previewProgram(req.params.id, req.body));
+	} catch (err) {
+		console.error(`Error while previewing edition program`, err.message);
+		next(err);
+	}
+});
+
+/* POST edition program import */
 router.post("/:id/import-program", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await edition.importProgram(req.params.id, req.body));
