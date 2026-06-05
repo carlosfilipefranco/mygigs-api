@@ -1,6 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const { getEditionIdsForGig, syncEditionDatesForEditionIds } = require("./editionDates");
 
 function hasOwn(object, key) {
 	return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -676,6 +677,7 @@ async function update(id, gig) {
 		throw new Error("Gig não encontrado");
 	}
 
+	const linkedEditionIds = await getEditionIdsForGig(gigId);
 	const nextArtistId = hasOwn(gig, "artist_id") ? normalizeNumber(gig.artist_id) : undefined;
 	const nextDate = hasOwn(gig, "date") ? normalizeDate(gig.date) : undefined;
 	const nextStartTime = hasOwn(gig, "start_time") ? normalizeTime(gig.start_time) : undefined;
@@ -777,6 +779,8 @@ async function update(id, gig) {
 		return { message: "No changes" };
 	}
 
+	await syncEditionDatesForEditionIds(linkedEditionIds);
+
 	return { message: "gig updated successfully" };
 }
 
@@ -794,13 +798,18 @@ async function remove(id, options = {}) {
 	}
 
 	const result = await db.transaction(async (query) => {
+		const linkedEditionIds = await getEditionIdsForGig(gigId, query);
+
 		await query(`DELETE FROM setlist_song WHERE setlist_id IN (SELECT id FROM setlist WHERE gig_id = ?)`, [gigId]);
 		await query(`DELETE FROM setlist WHERE gig_id = ?`, [gigId]);
 		await query(`DELETE FROM gig_media WHERE gig_id = ?`, [gigId]);
 		await query(`DELETE FROM user_gig WHERE gig_id = ?`, [gigId]);
 		await query(`DELETE FROM event_gig WHERE gig_id = ?`, [gigId]);
 
-		return query(`DELETE FROM gig WHERE id = ?`, [gigId]);
+		const deleteResult = await query(`DELETE FROM gig WHERE id = ?`, [gigId]);
+		await syncEditionDatesForEditionIds(linkedEditionIds, query);
+
+		return deleteResult;
 	});
 
 	return {

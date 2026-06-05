@@ -2,6 +2,7 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
+const { syncEditionDates } = require("./editionDates");
 
 const PORTUGUESE_MONTHS = {
 	janeiro: 1,
@@ -71,6 +72,16 @@ function parseIsoDate(value) {
 	return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+function inferYearFromText(value) {
+	const match = normalizeWhitespace(value).match(/\b((?:19|20)\d{2})\b/);
+	if (!match) {
+		return null;
+	}
+
+	const year = Number(match[1]);
+	return Number.isFinite(year) ? year : null;
+}
+
 function isValidDateParts(year, month, day) {
 	if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
 		return false;
@@ -84,13 +95,16 @@ function isValidDateParts(year, month, day) {
 	return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
-function resolveDateForEdition(day, month, editionStartIso, editionEndIso) {
+function resolveDateForEdition(day, month, editionStartIso, editionEndIso, fallbackYear = null) {
 	const years = [];
 	if (editionStartIso) {
 		years.push(Number(editionStartIso.slice(0, 4)));
 	}
 	if (editionEndIso) {
 		years.push(Number(editionEndIso.slice(0, 4)));
+	}
+	if (fallbackYear) {
+		years.push(Number(fallbackYear));
 	}
 	if (!years.length) {
 		years.push(new Date().getFullYear());
@@ -282,7 +296,7 @@ function parseProgramArtistNames(rawArtists) {
 		.filter(Boolean);
 }
 
-function parseProgramText(programText, editionStartIso, editionEndIso) {
+function parseProgramText(programText, editionStartIso, editionEndIso, fallbackYear = null) {
 	const lines = (programText || "")
 		.toString()
 		.split("\n")
@@ -331,7 +345,7 @@ function parseProgramText(programText, editionStartIso, editionEndIso) {
 	for (const line of lines) {
 		const dateHeader = parseDateHeader(line);
 		if (dateHeader) {
-			currentDate = resolveDateForEdition(dateHeader.day, dateHeader.month, editionStartIso, editionEndIso);
+			currentDate = resolveDateForEdition(dateHeader.day, dateHeader.month, editionStartIso, editionEndIso, fallbackYear);
 			currentStage = null;
 			stagePosition = 0;
 			slotPosition = 0;
@@ -596,7 +610,7 @@ async function previewProgram(editionId, payload = {}) {
 
 	const editionRows = await db.query(
 		`
-		SELECT id, name, city_id, venue_id, date_start, date_end
+		SELECT id, name, slug, city_id, venue_id, date_start, date_end
 		FROM edition
 		WHERE id = ?
 		LIMIT 1
@@ -611,7 +625,8 @@ async function previewProgram(editionId, payload = {}) {
 
 	const editionStartIso = parseIsoDate(edition.date_start);
 	const editionEndIso = parseIsoDate(edition.date_end) || editionStartIso;
-	const { entries, warnings } = parseProgramText(payload.program, editionStartIso, editionEndIso);
+	const fallbackYear = inferYearFromText(`${edition.name || ""} ${edition.slug || ""}`);
+	const { entries, warnings } = parseProgramText(payload.program, editionStartIso, editionEndIso, fallbackYear);
 
 	const summary = {
 		total_lines: entries.length,
@@ -780,7 +795,7 @@ async function importProgram(editionId, payload = {}) {
 
 	const editionRows = await db.query(
 		`
-		SELECT id, name, city_id, venue_id, date_start, date_end
+		SELECT id, name, slug, city_id, venue_id, date_start, date_end
 		FROM edition
 		WHERE id = ?
 		LIMIT 1
@@ -795,7 +810,8 @@ async function importProgram(editionId, payload = {}) {
 
 	const editionStartIso = parseIsoDate(edition.date_start);
 	const editionEndIso = parseIsoDate(edition.date_end) || editionStartIso;
-	const { entries, warnings } = parseProgramText(payload.program, editionStartIso, editionEndIso);
+	const fallbackYear = inferYearFromText(`${edition.name || ""} ${edition.slug || ""}`);
+	const { entries, warnings } = parseProgramText(payload.program, editionStartIso, editionEndIso, fallbackYear);
 
 	if (!entries.length) {
 		return {
@@ -1062,6 +1078,8 @@ async function importProgram(editionId, payload = {}) {
 			}
 		}
 	}
+
+	await syncEditionDates(edition.id);
 
 	return {
 		message: "Program imported successfully",

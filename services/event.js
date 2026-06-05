@@ -3,6 +3,11 @@ const helper = require("../helper");
 const config = require("../config");
 const eventImageStorage = require("./eventImageStorage");
 const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
+const { syncEditionDates, syncEditionDatesForEditionIds, getEditionIdsForEvent } = require("./editionDates");
+
+function hasOwn(object, key) {
+	return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
 
 function normalizeTime(value) {
 	if (!value || typeof value !== "string") {
@@ -28,6 +33,38 @@ function normalizeTime(value) {
 	}
 
 	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function normalizeDate(value) {
+	if (value === null) {
+		return null;
+	}
+
+	if (typeof value !== "string") {
+		return undefined;
+	}
+
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+	if (!match) {
+		return undefined;
+	}
+
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	const date = new Date(year, month - 1, day);
+	const isValid = date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+
+	if (!isValid) {
+		return undefined;
+	}
+
+	return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function normalizeStageName(value) {
@@ -447,7 +484,12 @@ async function create(event) {
 	}
 
 	if (event.edition) {
-		await db.query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [event.edition.edition_id, eventId]);
+		const editionId = normalizeNumber(event.edition.edition_id || event.edition.id || event.edition);
+		if (!editionId) {
+			throw new Error("Edição inválida");
+		}
+		await db.query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [editionId, eventId]);
+		await syncEditionDates(editionId);
 	}
 
 	let message = "Error in creating Edition";
@@ -475,12 +517,33 @@ async function remove(id) {
 		return { message: "Event not found" };
 	}
 
-	await db.query(`DELETE FROM gig WHERE id IN (SELECT gig_id FROM event_gig WHERE event_id = ?)`, [resolvedId]);
-	await db.query(`DELETE FROM event_gig WHERE event_id=?`, [resolvedId]);
-	await db.query(`DELETE FROM event_stage WHERE event_id=?`, [resolvedId]);
-	await db.query(`DELETE FROM edition_event WHERE event_id=?`, [resolvedId]);
+	const result = await db.transaction(async (query) => {
+		const linkedEditionIds = await getEditionIdsForEvent(resolvedId, query);
+		const gigRows = await query(`SELECT gig_id FROM event_gig WHERE event_id = ?`, [resolvedId]);
+		const gigIds = [...new Set(gigRows.map((row) => Number(row.gig_id)).filter(Boolean))];
 
-	const result = await db.query(`DELETE FROM event WHERE id=?`, [resolvedId]);
+		if (gigIds.length) {
+			const placeholders = gigIds.map(() => "?").join(",");
+			await query(`DELETE FROM setlist_song WHERE setlist_id IN (SELECT id FROM setlist WHERE gig_id IN (${placeholders}))`, gigIds);
+			await query(`DELETE FROM setlist WHERE gig_id IN (${placeholders})`, gigIds);
+			await query(`DELETE FROM gig_media WHERE gig_id IN (${placeholders})`, gigIds);
+			await query(`DELETE FROM user_gig WHERE gig_id IN (${placeholders})`, gigIds);
+		}
+
+		await query(`DELETE FROM event_gig WHERE event_id=?`, [resolvedId]);
+		await query(`DELETE FROM event_stage WHERE event_id=?`, [resolvedId]);
+		await query(`DELETE FROM edition_event WHERE event_id=?`, [resolvedId]);
+		const deleteEventResult = await query(`DELETE FROM event WHERE id=?`, [resolvedId]);
+
+		if (gigIds.length) {
+			const placeholders = gigIds.map(() => "?").join(",");
+			await query(`DELETE FROM gig WHERE id IN (${placeholders})`, gigIds);
+		}
+
+		await syncEditionDatesForEditionIds(linkedEditionIds, query);
+
+		return deleteEventResult;
+	});
 
 	let message = "Error in deleting Edition";
 
@@ -497,6 +560,7 @@ async function update(id, event) {
 		throw new Error("Event not found");
 	}
 
+	const linkedEditionIds = await getEditionIdsForEvent(resolvedId);
 	const slug = await buildUniqueSlug(db, "event", event?.name, resolvedId);
 	const storedImage = await eventImageStorage.storeEventImage({
 		id: resolvedId,
@@ -504,7 +568,67 @@ async function update(id, event) {
 		image: event.image,
 		replaceExisting: true
 	});
-	const result = await db.query(`UPDATE event SET name=?, slug=?, image=?, description=? WHERE id=?`, [event.name, slug, storedImage.image || null, event.description || null, resolvedId]);
+
+	const nextDate = hasOwn(event, "date") ? normalizeDate(event.date) : undefined;
+	const nextCityId = hasOwn(event, "city") || hasOwn(event, "city_id") ? normalizeNumber(event?.city?.id || event?.city_id || event?.city) : undefined;
+	const nextVenueId = hasOwn(event, "venue") || hasOwn(event, "venue_id") ? normalizeNumber(event?.venue?.id || event?.venue_id || event?.venue) : undefined;
+	const nextType = hasOwn(event, "type") ? Number(event.type) || null : undefined;
+
+	if (hasOwn(event, "date") && nextDate === undefined) {
+		throw new Error("Data inválida. Usa o formato YYYY-MM-DD.");
+	}
+	if ((hasOwn(event, "city") || hasOwn(event, "city_id")) && !nextCityId) {
+		throw new Error("Cidade inválida.");
+	}
+	if ((hasOwn(event, "venue") || hasOwn(event, "venue_id")) && !nextVenueId) {
+		throw new Error("Local inválido.");
+	}
+	if (hasOwn(event, "type") && !nextType) {
+		throw new Error("Tipo inválido.");
+	}
+
+	const eventFields = ["name=?", "slug=?", "image=?", "description=?"];
+	const eventParams = [event.name, slug, storedImage.image || null, event.description || null];
+	if (hasOwn(event, "date")) {
+		eventFields.push("date=?");
+		eventParams.push(nextDate);
+	}
+	if (hasOwn(event, "city") || hasOwn(event, "city_id")) {
+		eventFields.push("city_id=?");
+		eventParams.push(nextCityId);
+	}
+	if (hasOwn(event, "venue") || hasOwn(event, "venue_id")) {
+		eventFields.push("venue_id=?");
+		eventParams.push(nextVenueId);
+	}
+	if (hasOwn(event, "type")) {
+		eventFields.push("type=?");
+		eventParams.push(nextType);
+	}
+
+	const result = await db.query(`UPDATE event SET ${eventFields.join(", ")} WHERE id=?`, [...eventParams, resolvedId]);
+	const gigSyncFields = [];
+	const gigSyncParams = [];
+	if (hasOwn(event, "date")) {
+		gigSyncFields.push("g.date=?");
+		gigSyncParams.push(nextDate);
+	}
+	if (hasOwn(event, "city") || hasOwn(event, "city_id")) {
+		gigSyncFields.push("g.city_id=?");
+		gigSyncParams.push(nextCityId);
+	}
+	if (hasOwn(event, "venue") || hasOwn(event, "venue_id")) {
+		gigSyncFields.push("g.venue_id=?");
+		gigSyncParams.push(nextVenueId);
+	}
+	if (hasOwn(event, "type")) {
+		gigSyncFields.push("g.type=?");
+		gigSyncParams.push(nextType);
+	}
+	if (gigSyncFields.length) {
+		await db.query(`UPDATE gig g INNER JOIN event_gig eg ON eg.gig_id = g.id SET ${gigSyncFields.join(", ")} WHERE eg.event_id = ?`, [...gigSyncParams, resolvedId]);
+	}
+
 	const eventRows = await db.query(`SELECT date, city_id, venue_id, type FROM event WHERE id=?`, [resolvedId]);
 	const existingGigRows = await db.query(
 		`
@@ -572,6 +696,8 @@ async function update(id, event) {
 	if (result.affectedRows || addedArtists || updatedEntries) {
 		message = "Event updated successfully";
 	}
+
+	await syncEditionDatesForEditionIds(linkedEditionIds);
 
 	return { message };
 }
