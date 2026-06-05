@@ -221,16 +221,25 @@ function normalizeTitleCase(value) {
 }
 
 function normalizeStageName(value) {
-	return normalizeTitleCase(value);
+	return normalizeTitleCase(value).replace(/[:;]+$/g, "");
 }
 
 function normalizeArtistName(value) {
 	return normalizeTitleCase(value);
 }
 
+function isLikelyStageHeader(line) {
+	const normalized = stripAccents(normalizeStageName(line)).toLocaleLowerCase("pt-PT");
+	return /^(palco|after[-\s]?hours|jazz na relva|coreto|tenda|auditorio|sala|stage)\b/.test(normalized);
+}
+
 function parseDateHeader(line) {
-	const normalized = stripAccents(line).toLocaleLowerCase("pt-PT");
-	const match = normalized.match(/^(\d{1,2})\s*(?:de\s+)?([a-z]+)$/i);
+	const normalized = stripAccents(line)
+		.toLocaleLowerCase("pt-PT")
+		.replace(/\s*\([^)]*\)\s*$/g, "")
+		.replace(/[:;]+$/g, "")
+		.trim();
+	const match = normalized.match(/^(?:dia\s+\d+\s*[-–—]\s*)?(?:dia\s+)?(\d{1,2})\s*(?:de\s+)?([a-z]+)$/i);
 	if (!match) {
 		return null;
 	}
@@ -246,15 +255,31 @@ function parseDateHeader(line) {
 }
 
 function parseProgramSlotLine(line) {
-	const slotMatch = line.match(/^(\d{1,2}(?:\s*(?:[:hH.])\s*\d{0,2})?)\s*(?:(?:\||-|–|—)\s*)?(.+)$/);
-	if (!slotMatch) {
-		return null;
+	const explicitTimeMatch = line.match(/^(\d{1,2}\s*(?:[:hH.])\s*\d{0,2})\s*(?:(?:\||-|–|—|:)\s*)?(.+)$/);
+	if (explicitTimeMatch) {
+		return {
+			rawTime: explicitTimeMatch[1],
+			rawArtists: explicitTimeMatch[2]
+		};
 	}
 
-	return {
-		rawTime: slotMatch[1],
-		rawArtists: slotMatch[2]
-	};
+	const separatedHourMatch = line.match(/^(\d{1,2})\s*(?:\||-|–|—)\s*(.+)$/);
+	if (separatedHourMatch) {
+		return {
+			rawTime: separatedHourMatch[1],
+			rawArtists: separatedHourMatch[2]
+		};
+	}
+
+	return null;
+}
+
+function parseProgramArtistNames(rawArtists) {
+	return normalizeWhitespace(rawArtists)
+		.replace(/^[|:;,\-–—]\s*/, "")
+		.split(/\s*[·•]\s*/g)
+		.map((name) => normalizeArtistName(name))
+		.filter(Boolean);
 }
 
 function parseProgramText(programText, editionStartIso, editionEndIso) {
@@ -269,7 +294,39 @@ function parseProgramText(programText, editionStartIso, editionEndIso) {
 	let currentDate = null;
 	let currentStage = null;
 	let stagePosition = 0;
+	let slotPosition = 0;
 	const stagePositionByDate = new Map();
+
+	const appendProgramSlot = (slot, line) => {
+		const time = slot.rawTime ? normalizeTimeValue(slot.rawTime) : null;
+		if (slot.rawTime && !time) {
+			warnings.push(`Hora inválida ignorada: "${line}"`);
+			return;
+		}
+
+		const artists = parseProgramArtistNames(slot.rawArtists);
+
+		if (!artists.length) {
+			warnings.push(`Artista inválido ignorado: "${line}"`);
+			return;
+		}
+
+		for (const artist of artists) {
+			const stageMap = stagePositionByDate.get(currentDate) || new Map();
+			const normalizedStage = currentStage || "Sem palco";
+			const mappedStagePosition = stageMap.get(normalizedStage) || 999;
+			slotPosition += 1;
+			entries.push({
+				date: currentDate,
+				stage_name: normalizedStage,
+				stage_position: mappedStagePosition,
+				position: slotPosition,
+				start_time: time,
+				end_time: null,
+				artist_name: artist
+			});
+		}
+	};
 
 	for (const line of lines) {
 		const dateHeader = parseDateHeader(line);
@@ -277,6 +334,7 @@ function parseProgramText(programText, editionStartIso, editionEndIso) {
 			currentDate = resolveDateForEdition(dateHeader.day, dateHeader.month, editionStartIso, editionEndIso);
 			currentStage = null;
 			stagePosition = 0;
+			slotPosition = 0;
 			if (!currentDate) {
 				warnings.push(`Data inválida ignorada: "${line}"`);
 			} else if (!stagePositionByDate.has(currentDate)) {
@@ -292,35 +350,12 @@ function parseProgramText(programText, editionStartIso, editionEndIso) {
 
 		const slot = parseProgramSlotLine(line);
 		if (slot) {
-			const time = normalizeTimeValue(slot.rawTime);
-			if (!time) {
-				warnings.push(`Hora inválida ignorada: "${line}"`);
-				continue;
-			}
+			appendProgramSlot(slot, line);
+			continue;
+		}
 
-			const artists = slot.rawArtists
-				.split(/\s*[·•]\s*/g)
-				.map((name) => normalizeArtistName(name))
-				.filter(Boolean);
-
-			if (!artists.length) {
-				warnings.push(`Artista inválido ignorado: "${line}"`);
-				continue;
-			}
-
-			for (const artist of artists) {
-				const stageMap = stagePositionByDate.get(currentDate) || new Map();
-				const normalizedStage = currentStage || "Sem palco";
-				const mappedStagePosition = stageMap.get(normalizedStage) || 999;
-				entries.push({
-					date: currentDate,
-					stage_name: normalizedStage,
-					stage_position: mappedStagePosition,
-					start_time: time,
-					end_time: null,
-					artist_name: artist
-				});
-			}
+		if (currentStage && !isLikelyStageHeader(line)) {
+			appendProgramSlot({ rawTime: null, rawArtists: line }, line);
 			continue;
 		}
 
@@ -633,7 +668,7 @@ async function previewProgram(editionId, payload = {}) {
 			? await db.query(
 					`
 					SELECT eg.gig_id, eg.stage_id, eg.start_time AS event_start_time, eg.end_time AS event_end_time,
-					       g.artist_id, g.start_time AS gig_start_time, g.end_time AS gig_end_time,
+					       g.artist_id, g.position AS gig_position, g.start_time AS gig_start_time, g.end_time AS gig_end_time,
 					       es.name AS stage_name
 					FROM event_gig eg
 					INNER JOIN gig g ON g.id = eg.gig_id
@@ -657,7 +692,7 @@ async function previewProgram(editionId, payload = {}) {
 			const artistPlaceholders = existingArtistIdsForDate.map(() => "?").join(",");
 			existingVenueDateGigRows = await db.query(
 				`
-				SELECT id, artist_id, start_time, end_time
+				SELECT id, artist_id, start_time, end_time, position
 				FROM gig
 				WHERE venue_id = ? AND date = ? AND artist_id IN (${artistPlaceholders})
 				`,
@@ -693,9 +728,14 @@ async function previewProgram(editionId, payload = {}) {
 					const currentEventStart = existingEventGig.event_start_time || existingEventGig.gig_start_time || null;
 					const currentEventEnd = existingEventGig.event_end_time || existingEventGig.gig_end_time || null;
 					const currentStageName = existingEventGig.stage_name || null;
-					const hasChanges = currentEventStart !== (entry.start_time || null) || currentEventEnd !== (entry.end_time || null) || (currentStageName || null) !== (entry.stage_name || null);
+					const currentPosition = Number(existingEventGig.gig_position) || null;
+					const hasChanges =
+						currentEventStart !== (entry.start_time || null) ||
+						currentEventEnd !== (entry.end_time || null) ||
+						(currentStageName || null) !== (entry.stage_name || null) ||
+						currentPosition !== entry.position;
 					action = hasChanges ? "update_gig" : "ignore_duplicate";
-					note = hasChanges ? "Já existe, mas palco/horário será atualizado." : "Já existe sem alterações.";
+					note = hasChanges ? "Já existe, mas palco/horário/ordem será atualizado." : "Já existe sem alterações.";
 				} else if (existingVenueDateGig) {
 					existingGigId = existingVenueDateGig.id;
 					action = "update_gig";
@@ -711,6 +751,7 @@ async function previewProgram(editionId, payload = {}) {
 			previewEntries.push({
 				date: entry.date,
 				stage_name: entry.stage_name,
+				position: entry.position,
 				start_time: entry.start_time,
 				end_time: entry.end_time,
 				artist_name: entry.artist_name,
@@ -872,7 +913,7 @@ async function importProgram(editionId, payload = {}) {
 		const existingGigRows = await db.query(
 			`
 			SELECT eg.gig_id, eg.stage_id, eg.start_time AS event_start_time, eg.end_time AS event_end_time,
-			       g.artist_id, g.start_time AS gig_start_time, g.end_time AS gig_end_time
+			       g.artist_id, g.position AS gig_position, g.start_time AS gig_start_time, g.end_time AS gig_end_time
 			FROM event_gig eg
 			INNER JOIN gig g ON g.id = eg.gig_id
 			WHERE eg.event_id = ?
@@ -886,7 +927,7 @@ async function importProgram(editionId, payload = {}) {
 			const artistPlaceholders = artistIdsForDate.map(() => "?").join(",");
 			existingVenueDateGigRows = await db.query(
 				`
-				SELECT id, artist_id, start_time, end_time
+				SELECT id, artist_id, start_time, end_time, position
 				FROM gig
 				WHERE venue_id = ? AND date = ? AND artist_id IN (${artistPlaceholders})
 				`,
@@ -937,7 +978,8 @@ async function importProgram(editionId, payload = {}) {
 				const currentEventStart = existingEventGig.event_start_time || existingEventGig.gig_start_time || null;
 				const currentEventEnd = existingEventGig.event_end_time || existingEventGig.gig_end_time || null;
 				const currentStageId = existingEventGig.stage_id || null;
-				const hasChanges = currentStageId !== stageId || currentEventStart !== startTime || currentEventEnd !== endTime;
+				const currentPosition = Number(existingEventGig.gig_position) || null;
+				const hasChanges = currentStageId !== stageId || currentEventStart !== startTime || currentEventEnd !== endTime || currentPosition !== entry.position;
 
 				if (!hasChanges) {
 					ignoredDuplicates += 1;
@@ -945,12 +987,13 @@ async function importProgram(editionId, payload = {}) {
 				}
 
 				await db.query(`UPDATE event_gig SET stage_id = ?, start_time = ?, end_time = ? WHERE event_id = ? AND gig_id = ?`, [stageId, startTime, endTime, eventId, existingEventGig.gig_id]);
-				await db.query(`UPDATE gig SET start_time = ?, end_time = ? WHERE id = ?`, [startTime, endTime, existingEventGig.gig_id]);
+				await db.query(`UPDATE gig SET start_time = ?, end_time = ?, position = ? WHERE id = ?`, [startTime, endTime, entry.position, existingEventGig.gig_id]);
 				existingEventGig.stage_id = stageId;
 				existingEventGig.event_start_time = startTime;
 				existingEventGig.event_end_time = endTime;
 				existingEventGig.gig_start_time = startTime;
 				existingEventGig.gig_end_time = endTime;
+				existingEventGig.gig_position = entry.position;
 				updatedGigs += 1;
 				continue;
 			}
@@ -960,17 +1003,18 @@ async function importProgram(editionId, payload = {}) {
 			const existingVenueDateGig = venueDateGigByArtist.get(artistId);
 			if (existingVenueDateGig?.id) {
 				gigIdToUse = existingVenueDateGig.id;
-				await db.query(`UPDATE gig SET start_time = ?, end_time = ? WHERE id = ?`, [startTime, endTime, gigIdToUse]);
+				await db.query(`UPDATE gig SET start_time = ?, end_time = ?, position = ? WHERE id = ?`, [startTime, endTime, entry.position, gigIdToUse]);
 			} else {
 				try {
-					const insertGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
+					const insertGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
 						date,
 						edition.city_id,
 						edition.venue_id,
 						artistId,
 						type,
 						startTime,
-						endTime
+						endTime,
+						entry.position
 					]);
 					gigIdToUse = insertGig.insertId;
 					createdGigNow = true;
@@ -986,7 +1030,7 @@ async function importProgram(editionId, payload = {}) {
 					}
 
 					gigIdToUse = duplicateGigRows[0].id;
-					await db.query(`UPDATE gig SET start_time = ?, end_time = ? WHERE id = ?`, [startTime, endTime, gigIdToUse]);
+					await db.query(`UPDATE gig SET start_time = ?, end_time = ?, position = ? WHERE id = ?`, [startTime, endTime, entry.position, gigIdToUse]);
 				}
 			}
 
@@ -1004,6 +1048,7 @@ async function importProgram(editionId, payload = {}) {
 				gig_id: gigIdToUse,
 				artist_id: artistId,
 				stage_id: stageId,
+				gig_position: entry.position,
 				event_start_time: startTime,
 				event_end_time: endTime,
 				gig_start_time: startTime,
@@ -1011,7 +1056,7 @@ async function importProgram(editionId, payload = {}) {
 			};
 			eventGigByArtist.set(artistId, gigSnapshot);
 			eventGigByGigId.set(gigIdToUse, gigSnapshot);
-			venueDateGigByArtist.set(artistId, { id: gigIdToUse, artist_id: artistId, start_time: startTime, end_time: endTime });
+			venueDateGigByArtist.set(artistId, { id: gigIdToUse, artist_id: artistId, start_time: startTime, end_time: endTime, position: entry.position });
 			if (!createdGigNow) {
 				updatedGigs += 1;
 			}
