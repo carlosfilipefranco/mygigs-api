@@ -197,7 +197,7 @@ async function fetchSetlistFm(path, params) {
 		});
 
 		if (response.status === 404) {
-			return { setlist: [], totalPages: 1 };
+			return { setlist: [], total: 0, page: 1, itemsPerPage: 20 };
 		}
 
 		if (response.status === 429 && attempt < MAX_RETRIES) {
@@ -215,6 +215,21 @@ async function fetchSetlistFm(path, params) {
 	}
 
 	throw new Error("Erro na API setlist.fm: limite de pedidos atingido.");
+}
+
+function getTotalPages(data) {
+	const explicitTotalPages = Number(data?.totalPages);
+	if (Number.isFinite(explicitTotalPages) && explicitTotalPages > 0) {
+		return explicitTotalPages;
+	}
+
+	const total = Number(data?.total);
+	const itemsPerPage = Number(data?.itemsPerPage);
+	if (Number.isFinite(total) && Number.isFinite(itemsPerPage) && itemsPerPage > 0) {
+		return Math.max(Math.ceil(total / itemsPerPage), 1);
+	}
+
+	return 1;
 }
 
 function flattenSongs(setlist) {
@@ -266,7 +281,7 @@ async function searchSetlists(payload = {}) {
 		dateFrom = search.dateFrom;
 		dateTo = search.dateTo;
 		const data = await fetchSetlistFm("/search/setlists", search.params);
-		totalPages = Number(data.totalPages || 1);
+		totalPages = getTotalPages(data);
 		const setlists = Array.isArray(data.setlist) ? data.setlist : [];
 
 		for (const raw of setlists) {
