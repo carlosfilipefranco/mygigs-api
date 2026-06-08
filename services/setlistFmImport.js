@@ -22,6 +22,11 @@ function normalizeNumber(value) {
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function normalizeEncore(value) {
+	const parsed = Number(value);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 function normalizeLimit(value) {
 	const parsed = Number(value);
 	if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -235,10 +240,11 @@ function getTotalPages(data) {
 function flattenSongs(setlist) {
 	const songs = [];
 	for (const set of setlist?.sets?.set || []) {
+		const encore = normalizeEncore(set?.encore);
 		for (const song of set?.song || []) {
 			const name = normalizeText(song?.name);
 			if (name) {
-				songs.push({ name });
+				songs.push({ name, encore });
 			}
 		}
 	}
@@ -514,7 +520,8 @@ async function importSetlistSongs(entry, gigId, artistId, query = db.query) {
 			continue;
 		}
 
-		await query(`INSERT INTO setlist_song (setlist_id, song_id, position) VALUES (?, ?, ?)`, [setlistResult.insertId, songRows[0].id, position]);
+		const encore = normalizeEncore(song.encore);
+		await query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [setlistResult.insertId, songRows[0].id, position, encore]);
 		position += 1;
 		songs += 1;
 	}

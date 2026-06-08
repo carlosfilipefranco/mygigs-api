@@ -6,6 +6,11 @@ const path = require("path");
 const API_KEY = "33b04241-2c2f-45e6-959a-ddf01429fc76";
 const OUTPUT_FILE = "./setlists_pt.json";
 
+function normalizeEncore(value) {
+	const parsed = Number(value);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 async function getSetlist(gigId, artist, city, date) {
 	if (!artist || !city || !date || !gigId) {
 		throw new Error("Parâmetros obrigatórios em falta: gigId, artist, city, date");
@@ -60,6 +65,7 @@ async function getSetlist(gigId, artist, city, date) {
 	console.log(found);
 
 	for (const set of found.sets.set) {
+		const encore = normalizeEncore(set.encore);
 		for (const song of set.song || []) {
 			const songName = song.name?.trim();
 			if (!songName) continue;
@@ -75,7 +81,7 @@ async function getSetlist(gigId, artist, city, date) {
 			const songId = songRows[0].id;
 			if (!songId) continue;
 
-			await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position) VALUES (?, ?, ?)`, [setlistId, songId, position]);
+			await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [setlistId, songId, position, encore]);
 
 			position++;
 			songCount++;
@@ -128,6 +134,7 @@ async function importSetlists(req, res) {
 			let songCount = 0;
 
 			for (const set of setlist.sets.set) {
+				const encore = normalizeEncore(set.encore);
 				for (const song of set.song || []) {
 					const songName = song.name?.trim();
 					if (!songName) continue;
@@ -143,7 +150,7 @@ async function importSetlists(req, res) {
 					const songId = songRows[0].id;
 					if (!songId) continue;
 
-					await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position) VALUES (?, ?, ?)`, [setlistId, songId, position]);
+					await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [setlistId, songId, position, encore]);
 
 					position++;
 					songCount++;
