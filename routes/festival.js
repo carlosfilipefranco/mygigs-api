@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const festival = require("../services/festival");
-const { requireAdmin } = require("../middleware/auth");
+const { optionalAuth, requireAdmin } = require("../middleware/auth");
 
 /* GET festival. */
 router.get("/", async function (req, res, next) {
@@ -44,7 +44,7 @@ router.get("/upcoming-editions", async function (req, res, next) {
 });
 
 /* GET festival */
-router.get("/:id", async function (req, res, next) {
+router.get("/:id", optionalAuth, async function (req, res, next) {
 	try {
 		res.json(await festival.get(req.params.id, req.user?.id));
 	} catch (err) {
