@@ -30,14 +30,109 @@ async function getMultiple(page = 1, search = null) {
 	};
 }
 
-async function get(id) {
+async function getUpcomingEditions(page = 1, limit = 8) {
+	const pageNumber = Math.max(1, Number(page) || 1);
+	const pageSize = Math.min(24, Math.max(1, Number(limit) || 8));
+	const offset = helper.getOffset(pageNumber, pageSize);
+
+	const rows = await db.query(
+		`
+		SELECT
+			festival.id AS festival_id,
+			festival.name AS festival_name,
+			festival.slug AS festival_slug,
+			festival.image AS festival_image,
+			edition.id AS edition_id,
+			edition.name AS edition_name,
+			edition.slug AS edition_slug,
+			edition.image AS edition_image,
+			edition.date_start,
+			edition.date_end,
+			venue.name AS venue,
+			city.name AS city,
+			COUNT(DISTINCT DATE(event.date)) AS total_days,
+			CASE
+				WHEN DATE(edition.date_start) <= CURDATE()
+				 AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
+				THEN 1
+				ELSE 0
+			END AS is_ongoing
+		FROM edition
+		INNER JOIN festival ON festival.id = edition.festival_id
+		LEFT JOIN venue ON venue.id = edition.venue_id
+		LEFT JOIN city ON city.id = edition.city_id
+		LEFT JOIN edition_event ON edition_event.edition_id = edition.id
+		LEFT JOIN event ON event.id = edition_event.event_id
+		WHERE edition.date_start IS NOT NULL
+		  AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
+		GROUP BY festival.id, festival.name, festival.slug, festival.image,
+		         edition.id, edition.name, edition.slug, edition.image, edition.date_start, edition.date_end,
+		         venue.name, city.name
+		ORDER BY is_ongoing DESC, DATE(edition.date_start) ASC, edition.name ASC
+		LIMIT ${offset}, ${pageSize}
+	`
+	);
+
+	const countRows = await db.query(
+		`
+		SELECT COUNT(*) AS count
+		FROM edition
+		WHERE edition.date_start IS NOT NULL
+		  AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
+		`
+	);
+
+	return {
+		data: helper.emptyOrRows(rows).map((edition) => ({
+			...edition,
+			total_days: Number(edition.total_days || 0),
+			is_ongoing: Number(edition.is_ongoing || 0) === 1
+		})),
+		meta: { page: pageNumber, count: countRows?.[0]?.count || 0 }
+	};
+}
+
+async function get(id, userId = null) {
 	const resolvedId = await resolveEntityIdByIdentifier(db, "festival", id);
 	if (!resolvedId) {
 		return { festival: null, editions: [] };
 	}
 
 	const festival = await db.query(`SELECT festival.id, festival.name, festival.image, festival.slug FROM festival WHERE festival.id = ?`, [resolvedId]);
-	const editions = await db.query(`SELECT festival.id, festival.name, edition.id AS edition_id, edition.name AS edition_name, edition.slug AS edition_slug FROM festival JOIN edition ON festival.id = edition.festival_id WHERE festival.id = ? ORDER by date_start`, [resolvedId]);
+	const editionRows = await db.query(
+		`
+		SELECT festival.id,
+		       festival.name,
+		       edition.id AS edition_id,
+		       edition.name AS edition_name,
+		       edition.slug AS edition_slug,
+		       edition.date_start,
+		       COUNT(DISTINCT DATE(ev.date)) AS total_days,
+		       COUNT(DISTINCT CASE WHEN ug.status = 'going' OR ue.status IN ('attended', 'going') THEN DATE(ev.date) END) AS user_attended_days
+		FROM festival
+		INNER JOIN edition ON festival.id = edition.festival_id
+		LEFT JOIN edition_event ee ON ee.edition_id = edition.id
+		LEFT JOIN event ev ON ev.id = ee.event_id
+		LEFT JOIN event_gig eg ON eg.event_id = ev.id
+		LEFT JOIN gig g ON g.id = eg.gig_id
+		LEFT JOIN user_gig ug ON ug.gig_id = g.id AND ug.user_id = ?
+		LEFT JOIN user_event ue ON ue.event_id = ev.id AND ue.user_id = ?
+		WHERE festival.id = ?
+		GROUP BY festival.id, festival.name, edition.id, edition.name, edition.slug, edition.date_start
+		ORDER BY edition.date_start
+	`,
+		[userId || 0, userId || 0, resolvedId]
+	);
+	const editions = editionRows.map((edition) => {
+		const userAttendedDays = Number(edition.user_attended_days || 0);
+
+		return {
+			...edition,
+			total_days: Number(edition.total_days || 0),
+			user_attended_days: userAttendedDays,
+			user_attended: userAttendedDays > 0
+		};
+	});
 
 	return {
 		festival: festival[0],
@@ -176,6 +271,7 @@ async function remove(id) {
 
 module.exports = {
 	getMultiple,
+	getUpcomingEditions,
 	get,
 	create,
 	update,

@@ -455,7 +455,7 @@ async function get(id, userId = null) {
 		const gigsParams = userId ? [userId, resolvedId] : [resolvedId];
 		const gigsRows = await db.query(
 			`
-		  SELECT g.id, g.date, g.artist_id, a.name AS artist, a.image, v.name AS venue, v.id AS venue_id, c.name AS city, c.id AS city_id,
+		  SELECT g.id, g.date, g.artist_id, a.name AS artist, a.slug AS artist_slug, a.image, v.name AS venue, v.id AS venue_id, c.name AS city, c.id AS city_id,
 		         ev.id AS event_id, ev.name AS event_name, ev.slug AS event_slug,
 		         eg.stage_id, es.name AS stage_name,
 		         COALESCE(eg.start_time, g.start_time) AS start_time,
@@ -490,6 +490,7 @@ async function get(id, userId = null) {
 			date: row.date,
 			artist_id: row.artist_id,
 			artist: row.artist,
+			artist_slug: row.artist_slug,
 			image: row.image,
 			venue: row.venue,
 			venue_id: row.venue_id,

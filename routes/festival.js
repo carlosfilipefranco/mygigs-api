@@ -33,10 +33,20 @@ router.put("/:id", requireAdmin, async function (req, res, next) {
 	}
 });
 
+/* GET upcoming festival editions */
+router.get("/upcoming-editions", async function (req, res, next) {
+	try {
+		res.json(await festival.getUpcomingEditions(req.query.page, req.query.limit));
+	} catch (err) {
+		console.error(`Error while getting upcoming festival editions`, err.message);
+		next(err);
+	}
+});
+
 /* GET festival */
 router.get("/:id", async function (req, res, next) {
 	try {
-		res.json(await festival.get(req.params.id, req.body));
+		res.json(await festival.get(req.params.id, req.user?.id));
 	} catch (err) {
 		console.error(`Error while updating gig`, err.message);
 		next(err);

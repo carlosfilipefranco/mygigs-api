@@ -176,7 +176,9 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 		SELECT
 			gig.id,
 			gig.date,
+			artist.id AS artist_id,
 			artist.name AS artist,
+			artist.slug AS artist_slug,
 			artist.image,
 			venue.name AS venue,
 			city.name AS city,
@@ -251,14 +253,15 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 async function get(id, userId = null) {
 	const result = await db.query(
 		`
-    SELECT 
-        gig.id, 
-        gig.date, 
+    SELECT
+        gig.id,
+        gig.date,
         gig.start_time AS gig_start_time,
         gig.end_time AS gig_end_time,
-        artist.name AS artist, 
-        artist.image, 
-        artist.id AS artist_id, 
+        artist.name AS artist,
+        artist.image,
+        artist.id AS artist_id,
+        artist.slug AS artist_slug,
         venue.name AS venue,
         venue.id AS venue_id,
         city.name AS city,
@@ -269,15 +272,15 @@ async function get(id, userId = null) {
         ev.id AS event_id,
         ev.name AS event_name,
         ev.slug AS event_slug,
-        festival.id AS festival_id, 
+        festival.id AS festival_id,
         festival.name AS festival_name,
         edition.id AS edition_id,
         edition.name AS edition_name,
         edition.slug AS edition_slug
-    FROM gig 
-    INNER JOIN artist ON gig.artist_id = artist.id 
-    INNER JOIN venue ON gig.venue_id = venue.id 
-    INNER JOIN city ON gig.city_id = city.id 
+    FROM gig
+    INNER JOIN artist ON gig.artist_id = artist.id
+    INNER JOIN venue ON gig.venue_id = venue.id
+    INNER JOIN city ON gig.city_id = city.id
     LEFT JOIN event_gig eg ON gig.id = eg.gig_id
     LEFT JOIN event_stage es ON es.id = eg.stage_id
     LEFT JOIN event ev ON eg.event_id = ev.id
@@ -342,10 +345,10 @@ async function get(id, userId = null) {
 	// Procurar setlist local
 	const setlistRows = await db.query(
 		`
-    SELECT 
-        s.id AS setlist_id, 
-        ss.song_id, 
-        ss.position, 
+    SELECT
+        s.id AS setlist_id,
+        ss.song_id,
+        ss.position,
         ss.encore,
         song.name AS song_name
     FROM setlist s
@@ -656,7 +659,7 @@ async function sort(gigs) {
 async function images(images) {
 	for (const image of images) {
 		await db.query(`
-            INSERT INTO gig_image (gig_id, url) 
+            INSERT INTO gig_image (gig_id, url)
             VALUES ("${image.gig_id}", "${image.url}")
         `);
 	}
