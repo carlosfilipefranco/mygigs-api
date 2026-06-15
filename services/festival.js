@@ -34,9 +34,7 @@ async function getUpcomingEditions(page = 1, limit = 8) {
 	const pageNumber = Math.max(1, Number(page) || 1);
 	const pageSize = Math.min(24, Math.max(1, Number(limit) || 8));
 	const offset = helper.getOffset(pageNumber, pageSize);
-
-	const rows = await db.query(
-		`
+	const selectClause = `
 		SELECT
 			festival.id AS festival_id,
 			festival.name AS festival_name,
@@ -50,26 +48,40 @@ async function getUpcomingEditions(page = 1, limit = 8) {
 			edition.date_end,
 			venue.name AS venue,
 			city.name AS city,
-			COUNT(DISTINCT DATE(event.date)) AS total_days,
-			CASE
-				WHEN DATE(edition.date_start) <= CURDATE()
-				 AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
-				THEN 1
-				ELSE 0
-			END AS is_ongoing
+			COUNT(DISTINCT DATE(event.date)) AS total_days
 		FROM edition
 		INNER JOIN festival ON festival.id = edition.festival_id
 		LEFT JOIN venue ON venue.id = edition.venue_id
 		LEFT JOIN city ON city.id = edition.city_id
 		LEFT JOIN edition_event ON edition_event.edition_id = edition.id
 		LEFT JOIN event ON event.id = edition_event.event_id
-		WHERE edition.date_start IS NOT NULL
-		  AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
+	`;
+	const groupByClause = `
 		GROUP BY festival.id, festival.name, festival.slug, festival.image,
 		         edition.id, edition.name, edition.slug, edition.image, edition.date_start, edition.date_end,
 		         venue.name, city.name
-		ORDER BY is_ongoing DESC, DATE(edition.date_start) ASC, edition.name ASC
-		LIMIT ${offset}, ${pageSize}
+	`;
+
+	const ongoingRows = await db.query(
+		`
+		${selectClause}
+		WHERE edition.date_start IS NOT NULL
+		  AND DATE(edition.date_start) <= CURDATE()
+		  AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
+		${groupByClause}
+		ORDER BY DATE(edition.date_start) ASC, edition.name ASC
+		LIMIT ${pageSize}
+	`
+	);
+	const upcomingLimit = Math.max(pageSize - ongoingRows.length, Math.ceil(pageSize / 2));
+	const upcomingRows = await db.query(
+		`
+		${selectClause}
+		WHERE edition.date_start IS NOT NULL
+		  AND DATE(edition.date_start) > CURDATE()
+		${groupByClause}
+		ORDER BY DATE(edition.date_start) ASC, edition.name ASC
+		LIMIT ${offset}, ${upcomingLimit}
 	`
 	);
 
@@ -78,16 +90,24 @@ async function getUpcomingEditions(page = 1, limit = 8) {
 		SELECT COUNT(*) AS count
 		FROM edition
 		WHERE edition.date_start IS NOT NULL
-		  AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
+		  AND (
+			  DATE(edition.date_start) > CURDATE()
+			  OR (
+				  DATE(edition.date_start) <= CURDATE()
+				  AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
+			  )
+		  )
 		`
 	);
-
-	return {
-		data: helper.emptyOrRows(rows).map((edition) => ({
+	const mapRows = (rows, isOngoing) =>
+		helper.emptyOrRows(rows).map((edition) => ({
 			...edition,
 			total_days: Number(edition.total_days || 0),
-			is_ongoing: Number(edition.is_ongoing || 0) === 1
-		})),
+			is_ongoing: isOngoing
+		}));
+
+	return {
+		data: [...mapRows(ongoingRows, true), ...mapRows(upcomingRows, false)],
 		meta: { page: pageNumber, count: countRows?.[0]?.count || 0 }
 	};
 }
