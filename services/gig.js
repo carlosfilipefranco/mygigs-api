@@ -488,7 +488,7 @@ async function globalDashboard(type, period = null) {
 }
 
 async function userGigDashboard(type, userId, period = null) {
-	const periodClause = buildPeriodClause(period, "gig.date");
+	const periodClause = buildPeriodClause(period, "gig.date", { includeNullOnPast: true });
 	const total_gigs = await db.query(
 		`
 		SELECT COUNT(DISTINCT gig.id) AS total_gigs
