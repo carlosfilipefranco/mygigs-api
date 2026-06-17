@@ -159,14 +159,15 @@ async function getPublicProfile(id) {
 		return null;
 	}
 
-	const [statsRows, topArtists, recentGigs, upcomingGigs] = await Promise.all([
+	const [statsRows, topArtists, festivalStats, recentGigs, upcomingGigs] = await Promise.all([
 		db.query(
 			`
 			SELECT
 				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN gig.id END) AS attended_gigs,
 				COUNT(DISTINCT CASE WHEN gig.date >= CURDATE() THEN gig.id END) AS upcoming_gigs,
-				COUNT(DISTINCT gig.artist_id) AS artists_seen,
-				COUNT(DISTINCT edition.id) AS festival_editions
+				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN gig.artist_id END) AS artists_seen,
+				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN edition.id END) AS festival_editions,
+				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN event_gig.event_id END) AS total_events
 			FROM user_gig
 			INNER JOIN gig ON user_gig.gig_id = gig.id
 			LEFT JOIN event_gig ON event_gig.gig_id = gig.id
@@ -190,7 +191,30 @@ async function getPublicProfile(id) {
 			  AND gig.date < CURDATE()
 			GROUP BY artist.id, artist.name, artist.slug, artist.image
 			ORDER BY gig_count DESC, artist.name ASC
-			LIMIT 10
+			`,
+			[userId]
+		),
+		db.query(
+			`
+			SELECT
+				festival.id,
+				festival.name,
+				festival.slug,
+				festival.image,
+				COUNT(DISTINCT edition.id) AS edition_count,
+				COUNT(DISTINCT event_gig.event_id) AS total_events
+			FROM user_gig
+			INNER JOIN gig ON user_gig.gig_id = gig.id
+			INNER JOIN event_gig ON event_gig.gig_id = gig.id
+			INNER JOIN edition_event ON edition_event.event_id = event_gig.event_id
+			INNER JOIN edition ON edition.id = edition_event.edition_id
+			INNER JOIN festival ON festival.id = edition.festival_id
+			WHERE user_gig.user_id = ?
+			  AND user_gig.status = 'going'
+			  AND gig.type = 1
+			  AND gig.date < CURDATE()
+			GROUP BY festival.id, festival.name, festival.slug, festival.image
+			ORDER BY edition_count DESC, total_events DESC, festival.name ASC
 			`,
 			[userId]
 		),
@@ -239,9 +263,11 @@ async function getPublicProfile(id) {
 			attended_gigs: Number(stats.attended_gigs || 0),
 			upcoming_gigs: Number(stats.upcoming_gigs || 0),
 			artists_seen: Number(stats.artists_seen || 0),
-			festival_editions: Number(stats.festival_editions || 0)
+			festival_editions: Number(stats.festival_editions || 0),
+			total_events: Number(stats.total_events || 0)
 		},
 		top_artists: topArtists,
+		festival_stats: festivalStats,
 		recent_gigs: recentGigs,
 		upcoming_gigs: upcomingGigs
 	};

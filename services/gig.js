@@ -419,7 +419,13 @@ function emptyDashboard() {
 		total_gigs: { total_gigs: 0 },
 		gigs_by_year: [],
 		gigs_by_artist: [],
-		editions_by_festival: []
+		editions_by_festival: [],
+		summary: {
+			total_artists: 0,
+			total_editions: 0,
+			total_events: 0,
+			upcoming_gigs: 0
+		}
 	};
 }
 
@@ -482,13 +488,37 @@ async function globalDashboard(type, period = null) {
 }
 
 async function userGigDashboard(type, userId, period = null) {
-	const periodClause = buildPeriodClause(period, "gig.date", { includeNullOnPast: true });
+	const periodClause = buildPeriodClause(period, "gig.date");
 	const total_gigs = await db.query(
 		`
 		SELECT COUNT(DISTINCT gig.id) AS total_gigs
 		FROM user_gig
 		INNER JOIN gig ON user_gig.gig_id = gig.id
 		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?${periodClause}
+		`,
+		[userId, type]
+	);
+	const summaryTotals = await db.query(
+		`
+		SELECT
+			COUNT(DISTINCT gig.artist_id) AS total_artists,
+			COUNT(DISTINCT edition.id) AS total_editions,
+			COUNT(DISTINCT event_gig.event_id) AS total_events
+		FROM user_gig
+		INNER JOIN gig ON user_gig.gig_id = gig.id
+		LEFT JOIN event_gig ON event_gig.gig_id = gig.id
+		LEFT JOIN edition_event ON edition_event.event_id = event_gig.event_id
+		LEFT JOIN edition ON edition.id = edition_event.edition_id
+		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?${periodClause}
+		`,
+		[userId, type]
+	);
+	const upcoming_gigs = await db.query(
+		`
+		SELECT COUNT(DISTINCT gig.id) AS upcoming_gigs
+		FROM user_gig
+		INNER JOIN gig ON user_gig.gig_id = gig.id
+		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ? AND gig.date >= CURDATE()
 		`,
 		[userId, type]
 	);
@@ -541,7 +571,13 @@ async function userGigDashboard(type, userId, period = null) {
 		total_gigs: total_gigs[0],
 		gigs_by_year,
 		gigs_by_artist,
-		editions_by_festival
+		editions_by_festival,
+		summary: {
+			total_artists: Number(summaryTotals?.[0]?.total_artists || 0),
+			total_editions: Number(summaryTotals?.[0]?.total_editions || 0),
+			total_events: Number(summaryTotals?.[0]?.total_events || 0),
+			upcoming_gigs: Number(upcoming_gigs?.[0]?.upcoming_gigs || 0)
+		}
 	};
 }
 
@@ -602,12 +638,39 @@ async function userEventDashboard(type, userId, period = null) {
 		`,
 		[userId, ...countedStatuses, type]
 	);
+	const total_artists = await db.query(
+		`
+		SELECT COUNT(DISTINCT artist.id) AS total_artists
+		FROM user_event
+		INNER JOIN event ON user_event.event_id = event.id
+		INNER JOIN event_gig ON event_gig.event_id = event.id
+		INNER JOIN gig ON gig.id = event_gig.gig_id
+		INNER JOIN artist ON artist.id = gig.artist_id
+		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?${periodClause}
+		`,
+		[userId, ...countedStatuses, type]
+	);
+	const upcoming_gigs = await db.query(
+		`
+		SELECT COUNT(DISTINCT event.id) AS upcoming_gigs
+		FROM user_event
+		INNER JOIN event ON user_event.event_id = event.id
+		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ? AND event.date >= CURDATE()
+		`,
+		[userId, ...countedStatuses, type]
+	);
 
 	return {
 		total_gigs: total_gigs[0],
 		gigs_by_year,
 		gigs_by_artist,
-		editions_by_festival
+		editions_by_festival,
+		summary: {
+			total_artists: Number(total_artists?.[0]?.total_artists || 0),
+			total_editions: 0,
+			total_events: Number(total_gigs?.[0]?.total_gigs || 0),
+			upcoming_gigs: Number(upcoming_gigs?.[0]?.upcoming_gigs || 0)
+		}
 	};
 }
 
