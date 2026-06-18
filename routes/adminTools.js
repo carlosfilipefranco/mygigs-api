@@ -22,6 +22,15 @@ router.get("/gig-duplicates", requireAdmin, async function (req, res, next) {
 	}
 });
 
+router.post("/artist-merge", requireAdmin, async function (req, res, next) {
+	try {
+		res.json(await adminTools.mergeArtists(req.body || {}));
+	} catch (err) {
+		console.error(`Error while merging artists`, err.message);
+		next(err);
+	}
+});
+
 router.post("/setlistfm-preview", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await setlistFmImport.preview(req.body || {}));
