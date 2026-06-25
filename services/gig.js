@@ -265,6 +265,7 @@ async function get(id, userId = null) {
         venue.name AS venue,
         venue.id AS venue_id,
         city.name AS city,
+        city.id AS city_id,
         eg.stage_id,
         es.name AS stage_name,
         eg.start_time AS event_start_time,
@@ -738,13 +739,15 @@ async function update(id, gig) {
 		throw new Error("Gig inválido");
 	}
 
-	const currentRows = await db.query(`SELECT id, date, start_time, end_time, artist_id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
+	const currentRows = await db.query(`SELECT id, date, start_time, end_time, artist_id, venue_id, city_id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
 	if (!currentRows.length) {
 		throw new Error("Gig não encontrado");
 	}
 
 	const linkedEditionIds = await getEditionIdsForGig(gigId);
 	const nextArtistId = hasOwn(gig, "artist_id") ? normalizeNumber(gig.artist_id) : undefined;
+	const nextVenueId = hasOwn(gig, "venue_id") ? normalizeNumber(gig.venue_id) : undefined;
+	const nextCityId = hasOwn(gig, "city_id") ? normalizeNumber(gig.city_id) : undefined;
 	const nextDate = hasOwn(gig, "date") ? normalizeDate(gig.date) : undefined;
 	const nextStartTime = hasOwn(gig, "start_time") ? normalizeTime(gig.start_time) : undefined;
 	const nextEndTime = hasOwn(gig, "end_time") ? normalizeTime(gig.end_time) : undefined;
@@ -753,6 +756,12 @@ async function update(id, gig) {
 
 	if (hasOwn(gig, "artist_id") && !nextArtistId) {
 		throw new Error("Artista inválido.");
+	}
+	if (hasOwn(gig, "venue_id") && !nextVenueId) {
+		throw new Error("Venue inválido.");
+	}
+	if (hasOwn(gig, "city_id") && !nextCityId) {
+		throw new Error("Cidade inválida.");
 	}
 	if (hasOwn(gig, "date") && nextDate === undefined) {
 		throw new Error("Data inválida. Usa o formato YYYY-MM-DD.");
@@ -775,6 +784,18 @@ async function update(id, gig) {
 			throw new Error("Artista não encontrado.");
 		}
 	}
+	if (nextVenueId) {
+		const venueRows = await db.query(`SELECT id FROM venue WHERE id = ? LIMIT 1`, [nextVenueId]);
+		if (!venueRows.length) {
+			throw new Error("Venue não encontrado.");
+		}
+	}
+	if (nextCityId) {
+		const cityRows = await db.query(`SELECT id FROM city WHERE id = ? LIMIT 1`, [nextCityId]);
+		if (!cityRows.length) {
+			throw new Error("Cidade não encontrada.");
+		}
+	}
 
 	let affectedRows = 0;
 	const gigFields = [];
@@ -783,6 +804,14 @@ async function update(id, gig) {
 	if (hasOwn(gig, "artist_id")) {
 		gigFields.push("artist_id = ?");
 		gigParams.push(nextArtistId);
+	}
+	if (hasOwn(gig, "venue_id")) {
+		gigFields.push("venue_id = ?");
+		gigParams.push(nextVenueId);
+	}
+	if (hasOwn(gig, "city_id")) {
+		gigFields.push("city_id = ?");
+		gigParams.push(nextCityId);
 	}
 	if (hasOwn(gig, "date")) {
 		gigFields.push("date = ?");

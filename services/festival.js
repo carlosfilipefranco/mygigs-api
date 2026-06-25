@@ -154,9 +154,35 @@ async function get(id, userId = null) {
 		};
 	});
 
+	const topArtists = await db.query(
+		`
+		SELECT
+			artist.id,
+			artist.id AS artist_id,
+			artist.name,
+			artist.slug,
+			artist.image,
+			COUNT(DISTINCT gig.id) AS gig_count
+		FROM edition
+		INNER JOIN edition_event ee ON ee.edition_id = edition.id
+		INNER JOIN event_gig eg ON eg.event_id = ee.event_id
+		INNER JOIN gig ON gig.id = eg.gig_id
+		INNER JOIN artist ON artist.id = gig.artist_id
+		WHERE edition.festival_id = ?
+		GROUP BY artist.id, artist.name, artist.slug, artist.image
+		ORDER BY gig_count DESC, artist.name ASC
+		LIMIT 24
+		`,
+		[resolvedId]
+	);
+
 	return {
 		festival: festival[0],
-		editions
+		editions,
+		top_artists: topArtists.map((artist) => ({
+			...artist,
+			gig_count: Number(artist.gig_count || 0)
+		}))
 	};
 }
 

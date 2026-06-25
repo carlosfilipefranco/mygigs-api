@@ -8,7 +8,7 @@ async function getMultiple(page = 1, search = null) {
 	if (search) {
 		searchQuery = `WHERE LOWER(venue.name) LIKE '%${search}%'`;
 	}
-	const rows = await db.query(`SELECT id, name FROM venue ${searchQuery}  LIMIT ${offset},${config.listPerPage}`);
+	const rows = await db.query(`SELECT id, name, lat, lng FROM venue ${searchQuery}  LIMIT ${offset},${config.listPerPage}`);
 	const data = helper.emptyOrRows(rows);
 
 	let count = rows.length;
@@ -69,14 +69,16 @@ async function get(id) {
 }
 
 async function create(venue) {
-	const rows = await db.query(`SELECT id FROM venue WHERE name="${venue.name}"`);
+	const rows = await db.query(`SELECT id FROM venue WHERE name=?`, [venue.name]);
+	const lat = normalizeCoordinate(venue.lat);
+	const lng = normalizeCoordinate(venue.lng);
 	var result;
 
 	if (rows.length) {
 		const id = rows[0].id;
-		result = await db.query(`UPDATE venue SET name="${venue.name}" WHERE id=${id}`);
+		result = await db.query(`UPDATE venue SET name=?, lat=?, lng=? WHERE id=?`, [venue.name, lat, lng, id]);
 	} else {
-		result = await db.query(`INSERT INTO venue (name)  VALUES  ("${venue.name}")`);
+		result = await db.query(`INSERT INTO venue (name, lat, lng) VALUES (?, ?, ?)`, [venue.name, lat, lng]);
 	}
 
 	let message = "Error in creating Venue";
@@ -106,8 +108,19 @@ async function createBulk(venues) {
 	return { message };
 }
 
+function normalizeCoordinate(value) {
+	if (value === null || value === undefined || value === "") {
+		return null;
+	}
+
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : null;
+}
+
 async function update(id, venue) {
-	const result = await db.query(`UPDATE venue SET name="${venue.name}" WHERE id=${id}`);
+	const lat = normalizeCoordinate(venue.lat);
+	const lng = normalizeCoordinate(venue.lng);
+	const result = await db.query(`UPDATE venue SET name=?, lat=?, lng=? WHERE id=?`, [venue.name, lat, lng, id]);
 
 	let message = "Error in updating Venue";
 
