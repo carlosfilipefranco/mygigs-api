@@ -26,7 +26,11 @@ const artistKeyExpression = (alias = "artist") => `
 			REPLACE(
 				REPLACE(
 					REPLACE(
-						REPLACE(TRIM(${alias}.name), ' ', ''),
+						REPLACE(
+							REPLACE(TRIM(${alias}.name), '&', 'and'),
+							' ',
+							''
+						),
 						'.',
 						''
 					),
