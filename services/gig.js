@@ -165,7 +165,7 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 	}
 
 	if (favoriteOnly) {
-		filters.push("ug.favorite = 1");
+		filters.push("ug.favorite = 1 AND ug.status = 'going' AND gig.date < CURDATE()");
 	}
 
 	const whereClause = `WHERE ${filters.join(" AND ")}`;
@@ -198,7 +198,7 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 			) AS interested_count,
 			CASE WHEN setlist.id IS NOT NULL THEN TRUE ELSE FALSE END AS has_setlist,
 			ug.status AS status,
-			COALESCE(ug.favorite, 0) AS favorite
+			CASE WHEN ug.status = 'going' AND gig.date < CURDATE() THEN COALESCE(ug.favorite, 0) ELSE 0 END AS favorite
 		FROM gig
 		INNER JOIN artist ON gig.artist_id = artist.id
 		INNER JOIN venue ON gig.venue_id = venue.id
@@ -335,9 +335,21 @@ async function get(id, userId = null) {
 
 	// 🔥 Se houver login, buscar user_gig
 	if (userId) {
-		const userGigRows = await db.query(`SELECT status, favorite FROM user_gig WHERE gig_id = ? AND user_id = ?`, [id, userId]);
+		const userGigRows = await db.query(
+			`
+			SELECT ug.status,
+			       CASE WHEN ug.status = 'going' AND gig.date < CURDATE() THEN ug.favorite ELSE 0 END AS favorite
+			FROM user_gig ug
+			INNER JOIN gig ON gig.id = ug.gig_id
+			WHERE ug.gig_id = ? AND ug.user_id = ?
+			`,
+			[id, userId]
+		);
 		if (userGigRows.length > 0) {
-			gig.user_gig = userGigRows[0];
+			gig.user_gig = {
+				status: userGigRows[0].status,
+				favorite: Number(userGigRows[0].favorite || 0) === 1
+			};
 		} else {
 			gig.user_gig = { status: null, favorite: false };
 		}

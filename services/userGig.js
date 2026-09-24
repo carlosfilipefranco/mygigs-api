@@ -17,9 +17,23 @@ async function setStatus(userId, gigId, status) {
 		`
     INSERT INTO user_gig (user_id, gig_id, status)
     VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE status = VALUES(status)
+    ON DUPLICATE KEY UPDATE
+        status = VALUES(status),
+        favorite = CASE WHEN VALUES(status) = 'going' THEN favorite ELSE 0 END
     `,
 		[userId, gigId, status]
+	);
+
+	await db.query(
+		`
+		UPDATE user_gig ug
+		INNER JOIN gig ON gig.id = ug.gig_id
+		SET ug.favorite = 0
+		WHERE ug.user_id = ?
+		  AND ug.gig_id = ?
+		  AND (ug.status <> 'going' OR gig.date >= CURDATE())
+		`,
+		[userId, gigId]
 	);
 
 	await syncEventStatusByGig(userId, gigId);
@@ -41,14 +55,28 @@ async function getUserGigs(userId) {
 
 // Alternar favorito
 async function toggleFavorite(userId, gigId, favorite) {
-	return db.query(
-		`
-    INSERT INTO user_gig (user_id, gig_id, favorite)
-    VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE favorite = VALUES(favorite)
-    `,
-		[userId, gigId, favorite ? 1 : 0]
-	);
+	const shouldFavorite = favorite === true || favorite === 1 || favorite === "1" || favorite === "true";
+
+	if (shouldFavorite) {
+		const rows = await db.query(
+			`
+			SELECT ug.status
+			FROM user_gig ug
+			INNER JOIN gig ON gig.id = ug.gig_id
+			WHERE ug.user_id = ?
+			  AND ug.gig_id = ?
+			  AND ug.status = 'going'
+			  AND gig.date < CURDATE()
+			LIMIT 1
+			`,
+			[userId, gigId]
+		);
+		if (!rows.length) {
+			return { message: "Gig attendance required" };
+		}
+	}
+
+	return db.query(`UPDATE user_gig SET favorite = ? WHERE user_id = ? AND gig_id = ?`, [shouldFavorite ? 1 : 0, userId, gigId]);
 }
 
 async function syncEventStatusByGig(userId, gigId) {

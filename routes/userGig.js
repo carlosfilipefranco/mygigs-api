@@ -22,7 +22,10 @@ router.post("/status", requireAuth, async (req, res, next) => {
 router.post("/favorite", requireAuth, async (req, res, next) => {
 	try {
 		const { gigId, favorite } = req.body;
-		await userGig.toggleFavorite(req.user.id, gigId, favorite);
+		const result = await userGig.toggleFavorite(req.user.id, gigId, favorite);
+		if (result?.message === "Gig attendance required") {
+			return res.status(400).json(result);
+		}
 		res.json({ success: true });
 	} catch (err) {
 		next(err);
