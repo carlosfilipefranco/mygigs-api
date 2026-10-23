@@ -45,6 +45,14 @@ router.get("/dashboard", optionalAuth, async function (req, res, next) {
 	}
 });
 
+router.get("/media/latest", async (req, res, next) => {
+	try {
+		res.json(await gig.getLatestMedia(req.query.type));
+	} catch (err) {
+		next(err);
+	}
+});
+
 router.get("/photos/mine", requireAuth, async (req, res, next) => {
 	try {
 		res.json(await gig.getMyPhotos(req.user.id, req.query.page));

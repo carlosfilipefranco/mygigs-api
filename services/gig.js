@@ -945,6 +945,29 @@ async function clean() {
 	return { message };
 }
 
+async function getLatestMedia(type = "1") {
+	if (!["1", "2"].includes(String(type))) {
+		const error = new Error("Tipo de espetáculo inválido.");
+		error.statusCode = 400;
+		throw error;
+	}
+
+	const latest = (mediaType, limit) => db.query(
+		`SELECT gm.id, gm.url, gm.user_id, u.name AS user_name,
+		        g.id AS gig_id, g.date, a.name AS artist, v.name AS venue
+		 FROM gig_media gm
+		 INNER JOIN gig g ON g.id = gm.gig_id
+		 INNER JOIN artist a ON a.id = g.artist_id
+		 INNER JOIN venue v ON v.id = g.venue_id
+		 LEFT JOIN user u ON u.id = gm.user_id
+		 WHERE gm.type = ? AND g.type = ?
+		 ORDER BY gm.id DESC LIMIT ${limit}`,
+		[mediaType, Number(type)]
+	);
+	const [photos, reviews] = await Promise.all([latest("image", 8), latest("link", 4)]);
+	return { photos, reviews };
+}
+
 async function getReviewPreview(gigId, reviewId) {
 	const rows = await db.query(`SELECT url FROM gig_media WHERE gig_id = ? AND id = ? AND type = 'link' LIMIT 1`, [gigId, reviewId]);
 	if (!rows.length) {
@@ -1046,6 +1069,7 @@ module.exports = {
 	sort,
 	images,
 	getMyPhotos,
+	getLatestMedia,
 	getReviewPreview,
 	addMedia,
 	updateMedia,

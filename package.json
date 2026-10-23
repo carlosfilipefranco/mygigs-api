@@ -8,6 +8,7 @@
 		"test:photos": "node --test test/gig-photos.test.js",
 		"test:photo-migration": "node --test test/photo-owner-migration.test.js",
 		"test:reviews": "node --test test/review-preview.test.js test/gig-reviews.test.js",
+		"test:latest-media": "node --test test/latest-media.test.js test/latest-media-mysql.test.js",
 		"start": "node index.js",
 		"download:event-images": "node scripts/download-event-images.js",
 		"backfill:slugs": "node scripts/backfill-slugs.js"
