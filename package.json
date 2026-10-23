@@ -11,6 +11,7 @@
 		"test:latest-media": "node --test test/latest-media.test.js test/latest-media-mysql.test.js",
 		"test:setlistfm-events": "node --test test/setlistfm-events.test.js",
 		"test:headliners": "node --test test/event-headliner.test.js",
+		"test:auth": "node --test test/auth-session.test.js",
 		"start": "node index.js",
 		"download:event-images": "node scripts/download-event-images.js",
 		"backfill:slugs": "node scripts/backfill-slugs.js",

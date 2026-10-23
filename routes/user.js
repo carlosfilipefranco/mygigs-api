@@ -45,6 +45,20 @@ router.post("/google", async function (req, res, next) {
 	}
 });
 
+/* Validar a sessão e substituir os tokens antigos por um token persistente. */
+router.post("/session", requireAuth, async function (req, res, next) {
+	try {
+		const currentUser = await user.get(req.user.id);
+		if (!currentUser) {
+			return res.status(401).json({ message: "Session is no longer valid" });
+		}
+		res.set("Cache-Control", "no-store");
+		res.json({ ...currentUser, token: authService.generateToken(currentUser) });
+	} catch (err) {
+		next(err);
+	}
+});
+
 /* GET current user */
 router.get("/me", requireAuth, async function (req, res, next) {
 	try {

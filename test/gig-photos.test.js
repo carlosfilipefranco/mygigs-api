@@ -66,7 +66,8 @@ test("invalid tokens cannot add photos", async () => {
 });
 
 test("expired sessions cannot add photos or access personal photos", async () => {
-	const token = auth.generateToken({ id: 7, role: "user" });
+	// Os tokens novos são persistentes; confirmar que os antigos continuam a expirar.
+	const token = require("jsonwebtoken").sign({ id: 7, role: "user" }, "SUA_CHAVE_SECRETA_AQUI", { expiresIn: "7d" });
 	const now = Date.now;
 	try {
 		Date.now = () => now() + 8 * 24 * 60 * 60 * 1000;

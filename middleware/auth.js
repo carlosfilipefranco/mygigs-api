@@ -5,7 +5,7 @@ function requireAuth(req, res, next) {
 	const authHeader = req.headers["authorization"];
 	if (!authHeader) return res.status(401).json({ message: "No token provided" });
 
-	const token = authHeader.split(" ")[1];
+	const token = typeof authHeader === "string" ? authHeader.match(/^Bearer\s+(\S+)$/i)?.[1] : null;
 	if (!token) return res.status(401).json({ message: "Invalid token format" });
 
 	const decoded = auth.verifyToken(token);
@@ -15,7 +15,7 @@ function requireAuth(req, res, next) {
 	next();
 }
 
-// Middleware opcional — token é lido se existir, mas nunca falha
+// Acesso público sem token; uma sessão enviada mas inválida deve devolver 401.
 function optionalAuth(req, res, next) {
 	const authHeader = req.headers["authorization"];
 	if (!authHeader) {
@@ -23,20 +23,7 @@ function optionalAuth(req, res, next) {
 		return next();
 	}
 
-	const token = authHeader.split(" ")[1];
-	if (!token) {
-		req.user = null;
-		return next();
-	}
-
-	const decoded = auth.verifyToken(token);
-	if (!decoded) {
-		req.user = null;
-		return next();
-	}
-
-	req.user = decoded;
-	next();
+	return requireAuth(req, res, next);
 }
 
 function requireAdmin(req, res, next) {
