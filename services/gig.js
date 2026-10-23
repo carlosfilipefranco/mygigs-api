@@ -328,7 +328,14 @@ async function get(id, userId = null) {
 	);
 
 	// 🔥 Buscar media (imagens, videos, links)
-	const mediaRows = await db.query(`SELECT url, type FROM gig_media WHERE gig_id = ?`, [id]);
+	const mediaRows = await db.query(
+		`SELECT gm.id, gm.url, gm.type, gm.user_id, u.name AS user_name
+		 FROM gig_media gm
+		 LEFT JOIN user u ON u.id = gm.user_id
+		 WHERE gm.gig_id = ? ORDER BY gm.id DESC`,
+		[id]
+	);
+	gig.photos = mediaRows.filter((m) => m.type === "image");
 	gig.images = mediaRows.filter((m) => m.type === "image").map((m) => m.url);
 	gig.videos = mediaRows.filter((m) => m.type === "video").map((m) => m.url);
 	gig.links = mediaRows.filter((m) => m.type === "link").map((m) => m.url);
@@ -936,22 +943,59 @@ async function clean() {
 	return { message };
 }
 
-async function addMedia(gigId, body) {
+async function getMyPhotos(userId, page = 1) {
+	const pageNumber = Math.max(1, Number.parseInt(page, 10) || 1);
+	const limit = 24;
+	const offset = (pageNumber - 1) * limit;
+	const rows = await db.query(
+		`SELECT gm.id, gm.url, gm.user_id, u.name AS user_name,
+		        g.id AS gig_id, g.date, a.name AS artist, v.name AS venue
+		 FROM gig_media gm
+		 INNER JOIN gig g ON g.id = gm.gig_id
+		 INNER JOIN artist a ON a.id = g.artist_id
+		 INNER JOIN venue v ON v.id = g.venue_id
+		 LEFT JOIN user u ON u.id = gm.user_id
+		 WHERE gm.type = 'image' AND gm.user_id = ?
+		 ORDER BY gm.id DESC LIMIT ${limit + 1} OFFSET ${offset}`,
+		[userId]
+	);
+	return { data: rows.slice(0, limit), hasMore: rows.length > limit, page: pageNumber };
+}
+
+async function addMedia(gigId, body, userId) {
 	const { url, type } = body;
 
-	if (!url || !type) {
-		throw new Error("url e type são obrigatórios");
+	if (!userId) {
+		const error = new Error("É necessário iniciar sessão para adicionar fotografias.");
+		error.statusCode = 401;
+		throw error;
 	}
 
-	await db.query(`INSERT INTO gig_media (gig_id, url, type) VALUES (?, ?, ?)`, [gigId, url, type]);
+	if (typeof url !== "string" || !["image", "video", "link"].includes(type) || !/^https?:\/\/\S+$/i.test(url.trim())) {
+		const error = new Error("Indica um URL válido e um tipo de conteúdo válido.");
+		error.statusCode = 400;
+		throw error;
+	}
+
+	const gigs = await db.query(`SELECT id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
+	if (!gigs.length) {
+		const error = new Error("Concerto não encontrado.");
+		error.statusCode = 404;
+		throw error;
+	}
+
+	await db.query(`INSERT INTO gig_media (gig_id, url, type, user_id) VALUES (?, ?, ?, ?)`, [gigId, url.trim(), type, userId]);
 
 	return { success: true };
 }
 
-async function updateMedia(gigId, mediaId, body) {
+async function updateMedia(gigId, mediaId, body, userId) {
 	const { url, type } = body;
 
-	const result = await db.query(`UPDATE gig_media SET url=?, type=? WHERE id=? AND gig_id=?`, [url, type, mediaId, gigId]);
+	const result = await db.query(
+		`UPDATE gig_media SET url=?, type=?, user_id=COALESCE(user_id, ?) WHERE id=? AND gig_id=?`,
+		[url, type, userId, mediaId, gigId]
+	);
 
 	if (result.affectedRows === 0) {
 		throw new Error("Media não encontrado");
@@ -980,6 +1024,7 @@ module.exports = {
 	dashboard,
 	sort,
 	images,
+	getMyPhotos,
 	addMedia,
 	updateMedia,
 	deleteMedia

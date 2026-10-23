@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const gig = require("../services/gig");
-const { optionalAuth, requireAdmin } = require("../middleware/auth");
+const { optionalAuth, requireAuth, requireAdmin } = require("../middleware/auth");
 
 /* GET gigs (lista) */
 router.get("/", optionalAuth, async function (req, res, next) {
@@ -41,6 +41,14 @@ router.get("/dashboard", optionalAuth, async function (req, res, next) {
 		res.json(await gig.dashboard(req.query.type, userId, req.query.period, req.query.scope));
 	} catch (err) {
 		console.error(`Error while creating gig`, err.message);
+		next(err);
+	}
+});
+
+router.get("/photos/mine", requireAuth, async (req, res, next) => {
+	try {
+		res.json(await gig.getMyPhotos(req.user.id, req.query.page));
+	} catch (err) {
 		next(err);
 	}
 });
@@ -97,9 +105,12 @@ router.post("/favorite", requireAdmin, async function (req, res, next) {
 	}
 });
 
-router.post("/:id/media", requireAdmin, async (req, res, next) => {
+router.post("/:id/media", requireAuth, async (req, res, next) => {
 	try {
-		res.json(await gig.addMedia(req.params.id, req.body));
+		if (req.body.type !== "image" && req.user.role !== "admin") {
+			return res.status(403).json({ message: "Admin access required" });
+		}
+		res.json(await gig.addMedia(req.params.id, req.body, req.user.id));
 	} catch (err) {
 		console.error("Error while adding media", err.message);
 		next(err);
@@ -108,7 +119,7 @@ router.post("/:id/media", requireAdmin, async (req, res, next) => {
 
 router.put("/:id/media/:mediaId", requireAdmin, async (req, res, next) => {
 	try {
-		res.json(await gig.updateMedia(req.params.id, req.params.mediaId, req.body));
+		res.json(await gig.updateMedia(req.params.id, req.params.mediaId, req.body, req.user.id));
 	} catch (err) {
 		console.error("Error while updating media", err.message);
 		next(err);
