@@ -3,6 +3,7 @@ const db = require("./db");
 const config = require("../config");
 const { buildUniqueSlug } = require("./slug");
 const { syncEditionDates, getEditionIdsForEvent, syncEditionDatesForEditionIds } = require("./editionDates");
+const { ensureGigEvent } = require("./gigEvents");
 
 const API_KEY = process.env.SETLISTFM_API_KEY || config.setlistFm?.apiKey || "33b04241-2c2f-45e6-959a-ddf01429fc76";
 const API_BASE_URL = "https://api.setlist.fm/rest/1.0";
@@ -363,6 +364,7 @@ async function enrichEntry(entry) {
 	const venue = await findVenue(entry.venue_name, city?.id || null);
 	const gig = artist?.id && venue?.id ? await findGig(artist.id, venue.id, entry.date) : null;
 	const setlistRows = gig?.id ? await db.query(`SELECT id FROM setlist WHERE gig_id = ? LIMIT 1`, [gig.id]) : [];
+	const eventRows = gig?.id ? await db.query(`SELECT event_id FROM event_gig WHERE gig_id = ? ORDER BY event_id LIMIT 1`, [gig.id]) : [];
 
 	return {
 		...entry,
@@ -375,6 +377,8 @@ async function enrichEntry(entry) {
 		existing_gig_id: gig?.id || null,
 		gig_exists: !!gig?.id,
 		setlist_exists: !!setlistRows.length,
+		existing_event_id: eventRows[0]?.event_id || null,
+		event_exists: !!eventRows.length,
 		action: gig?.id ? "existing_gig" : "create_gig"
 	};
 }
@@ -475,7 +479,7 @@ async function ensureEditionEvent(editionId, entry, cityId, venueId, type, query
 		[normalizedEditionId, entry.date]
 	);
 	if (existing.length) {
-		return existing[0].id;
+		return { id: existing[0].id, created: false };
 	}
 
 	const editionRows = await query(`SELECT name FROM edition WHERE id = ? LIMIT 1`, [normalizedEditionId]);
@@ -491,7 +495,7 @@ async function ensureEditionEvent(editionId, entry, cityId, venueId, type, query
 		`Importado de setlist.fm: ${entry.url}`
 	]);
 	await query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [normalizedEditionId, eventResult.insertId]);
-	return eventResult.insertId;
+	return { id: eventResult.insertId, created: true };
 }
 
 async function importSetlistSongs(entry, gigId, artistId, query = db.query) {
@@ -551,6 +555,7 @@ async function importEntries(payload = {}) {
 		created_gigs: 0,
 		existing_gigs: 0,
 		linked_events: 0,
+		created_events: 0,
 		created_setlists: 0,
 		created_songs: 0,
 		ignored: 0
@@ -559,6 +564,15 @@ async function importEntries(payload = {}) {
 
 	await db.transaction(async (query) => {
 		const touchedEditionIds = new Set();
+		const prepared = [];
+		if (targetEventId) {
+			const targets = await query(`SELECT id FROM event WHERE id = ?`, [targetEventId]);
+			if (!targets.length) throw new Error("Evento de destino não encontrado.");
+		}
+		if (targetEditionId) {
+			const targets = await query(`SELECT id FROM edition WHERE id = ?`, [targetEditionId]);
+			if (!targets.length) throw new Error("Edição de destino não encontrada.");
+		}
 
 		for (const entry of entries) {
 			summary.processed += 1;
@@ -584,10 +598,22 @@ async function importEntries(payload = {}) {
 				summary.created_gigs += 1;
 			}
 
+			prepared.push({ entry, gigId, artistId: artist.id, cityId: city.id, venueId: venue.id, action });
+		}
+
+		// Preparar primeiro todos os concertos permite nomear um evento com os vários artistas.
+		for (const { entry, gigId, artistId, cityId, venueId, action } of prepared) {
 			let eventId = targetEventId || null;
 			if (targetEditionId) {
-				eventId = await ensureEditionEvent(targetEditionId, entry, city.id, venue.id, type, query);
+				const event = await ensureEditionEvent(targetEditionId, entry, cityId, venueId, type, query);
+				eventId = event.id;
+				if (event.created) summary.created_events++;
 				touchedEditionIds.add(targetEditionId);
+			} else if (!targetEventId) {
+				const event = await ensureGigEvent(gigId, query, { sourceUrl: entry.url });
+				eventId = event.event_id;
+				if (event.created) summary.created_events++;
+				if (event.linked) summary.linked_events++;
 			}
 
 			if (eventId && gigId) {
@@ -603,7 +629,7 @@ async function importEntries(payload = {}) {
 			}
 
 			if (importSetlists && gigId) {
-				const setlistResult = await importSetlistSongs(entry, gigId, artist.id, query);
+				const setlistResult = await importSetlistSongs(entry, gigId, artistId, query);
 				if (setlistResult.created) {
 					summary.created_setlists += 1;
 					summary.created_songs += setlistResult.songs;
