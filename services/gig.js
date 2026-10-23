@@ -2,6 +2,7 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 const { getEditionIdsForGig, syncEditionDatesForEditionIds } = require("./editionDates");
+const reviewPreview = require("./reviewPreview");
 
 function hasOwn(object, key) {
 	return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -339,6 +340,7 @@ async function get(id, userId = null) {
 	gig.images = mediaRows.filter((m) => m.type === "image").map((m) => m.url);
 	gig.videos = mediaRows.filter((m) => m.type === "video").map((m) => m.url);
 	gig.links = mediaRows.filter((m) => m.type === "link").map((m) => m.url);
+	gig.reviews = mediaRows.filter((m) => m.type === "link").map((m) => ({ ...m, gig_id: gig.id }));
 
 	// 🔥 Se houver login, buscar user_gig
 	if (userId) {
@@ -943,6 +945,16 @@ async function clean() {
 	return { message };
 }
 
+async function getReviewPreview(gigId, reviewId) {
+	const rows = await db.query(`SELECT url FROM gig_media WHERE gig_id = ? AND id = ? AND type = 'link' LIMIT 1`, [gigId, reviewId]);
+	if (!rows.length) {
+		const error = new Error("Review não encontrada.");
+		error.statusCode = 404;
+		throw error;
+	}
+	return reviewPreview.getPreview(rows[0].url);
+}
+
 async function getMyPhotos(userId, page = 1) {
 	const pageNumber = Math.max(1, Number.parseInt(page, 10) || 1);
 	const limit = 24;
@@ -975,6 +987,15 @@ async function addMedia(gigId, body, userId) {
 		const error = new Error("Indica um URL válido e um tipo de conteúdo válido.");
 		error.statusCode = 400;
 		throw error;
+	}
+	if (type === "link") {
+		try {
+			reviewPreview.normalizeUrl(url.trim());
+		} catch {
+			const error = new Error("Indica um link público válido para a review.");
+			error.statusCode = 400;
+			throw error;
+		}
 	}
 
 	const gigs = await db.query(`SELECT id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
@@ -1025,6 +1046,7 @@ module.exports = {
 	sort,
 	images,
 	getMyPhotos,
+	getReviewPreview,
 	addMedia,
 	updateMedia,
 	deleteMedia

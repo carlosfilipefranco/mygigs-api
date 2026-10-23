@@ -105,6 +105,14 @@ router.post("/favorite", requireAdmin, async function (req, res, next) {
 	}
 });
 
+router.get("/:id/reviews/:reviewId/preview", async (req, res, next) => {
+	try {
+		res.json(await gig.getReviewPreview(req.params.id, req.params.reviewId));
+	} catch (err) {
+		next(err);
+	}
+});
+
 router.post("/:id/media", requireAuth, async (req, res, next) => {
 	try {
 		if (req.body.type !== "image" && req.user.role !== "admin") {
