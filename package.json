@@ -6,6 +6,7 @@
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"test:photos": "node --test test/gig-photos.test.js",
+		"test:photo-migration": "node --test test/photo-owner-migration.test.js",
 		"start": "node index.js",
 		"download:event-images": "node scripts/download-event-images.js",
 		"backfill:slugs": "node scripts/backfill-slugs.js"
