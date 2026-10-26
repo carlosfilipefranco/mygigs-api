@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const gig = require("../services/gig");
+const comments = require("../services/gigComments");
 const { optionalAuth, requireAuth, requireAdmin } = require("../middleware/auth");
 
 /* GET gigs (lista) */
@@ -59,6 +60,25 @@ router.get("/photos/mine", requireAuth, async (req, res, next) => {
 	} catch (err) {
 		next(err);
 	}
+});
+
+router.get("/:id/comments", optionalAuth, async (req, res, next) => {
+	try {
+		res.set("Cache-Control", "no-store");
+		res.json(await comments.list(req.params.id, req.query.before));
+	} catch (error) { next(error); }
+});
+
+router.post("/:id/comments", requireAuth, async (req, res, next) => {
+	try {
+		res.status(201).json(await comments.create(req.params.id, req.body, req.user.id));
+	} catch (error) { next(error); }
+});
+
+router.delete("/:id/comments/:commentId", requireAuth, async (req, res, next) => {
+	try {
+		res.json(await comments.remove(req.params.id, req.params.commentId, req.user));
+	} catch (error) { next(error); }
 });
 
 /* GET gig */
