@@ -1,18 +1,23 @@
 const express = require("express");
 const router = express.Router();
 const setlistService = require("../services/setlist");
-const { requireAdmin } = require("../middleware/auth");
+const { requireAuth, requireAdmin } = require("../middleware/auth");
+const requestLimit = require("../middleware/requestLimit");
 
 /* GET setlists */
 router.get("/", async function (req, res, next) {
 	try {
-		const { gigId, artist, city, date } = req.query;
-		const data = await setlistService.getSetlist(gigId, artist, city, date);
+		const data = await setlistService.getSetlist(req.query.gigId);
 		res.json(data);
 	} catch (err) {
 		console.error("Erro ao obter setlist.fm:", err.message);
 		next(err);
 	}
+});
+
+router.post("/fetch", requireAuth, requestLimit({ max: 10, windowMs: 60 * 1000 }), async (req, res, next) => {
+	try { res.json(await setlistService.fetchSetlist(req.body?.gigId)); }
+	catch (error) { next(error); }
 });
 
 router.get("/import", requireAdmin, setlistService.importSetlists);

@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const fetch = require("node-fetch");
-const { API_BASE_URL } = require("./config");
+const users = require("../services/user");
 
 router.get("/login", (req, res) => {
 	res.render("login", { error: null });
@@ -9,22 +8,15 @@ router.get("/login", (req, res) => {
 
 router.post("/login", async (req, res) => {
 	try {
-		const response = await fetch(`${API_BASE_URL}/user/login`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				email: req.body.email,
-				password: req.body.password
-			})
-		});
-
-		const data = await response.json();
-
-		if (!data.token) {
-			return res.render("login", { error: "Credenciais inválidas" });
+		const user = await users.login(req.body.email, req.body.password);
+		if (!user || user.role !== "admin") {
+			delete req.session.admin;
+			return res.status(401).render("login", { error: "Credenciais inválidas" });
 		}
 
-		req.session.admin = data;
+		await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
+		req.session.admin = { id: user.id, role: "admin" };
+		await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
 		res.redirect("/admin");
 	} catch (err) {
 		console.error(err);

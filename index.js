@@ -2,8 +2,12 @@ const express = require("express");
 const session = require("express-session");
 const path = require("path");
 const cors = require("cors");
+const { requiredSecret, validateStartup } = require("./services/securityConfig");
+
+validateStartup();
 
 const app = express();
+app.set("trust proxy", 1);
 const port = process.env.PORT || 3001;
 
 // ------------------
@@ -34,16 +38,18 @@ const adminAuthRouter = require("./admin/auth");
 // MIDDLEWARE
 // ------------------
 app.use(cors());
+// Autenticar e limitar uploads antes de ler o corpo, que pode conter uma imagem grande.
+app.use("/api/upload", require("./routes/upload"));
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
 // Sessões para o BackOffice
 app.use(
 	session({
-		secret: "supersecret-admin-session",
+		secret: requiredSecret("ADMIN_SESSION_SECRET"),
 		resave: false,
-		saveUninitialized: true,
-		cookie: { maxAge: 60 * 60 * 1000 } // 1 hora
+		saveUninitialized: false,
+		cookie: { maxAge: 60 * 60 * 1000, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" }
 	})
 );
 

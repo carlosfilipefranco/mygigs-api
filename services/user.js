@@ -1,5 +1,6 @@
 const db = require("./db");
 const bcrypt = require("bcryptjs");
+const { randomBytes } = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const fs = require("fs/promises");
 const path = require("path");
@@ -22,6 +23,9 @@ module.exports = {
 
 async function create(user) {
 	const { name, email, password } = user;
+	if (typeof password !== "string" || !password || password.startsWith("google-")) {
+		throw Object.assign(new Error("Escolhe outra palavra-passe."), { statusCode: 400 });
+	}
 
 	// Hash seguro
 	const passwordHash = await bcrypt.hash(password, 10);
@@ -44,6 +48,9 @@ async function create(user) {
 }
 
 async function login(email, password) {
+	// O esquema antigo usava o identificador público Google como password.
+	// Reservar este prefixo bloqueia essas credenciais, incluindo contas ainda não migradas.
+	if (typeof email !== "string" || typeof password !== "string" || password.startsWith("google-")) return null;
 	const users = await db.query(`SELECT * FROM user WHERE email = ?`, [email]);
 
 	if (!users.length) return null;
@@ -92,10 +99,14 @@ async function loginWithGoogle(payload) {
 	const googleImage = tokenPayload?.picture?.trim() || null;
 	const fallbackName = email.split("@")[0];
 	const safeName = (googleName || fallbackName || "Utilizador").slice(0, 255);
-	const users = await db.query(`SELECT id, name, email, image, role FROM user WHERE email = ? LIMIT 1`, [email]);
+	const users = await db.query(`SELECT id, name, email, image, role, password_hash FROM user WHERE email = ? LIMIT 1`, [email]);
 
 	if (users.length) {
 		const user = users[0];
+		if (tokenPayload?.sub && user.password_hash && await bcrypt.compare(`google-${tokenPayload.sub}`, user.password_hash)) {
+			const randomHash = await bcrypt.hash(randomBytes(48).toString("base64url"), 10);
+			await db.query(`UPDATE user SET password_hash = ? WHERE id = ?`, [randomHash, user.id]);
+		}
 		const image = user.image || googleImage || null;
 		if (!user.image && googleImage) {
 			await db.query(`UPDATE user SET image = ? WHERE id = ?`, [googleImage, user.id]);
@@ -110,7 +121,7 @@ async function loginWithGoogle(payload) {
 		};
 	}
 
-	const generatedPasswordHash = await bcrypt.hash(`google-${tokenPayload?.sub || Date.now()}`, 10);
+	const generatedPasswordHash = await bcrypt.hash(randomBytes(48).toString("base64url"), 10);
 	const result = await db.query(
 		`
 		INSERT INTO user (name, email, image, password_hash)

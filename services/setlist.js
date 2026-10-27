@@ -1,96 +1,18 @@
+const { serviceKey } = require("./securityConfig");
 const fetch = require("node-fetch");
 const db = require("./db");
 const fs = require("fs");
 const path = require("path");
 
-const API_KEY = "33b04241-2c2f-45e6-959a-ddf01429fc76";
+const { getSetlist, fetchSetlist } = require("./concertSetlist");
+function apiKey() {
+	return serviceKey("SETLISTFM_API_KEY");
+}
 const OUTPUT_FILE = "./setlists_pt.json";
 
 function normalizeEncore(value) {
 	const parsed = Number(value);
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
-
-async function getSetlist(gigId, artist, city, date) {
-	if (!artist || !city || !date || !gigId) {
-		throw new Error("Parâmetros obrigatórios em falta: gigId, artist, city, date");
-	}
-
-	const url = new URL("https://api.setlist.fm/rest/1.0/search/setlists");
-	url.searchParams.append("artistName", artist);
-	url.searchParams.append("cityName", city);
-	url.searchParams.append("date", date);
-
-	const response = await fetch(url.toString(), {
-		headers: {
-			Accept: "application/json",
-			"x-api-key": API_KEY,
-			"User-Agent": "concert-app/1.0"
-		}
-	});
-
-	if (!response.ok) {
-		const text = await response.text();
-		throw new Error(`Erro na API setlist.fm: ${response.status} - ${text}`);
-	}
-
-	const data = await response.json();
-	const found = data.setlist?.[0];
-
-	if (!found || !found.sets || !Array.isArray(found.sets.set)) {
-		return null; // Nada para gravar
-	}
-
-	// Verificar se já existe
-	const existing = await db.query(`SELECT id FROM setlist WHERE gig_id = ?`, [gigId]);
-	if (existing.length > 0) {
-		return null; // Já existe, não gravar
-	}
-
-	// Obter artist_id da tabela gig
-	const gigResult = await db.query(`SELECT artist_id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
-	if (!Array.isArray(gigResult) || gigResult.length === 0) {
-		throw new Error(`Gig com ID ${gigId} não encontrado na base de dados.`);
-	}
-	const artistId = gigResult[0].artist_id;
-
-	// Criar nova setlist
-	const setlistResult = await db.query(`INSERT INTO setlist (gig_id, artist_id) VALUES (?, ?)`, [gigId, artistId]);
-	console.log(setlistResult);
-	const setlistId = setlistResult.insertId;
-
-	let position = 1;
-	let songCount = 0;
-
-	console.log(found);
-
-	for (const set of found.sets.set) {
-		const encore = normalizeEncore(set.encore);
-		for (const song of set.song || []) {
-			const songName = song.name?.trim();
-			if (!songName) continue;
-
-			await db.query(`INSERT IGNORE INTO song (name, artist_id) VALUES (?, ?)`, [songName, artistId]);
-
-			const songRows = await db.query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [songName, artistId]);
-			if (!Array.isArray(songRows) || songRows.length === 0) {
-				console.warn(`⚠️ Música '${songName}' não encontrada na BD após inserção`);
-				continue;
-			}
-
-			const songId = songRows[0].id;
-			if (!songId) continue;
-
-			await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [setlistId, songId, position, encore]);
-
-			position++;
-			songCount++;
-		}
-	}
-
-	let message = "finished";
-
-	return { message };
 }
 
 async function importSetlists(req, res) {
@@ -173,7 +95,7 @@ async function fetchPage(page) {
 	const res = await fetch(url, {
 		headers: {
 			Accept: "application/json",
-			"x-api-key": API_KEY,
+			"x-api-key": apiKey(),
 			"User-Agent": "mygigs-app/1.0"
 		}
 	});
@@ -406,6 +328,7 @@ async function mergeDuplicateVenues() {
 
 module.exports = {
 	getSetlist,
+	fetchSetlist,
 	importSetlists,
 	fetchAllPortugalVenues,
 	importCities,

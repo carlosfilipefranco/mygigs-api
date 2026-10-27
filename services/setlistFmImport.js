@@ -1,11 +1,11 @@
+const { serviceKey } = require("./securityConfig");
 const fetch = require("node-fetch");
 const db = require("./db");
-const config = require("../config");
 const { buildUniqueSlug } = require("./slug");
 const { syncEditionDates, getEditionIdsForEvent, syncEditionDatesForEditionIds } = require("./editionDates");
 const { ensureGigEvent } = require("./gigEvents");
 
-const API_KEY = process.env.SETLISTFM_API_KEY || config.setlistFm?.apiKey || "33b04241-2c2f-45e6-959a-ddf01429fc76";
+
 const API_BASE_URL = "https://api.setlist.fm/rest/1.0";
 const DEFAULT_COUNTRY_CODE = "PT";
 const MAX_LIMIT = 200;
@@ -188,6 +188,8 @@ function buildSearchParams(payload, page) {
 }
 
 async function fetchSetlistFm(path, params = new URLSearchParams()) {
+	const apiKey = serviceKey("SETLISTFM_API_KEY");
+	if (!apiKey) throw Object.assign(new Error("A integração com o setlist.fm não está configurada."), { statusCode: 503 });
 	const url = new URL(`${API_BASE_URL}${path}`);
 	for (const [key, value] of params.entries()) {
 		url.searchParams.append(key, value);
@@ -198,7 +200,7 @@ async function fetchSetlistFm(path, params = new URLSearchParams()) {
 			timeout: 15000,
 			headers: {
 				Accept: "application/json",
-				"x-api-key": API_KEY,
+				"x-api-key": apiKey,
 				"User-Agent": "mygigs-app/1.0"
 			}
 		});
