@@ -2,7 +2,20 @@ const express = require("express");
 const router = express.Router();
 const event = require("../services/event");
 const eventImport = require("../services/eventImport");
-const { optionalAuth, requireAdmin } = require("../middleware/auth");
+const setlistFm = require("../services/setlistFmImport");
+const { optionalAuth, requireAuth, requireAdmin } = require("../middleware/auth");
+
+router.post("/setlistfm/search", requireAuth, async (req, res, next) => {
+	try {
+		res.json(await setlistFm.searchConcerts(req.body));
+	} catch (error) { next(error); }
+});
+
+router.post("/setlistfm/import", requireAuth, async (req, res, next) => {
+	try {
+		res.json(await setlistFm.importConcert(req.body.setlistfm_id));
+	} catch (error) { next(error); }
+});
 
 /* GET events. */
 router.get("/", optionalAuth, async function (req, res, next) {

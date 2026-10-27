@@ -18,11 +18,19 @@ async function query(sql, params) {
 	return results;
 }
 
-async function transaction(callback) {
+async function transaction(callback, { lockName = null } = {}) {
 	const db = await start();
 	const connection = await db.getConnection();
 
+	let locked = false;
 	try {
+		if (lockName) {
+			const [rows] = await connection.execute("SELECT GET_LOCK(CONCAT(LEFT(DATABASE(), 32), ':', ?), 10) AS acquired", [lockName]);
+			if (Number(rows[0]?.acquired) !== 1) {
+				throw Object.assign(new Error("Está a decorrer outra importação. Tenta novamente."), { statusCode: 409 });
+			}
+			locked = true;
+		}
 		await connection.beginTransaction();
 		const transactionQuery = async (sql, params) => {
 			const [results] = await connection.execute(sql, params);
@@ -36,7 +44,11 @@ async function transaction(callback) {
 		await connection.rollback();
 		throw error;
 	} finally {
-		connection.release();
+		try {
+			if (locked) await connection.execute("SELECT RELEASE_LOCK(CONCAT(LEFT(DATABASE(), 32), ':', ?))", [lockName]);
+		} finally {
+			connection.release();
+		}
 	}
 }
 
