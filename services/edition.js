@@ -1,4 +1,5 @@
 const db = require("./db");
+const { selectVenue, selectedAlias } = require("./venueNames");
 const helper = require("../helper");
 const config = require("../config");
 const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
@@ -433,7 +434,7 @@ async function get(id, userId = null) {
 
 		const edition = await db.query(
 			`
-		  SELECT e.id, e.slug, e.date_start, e.date_end, e.name AS name, e.image, v.name AS venue, c.name AS city, c.id AS city_id, v.id AS venue_id, festival.image as festival_image
+		  SELECT e.id, e.slug, e.date_start, e.date_end, e.name AS name, e.image, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id=e.venue_alias_id AND vn.venue_id=v.id), v.name) AS venue, e.venue_alias_id, c.name AS city, c.id AS city_id, v.id AS venue_id, festival.image as festival_image
 		  FROM edition e
 		  LEFT JOIN venue v ON e.venue_id = v.id
 		  LEFT JOIN city c ON e.city_id = c.id
@@ -455,7 +456,7 @@ async function get(id, userId = null) {
 		const gigsParams = userId ? [userId, resolvedId] : [resolvedId];
 		const gigsRows = await db.query(
 			`
-		  SELECT g.id, g.date, g.artist_id, a.name AS artist, a.slug AS artist_slug, a.image, v.name AS venue, v.id AS venue_id, c.name AS city, c.id AS city_id,
+		  SELECT g.id, g.date, g.artist_id, a.name AS artist, a.slug AS artist_slug, a.image, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id=g.venue_alias_id AND vn.venue_id=v.id), v.name) AS venue, v.id AS venue_id, c.name AS city, c.id AS city_id,
 		         ev.id AS event_id, ev.name AS event_name, ev.slug AS event_slug,
 		         eg.stage_id, es.name AS stage_name,
 		         COALESCE(eg.start_time, g.start_time) AS start_time,
@@ -517,7 +518,7 @@ async function get(id, userId = null) {
 				date_end: edition[0].date_end,
 				name: edition[0].name,
 				image: edition[0].image ? edition[0].image : edition[0].festival_image,
-				venue: { id: edition[0].venue_id, name: edition[0].venue },
+				venue: { id: edition[0].venue_id, name: edition[0].venue, alias_id: edition[0].venue_alias_id },
 				city: { id: edition[0].city_id, name: edition[0].city }
 			},
 			gigs: gigs
@@ -529,24 +530,19 @@ async function get(id, userId = null) {
 }
 
 async function create(edition) {
-	const rows = await db.query(`SELECT id FROM edition WHERE name="${edition.name}"`);
-	var result;
-	const slug = await buildUniqueSlug(db, "edition", edition?.name, rows?.[0]?.id || null);
-
-	if (rows.length) {
-		const id = rows[0].id;
-		result = await db.query(`UPDATE edition SET name="${edition.name}", slug="${slug}", festival_id="${edition.festival_id}", image="${edition.image}", city_id="${edition.city.id}", venue_id="${edition.venue.id}" WHERE id=${id}`);
-	} else {
-		result = await db.query(`INSERT INTO edition (name, slug, festival_id, image, city_id, venue_id) VALUES  ("${edition.name}", "${slug}", "${edition.festival_id}", "${edition.image}", "${edition.city.id}", "${edition.venue.id}")`);
-	}
-
-	let message = "Error in creating Edition";
-
-	if (result.affectedRows) {
-		message = "Edition created successfully";
-	}
-
-	return { message };
+	return db.transaction(async query => {
+		const venue = await selectVenue(edition.venue?.id, selectedAlias(edition), query);
+		const rows = await query(`SELECT id FROM edition WHERE name = ?`, [edition.name]);
+		const slug = await buildUniqueSlug({ query }, "edition", edition.name, rows[0]?.id || null);
+		let id = rows[0]?.id;
+		if (id) {
+			await query(`UPDATE edition SET name=?, slug=?, festival_id=?, image=?, city_id=?, venue_id=?, venue_alias_id=? WHERE id=?`, [edition.name, slug, edition.festival_id, edition.image || null, venue.city_id, venue.id, venue.alias_id, id]);
+		} else {
+			const result = await query(`INSERT INTO edition (name, slug, festival_id, image, city_id, venue_id, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, [edition.name, slug, edition.festival_id, edition.image || null, venue.city_id, venue.id, venue.alias_id]);
+			id = result.insertId;
+		}
+		return { id, message: "Edition created successfully" };
+	});
 }
 
 async function createBulk(editions) {
@@ -569,21 +565,18 @@ async function createBulk(editions) {
 }
 
 async function update(id, edition) {
-	const resolvedId = await resolveEntityIdByIdentifier(db, "edition", id);
-	if (!resolvedId) {
-		return { message: "Edition not found" };
-	}
-
-	const slug = await buildUniqueSlug(db, "edition", edition?.name, resolvedId);
-	const result = await db.query(`UPDATE edition SET name="${edition.name}", slug="${slug}", image="${edition.image}", city_id="${edition.city.id}", venue_id="${edition.venue.id}" WHERE id=${resolvedId}`);
-
-	let message = "Error in updating Edition";
-
-	if (result.affectedRows) {
-		message = "Edition updated successfully";
-	}
-
-	return { message };
+	return db.transaction(async query => {
+		const resolvedId = await resolveEntityIdByIdentifier({ query }, "edition", id);
+		const rows = await query(`SELECT venue_id, venue_alias_id FROM edition WHERE id = ? FOR UPDATE`, [resolvedId]);
+		if (!rows.length) throw Object.assign(new Error("Edição não encontrada."), { statusCode: 404 });
+		const inputVenueId = Number(edition.venue?.id || rows[0].venue_id);
+		const requestedAlias = selectedAlias(edition);
+		const aliasId = requestedAlias === undefined && inputVenueId === rows[0].venue_id ? rows[0].venue_alias_id : requestedAlias;
+		const venue = await selectVenue(inputVenueId, aliasId, query);
+		const slug = await buildUniqueSlug({ query }, "edition", edition.name, resolvedId);
+		await query(`UPDATE edition SET name=?, slug=?, image=?, city_id=?, venue_id=?, venue_alias_id=? WHERE id=?`, [edition.name, slug, edition.image || null, venue.city_id, venue.id, venue.alias_id, resolvedId]);
+		return { message: "Edition updated successfully" };
+	});
 }
 
 async function remove(id) {
@@ -611,7 +604,7 @@ async function previewProgram(editionId, payload = {}) {
 
 	const editionRows = await db.query(
 		`
-		SELECT id, name, slug, city_id, venue_id, date_start, date_end
+		SELECT id, name, slug, city_id, venue_id, venue_alias_id, date_start, date_end
 		FROM edition
 		WHERE id = ?
 		LIMIT 1
@@ -796,7 +789,7 @@ async function importProgram(editionId, payload = {}) {
 
 	const editionRows = await db.query(
 		`
-		SELECT id, name, slug, city_id, venue_id, date_start, date_end
+		SELECT id, name, slug, city_id, venue_id, venue_alias_id, date_start, date_end
 		FROM edition
 		WHERE id = ?
 		LIMIT 1
@@ -884,14 +877,15 @@ async function importProgram(editionId, payload = {}) {
 			const eventName = `${edition.name} · ${date}`;
 			const eventDescription = `Programação ${edition.name || ""}`.trim();
 			const eventSlug = await buildUniqueSlug(db, "event", eventName);
-			const insertEvent = await db.query(`INSERT INTO event (name, slug, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
+			const insertEvent = await db.query(`INSERT INTO event (name, slug, date, city_id, venue_id, type, description, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
 				eventName,
 				eventSlug,
 				date,
 				edition.city_id,
 				edition.venue_id,
 				type,
-				eventDescription || null
+				eventDescription || null,
+				edition.venue_alias_id
 			]);
 			eventId = insertEvent.insertId;
 			await db.query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [edition.id, eventId]);
@@ -1023,7 +1017,7 @@ async function importProgram(editionId, payload = {}) {
 				await db.query(`UPDATE gig SET start_time = ?, end_time = ?, position = ? WHERE id = ?`, [startTime, endTime, entry.position, gigIdToUse]);
 			} else {
 				try {
-					const insertGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+					const insertGig = await db.query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time, position, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
 						date,
 						edition.city_id,
 						edition.venue_id,
@@ -1031,7 +1025,8 @@ async function importProgram(editionId, payload = {}) {
 						type,
 						startTime,
 						endTime,
-						entry.position
+						entry.position,
+						edition.venue_alias_id
 					]);
 					gigIdToUse = insertGig.insertId;
 					createdGigNow = true;

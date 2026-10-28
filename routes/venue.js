@@ -6,7 +6,7 @@ const { requireAdmin } = require("../middleware/auth");
 /* GET venues. */
 router.get("/", async function (req, res, next) {
 	try {
-		res.json(await venue.getMultiple(req.query.page, req.query.search));
+		res.json(await venue.getMultiple(req.query.page, req.query.search, req.query.city_id));
 	} catch (err) {
 		console.error(`Error while getting venues `, err.message);
 		next(err);
@@ -21,6 +21,15 @@ router.post("/", requireAdmin, async function (req, res, next) {
 		console.error(`Error while creating venue`, err.message);
 		next(err);
 	}
+});
+
+// Associação explícita de dois registos do mesmo espaço físico.
+router.post("/:id/merge", requireAdmin, async function (req, res, next) {
+ try {
+  res.json(await venue.merge(req.params.id, req.body.target_id));
+ } catch (err) {
+  next(err);
+ }
 });
 
 /* PUT venue */

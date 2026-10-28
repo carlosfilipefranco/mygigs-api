@@ -232,7 +232,7 @@ async function getPublicProfile(id) {
 		db.query(
 			`
 			SELECT gig.id, gig.date, artist.id AS artist_id, artist.name AS artist, artist.slug AS artist_slug,
-			       artist.image, venue.name AS venue, city.name AS city
+			       artist.image, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = gig.venue_alias_id AND vn.venue_id = venue.id), venue.name) AS venue, city.name AS city
 			FROM user_gig
 			INNER JOIN gig ON user_gig.gig_id = gig.id
 			INNER JOIN artist ON artist.id = gig.artist_id
@@ -250,7 +250,7 @@ async function getPublicProfile(id) {
 		db.query(
 			`
 			SELECT gig.id, gig.date, artist.id AS artist_id, artist.name AS artist, artist.slug AS artist_slug,
-			       artist.image, venue.name AS venue, city.name AS city
+			       artist.image, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = gig.venue_alias_id AND vn.venue_id = venue.id), venue.name) AS venue, city.name AS city
 			FROM user_gig
 			INNER JOIN gig ON user_gig.gig_id = gig.id
 			INNER JOIN artist ON artist.id = gig.artist_id

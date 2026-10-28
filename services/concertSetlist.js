@@ -28,8 +28,8 @@ async function fetchSetlist(gigIdentifier) {
 	const gigId = positiveId(gigIdentifier);
 	const stored = await getSetlist(gigId);
 	if (stored) return stored;
-	const rows = await db.query(`SELECT g.id, g.artist_id, g.venue_id, g.city_id, DATE_FORMAT(g.date, '%d-%m-%Y') AS date,
-		a.name AS artist, a.mbid, v.name AS venue, c.name AS city
+	const rows = await db.query(`SELECT g.id, g.artist_id, g.venue_id, g.venue_alias_id, g.city_id, DATE_FORMAT(g.date, '%d-%m-%Y') AS date,
+		a.name AS artist, a.mbid, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue, c.name AS city
 		FROM gig g JOIN artist a ON a.id = g.artist_id JOIN venue v ON v.id = g.venue_id
 		JOIN city c ON c.id = g.city_id WHERE g.id = ? AND g.type = 1`, [gigId]);
 	const gig = rows[0];
@@ -52,8 +52,8 @@ async function fetchSetlist(gigIdentifier) {
 	if (!Array.isArray(sets) || !sets.some(set => set.song?.some(song => typeof song.name === "string" && song.name.trim()))) return null;
 	return db.transaction(async query => {
 		// Confirmar que o concerto não foi editado durante o pedido externo.
-		const current = await query(`SELECT artist_id, venue_id, city_id, DATE_FORMAT(date, '%d-%m-%Y') AS date FROM gig WHERE id = ? FOR UPDATE`, [gigId]);
-		if (!current.length || current[0].artist_id !== gig.artist_id || current[0].venue_id !== gig.venue_id || current[0].city_id !== gig.city_id || current[0].date !== gig.date) fail(409, "O concerto foi alterado. Tenta novamente.");
+		const current = await query(`SELECT artist_id, venue_id, venue_alias_id, city_id, DATE_FORMAT(date, '%d-%m-%Y') AS date FROM gig WHERE id = ? FOR UPDATE`, [gigId]);
+		if (!current.length || current[0].artist_id !== gig.artist_id || current[0].venue_id !== gig.venue_id || current[0].venue_alias_id !== gig.venue_alias_id || current[0].city_id !== gig.city_id || current[0].date !== gig.date) fail(409, "O concerto foi alterado. Tenta novamente.");
 		const existing = await query(`SELECT id FROM setlist WHERE gig_id = ? LIMIT 1 FOR UPDATE`, [gigId]);
 		if (existing.length) return getSetlist(gigId, query);
 		const result = await query(`INSERT INTO setlist (gig_id, artist_id) VALUES (?, ?)`, [gigId, gig.artist_id]);

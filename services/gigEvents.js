@@ -3,7 +3,7 @@ const { buildUniqueSlug } = require("./slug");
 const { getEditionIdsForEvent, syncEditionDatesForEditionIds } = require("./editionDates");
 
 const gigFields = `g.id, DATE_FORMAT(g.date, '%Y-%m-%d') AS date, g.artist_id,
-	g.city_id, g.venue_id, g.type, g.start_time, g.end_time,
+	g.city_id, g.venue_id, g.venue_alias_id, g.type, g.start_time, g.end_time,
 	a.name AS artist, a.image AS artist_image`;
 
 async function missingGigs(query) {
@@ -73,9 +73,9 @@ async function ensureGigEvent(gigId, query, { sourceUrl = null } = {}) {
 		const slug = await buildUniqueSlug({ query }, "event", name.slice(0, 160));
 		const image = name === gig.artist && gig.artist_image && gig.artist_image !== "null" ? gig.artist_image : null;
 		const result = await query(
-			`INSERT INTO event (name, slug, date, city_id, venue_id, type, image, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO event (name, slug, date, city_id, venue_id, type, image, description, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[name, slug, gig.date, gig.city_id, gig.venue_id, gig.type, image,
-				sourceUrl ? `Importado de setlist.fm: ${sourceUrl}` : null]
+				sourceUrl ? `Importado de setlist.fm: ${sourceUrl}` : null, gig.venue_alias_id]
 		);
 		eventId = result.insertId;
 		created = true;

@@ -46,7 +46,7 @@ async function getUpcomingEditions(page = 1, limit = 8) {
 			edition.image AS edition_image,
 			edition.date_start,
 			edition.date_end,
-			venue.name AS venue,
+			COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = edition.venue_alias_id AND vn.venue_id = venue.id), venue.name) AS venue,
 			city.name AS city,
 			COUNT(DISTINCT DATE(event.date)) AS total_days
 		FROM edition
@@ -59,7 +59,7 @@ async function getUpcomingEditions(page = 1, limit = 8) {
 	const groupByClause = `
 		GROUP BY festival.id, festival.name, festival.slug, festival.image,
 		         edition.id, edition.name, edition.slug, edition.image, edition.date_start, edition.date_end,
-		         venue.name, city.name
+		         venue.id, venue.name, edition.venue_alias_id, city.name
 	`;
 
 	const ongoingRows = await db.query(

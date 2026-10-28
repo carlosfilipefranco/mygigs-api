@@ -1,7 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
-const { getVenueCityId } = require("./venueCity");
+const { selectVenue, selectedAlias } = require("./venueNames");
 const eventImageStorage = require("./eventImageStorage");
 const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 const { syncEditionDates, syncEditionDatesForEditionIds, getEditionIdsForEvent } = require("./editionDates");
@@ -268,8 +268,8 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 	let orderBy = "event.date DESC";
 
 	if (search) {
-		filters.push("(LOWER(event.name) LIKE ? OR LOWER(event.description) LIKE ? OR LOWER(venue.name) LIKE ? OR LOWER(city.name) LIKE ? OR LOWER(event.date) LIKE ?)");
-		params.push(`%${normalizedSearch}%`, `%${normalizedSearch}%`, `%${normalizedSearch}%`, `%${normalizedSearch}%`, `%${normalizedSearch}%`);
+		filters.push("(LOWER(event.name) LIKE ? OR LOWER(event.description) LIKE ? OR LOWER(venue.name) LIKE ? OR EXISTS (SELECT 1 FROM venue_alias vn WHERE vn.venue_id = venue.id AND LOWER(vn.name) LIKE ?) OR LOWER(city.name) LIKE ? OR LOWER(event.date) LIKE ?)");
+		params.push(...Array(6).fill(`%${normalizedSearch}%`));
 	}
 
 	if (period === "upcoming") {
@@ -294,7 +294,7 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 			event.slug,
 			event.image,
 			event.description,
-			venue.name as venue,
+			COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = event.venue_alias_id AND vn.venue_id = venue.id), venue.name) as venue,
 			city.name as city,
 			(
 				SELECT COUNT(*)
@@ -375,7 +375,7 @@ async function get(id, userId = null) {
 		       es.position AS stage_position,
 		       g.id AS gig_id,
 		       v.id AS venue_id,
-		       v.name AS venue,
+		       COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue,
 		       c.id AS city_id,
 		       c.name AS city,
 		       a.id AS artist_id,
@@ -463,7 +463,7 @@ async function get(id, userId = null) {
 
 async function create(event) {
 	const slots = normalizeArtistSlots(event.artists);
-	const venueId = normalizeNumber(event?.venue?.id || event?.venue_id || event?.venue);
+	const inputVenueId = normalizeNumber(event?.venue?.id || event?.venue_id || event?.venue);
 	const type = Number(event?.type) || 1;
 	const editionId = event.edition ? normalizeNumber(event.edition.edition_id || event.edition.id || event.edition) : null;
 	if (event.edition && !editionId) throw new Error("Edição inválida");
@@ -479,18 +479,20 @@ async function create(event) {
 		const artists = await db.query(`SELECT id, name FROM artist WHERE id IN (${artistIds.map(() => "?").join(",")})`, artistIds);
 		name = artistIds.map((id) => artists.find((artist) => Number(artist.id) === id)?.name).filter(Boolean).join(" + ").slice(0, 255) || null;
 	}
-	if (!name || !event?.date || !venueId || !slots.length) {
+	if (!name || !event?.date || !inputVenueId || !slots.length) {
 		throw new Error("Missing required event fields");
 	}
 
 	const eventId = await db.transaction(async (query) => {
-		const cityId = await getVenueCityId(venueId, query);
+		const selectedVenue = await selectVenue(inputVenueId, selectedAlias(event), query);
+		const venueId = selectedVenue.id;
+		const cityId = selectedVenue.city_id;
 		const slug = await buildUniqueSlug({ query }, "event", name);
-		const result = await query(`INSERT INTO event (name, slug, date, city_id, venue_id, type, description, headliner_artist_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [name, slug, event.date, cityId, venueId, type, event.description || null, headlinerId]);
+		const result = await query(`INSERT INTO event (name, slug, date, city_id, venue_id, type, description, headliner_artist_id, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [name, slug, event.date, cityId, venueId, type, event.description || null, headlinerId, selectedVenue.alias_id]);
 		const eventId = result.insertId;
 		const stageLookup = await ensureEventStages(eventId, event.stages, slots, query);
 		for (const slot of slots) {
-			const resultGig = await query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`, [event.date, cityId, venueId, slot.artist_id, type, slot.start_time, slot.end_time]);
+			const resultGig = await query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [event.date, cityId, venueId, slot.artist_id, type, slot.start_time, slot.end_time, selectedVenue.alias_id]);
 			const stageId = resolveStageId(slot, stageLookup);
 			await query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [eventId, resultGig.insertId, stageId, slot.start_time, slot.end_time]);
 		}
@@ -572,7 +574,7 @@ async function update(id, event) {
 			throw new Error("Event not found");
 		}
 
-		const currentRows = await query(`SELECT type, headliner_artist_id, venue_id FROM event WHERE id = ? FOR UPDATE`, [resolvedId]);
+		const currentRows = await query(`SELECT type, headliner_artist_id, venue_id, venue_alias_id FROM event WHERE id = ? FOR UPDATE`, [resolvedId]);
 		if (!currentRows.length) throw new Error("Event not found");
 		const linkedEditionIds = await getEditionIdsForEvent(resolvedId, query);
 		const currentGigs = await query(`SELECT eg.gig_id, g.artist_id FROM event_gig eg INNER JOIN gig g ON g.id = eg.gig_id WHERE eg.event_id = ?`, [resolvedId]);
@@ -609,7 +611,14 @@ async function update(id, event) {
 			throw new Error("Tipo inválido.");
 		}
 
-		const nextCityId = await getVenueCityId(nextVenueId === undefined ? currentRows[0].venue_id : nextVenueId, query);
+		const inputVenueId = nextVenueId === undefined ? currentRows[0].venue_id : nextVenueId;
+		const requestedAlias = selectedAlias(event);
+		const aliasId = requestedAlias === undefined && inputVenueId === Number(currentRows[0].venue_id) ? currentRows[0].venue_alias_id : requestedAlias;
+		const selectedVenue = await selectVenue(inputVenueId, aliasId, query);
+		const nextCityId = selectedVenue.city_id;
+		const venueChanged = selectedVenue.id !== Number(currentRows[0].venue_id);
+		const venueNameChanged = (hasOwn(event, "venue") || hasOwn(event, "venue_id") || requestedAlias !== undefined)
+			&& selectedVenue.alias_id !== currentRows[0].venue_alias_id;
 
 		const eventFields = ["name=?", "slug=?", "image=?", "description=?", "headliner_artist_id=?"];
 		const eventParams = [event.name, slug, storedImage.image || null, event.description || null, headlinerId];
@@ -621,9 +630,9 @@ async function update(id, event) {
 			eventFields.push("city_id=?");
 			eventParams.push(nextCityId);
 		}
-		if (hasOwn(event, "venue") || hasOwn(event, "venue_id")) {
-			eventFields.push("venue_id=?");
-			eventParams.push(nextVenueId);
+		if (hasOwn(event, "venue") || hasOwn(event, "venue_id") || requestedAlias !== undefined) {
+			eventFields.push("venue_id=?", "venue_alias_id=?");
+			eventParams.push(selectedVenue.id, selectedVenue.alias_id);
 		}
 		if (hasOwn(event, "type")) {
 			eventFields.push("type=?");
@@ -637,13 +646,16 @@ async function update(id, event) {
 			gigSyncFields.push("g.date=?");
 			gigSyncParams.push(nextDate);
 		}
-		if (nextVenueId !== undefined) {
+		if (venueChanged) {
 			gigSyncFields.push("g.city_id=?");
 			gigSyncParams.push(nextCityId);
 		}
-		if (hasOwn(event, "venue") || hasOwn(event, "venue_id")) {
-			gigSyncFields.push("g.venue_id=?");
-			gigSyncParams.push(nextVenueId);
+		if (venueChanged) {
+			gigSyncFields.push("g.venue_id=?", "g.venue_alias_id=?");
+			gigSyncParams.push(selectedVenue.id, selectedVenue.alias_id);
+		} else if (venueNameChanged) {
+			gigSyncFields.push("g.venue_alias_id=CASE WHEN g.venue_id=? THEN ? ELSE g.venue_alias_id END");
+			gigSyncParams.push(selectedVenue.id, selectedVenue.alias_id);
 		}
 		if (hasOwn(event, "type")) {
 			gigSyncFields.push("g.type=?");
@@ -653,7 +665,7 @@ async function update(id, event) {
 			await query(`UPDATE gig g INNER JOIN event_gig eg ON eg.gig_id = g.id SET ${gigSyncFields.join(", ")} WHERE eg.event_id = ?`, [...gigSyncParams, resolvedId]);
 		}
 
-		const eventRows = await query(`SELECT date, city_id, venue_id, type FROM event WHERE id=?`, [resolvedId]);
+		const eventRows = await query(`SELECT date, city_id, venue_id, type, venue_alias_id FROM event WHERE id=?`, [resolvedId]);
 		const existingGigRows = await query(
 			`
 			SELECT eg.gig_id, g.artist_id
@@ -696,7 +708,7 @@ async function update(id, event) {
 					continue;
 				}
 
-				const resultGig = await query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)`, [eventData.date, eventData.city_id, eventData.venue_id, slot.artist_id, eventData.type, slot.start_time, slot.end_time]);
+				const resultGig = await query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [eventData.date, eventData.city_id, eventData.venue_id, slot.artist_id, eventData.type, slot.start_time, slot.end_time, eventData.venue_alias_id]);
 				await query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [resolvedId, resultGig.insertId, stageId, slot.start_time, slot.end_time]);
 				existingGigByArtist.set(slot.artist_id, resultGig.insertId);
 				addedArtists++;

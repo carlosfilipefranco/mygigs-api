@@ -536,21 +536,23 @@ async function findByName(table, name, cityId = null) {
 	}
 
 	const rows = table === "venue"
-		? await db.query(`SELECT v.id, v.name, v.city_id, c.name AS city,
-			CONCAT(v.name, COALESCE(CONCAT(' — ', c.name), ' — Cidade por definir')) AS display_name
-			FROM venue v LEFT JOIN city c ON c.id = v.city_id ${cityId ? "WHERE v.city_id = ?" : ""}`, cityId ? [cityId] : [])
+		? await db.query(`SELECT v.id, n.name, v.name AS current_name, v.city_id, c.name AS city, n.alias_id,
+			CONCAT(n.name, COALESCE(CONCAT(' — ', c.name), ' — Cidade por definir')) AS display_name
+			FROM venue v LEFT JOIN city c ON c.id = v.city_id
+			JOIN (SELECT id AS venue_id, name, NULL AS alias_id FROM venue UNION ALL SELECT venue_id, name, id AS alias_id FROM venue_alias) n ON n.venue_id=v.id
+			${cityId ? "WHERE v.city_id = ?" : ""}`, cityId ? [cityId] : [])
 		: await db.query(`SELECT id, name FROM ${table}`);
 	const normalizedName = normalize(name);
 	const nameTokens = normalizedName.split(" ").filter((token) => token.length > 1 && !["de", "da", "do", "das", "dos"].includes(token));
 	const exactMatches = rows.filter((row) => normalize(row.name) === normalizedName);
-	if (table === "venue" && exactMatches.length > 1) return null;
+	if (table === "venue" && new Set(exactMatches.map(row => row.id)).size > 1) return null;
 	const exactMatch = exactMatches[0];
 
 	if (exactMatch) {
 		return exactMatch;
 	}
 
-	const tokenMatch = rows
+	const tokenMatches = rows
 		.map((row) => {
 			const normalizedRowName = normalize(row.name);
 			const rowTokens = normalizedRowName.split(" ").filter((token) => token.length > 1 && !["de", "da", "do", "das", "dos"].includes(token));
@@ -563,9 +565,11 @@ async function findByName(table, name, cityId = null) {
 			};
 		})
 		.filter((match) => nameTokens.length && match.score === nameTokens.length)
-		.sort((a, b) => a.delta - b.delta || normalize(a.row.name).length - normalize(b.row.name).length)[0];
+		.sort((a, b) => a.delta - b.delta || normalize(a.row.name).length - normalize(b.row.name).length);
 
-	return tokenMatch?.row || null;
+	const best = tokenMatches[0];
+	if (table === "venue" && best && tokenMatches.some(match => match.delta === best.delta && match.row.id !== best.row.id)) return null;
+	return best?.row || null;
 }
 
 function buildDescription({ price, notes, description, promoter, url }) {
@@ -603,6 +607,7 @@ async function withDatabaseMatches(data) {
 	}
 
 	const venue = await findByName("venue", venueName, city?.id);
+	if (venue) venue.aliases = await db.query(`SELECT id, name FROM venue_alias WHERE venue_id = ? ORDER BY name`, [venue.id]);
 	const artistName = data.artistName || data.name;
 	const artist = await findByName("artist", artistName);
 

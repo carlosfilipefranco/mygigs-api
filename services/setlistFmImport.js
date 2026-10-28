@@ -1,6 +1,7 @@
 const { serviceKey } = require("./securityConfig");
 const fetch = require("node-fetch");
 const db = require("./db");
+const { findVenueByName, selectVenue } = require("./venueNames");
 const { buildUniqueSlug } = require("./slug");
 const { syncEditionDates, getEditionIdsForEvent, syncEditionDatesForEditionIds } = require("./editionDates");
 const { ensureGigEvent } = require("./gigEvents");
@@ -338,18 +339,7 @@ async function findCity(name) {
 }
 
 async function findVenue(name, cityId = null) {
-	const rows = await db.query(
-		`
-		SELECT id, name, city_id
-		FROM venue
-		WHERE LOWER(name) = LOWER(?)
-		  AND (? IS NULL OR city_id = ?)
-		ORDER BY CASE WHEN city_id = ? THEN 0 ELSE 1 END, id ASC
-		LIMIT 1
-		`,
-		[name, cityId, cityId, cityId]
-	);
-	return rows[0] || null;
+	return findVenueByName(name, cityId);
 }
 
 async function findGig(artistId, venueId, date) {
@@ -496,24 +486,16 @@ async function ensureCity(entry, query = db.query) {
 }
 
 async function ensureVenue(entry, cityId, query = db.query) {
-	const existing = await query(
-		`
-		SELECT id
-		FROM venue
-		WHERE LOWER(name) = LOWER(?) AND city_id = ?
-		LIMIT 1
-		`,
-		[entry.venue_name, cityId]
-	);
-	if (existing.length) {
-		return { id: existing[0].id, created: false };
+	const existing = await findVenueByName(entry.venue_name, cityId, query);
+	if (existing) {
+		const venue = await selectVenue(existing.id, existing.alias_id, query);
+		return { id: venue.id, alias_id: venue.alias_id, city_id: venue.city_id, created: false };
 	}
-
 	const result = await query(`INSERT INTO venue (name, city_id, lat, lng) VALUES (?, ?, ?, ?)`, [entry.venue_name, cityId, entry.lat || null, entry.lng || null]);
-	return { id: result.insertId, created: true };
+	return { id: result.insertId, alias_id: null, city_id: cityId, created: true };
 }
 
-async function ensureEditionEvent(editionId, entry, cityId, venueId, type, query = db.query) {
+async function ensureEditionEvent(editionId, entry, cityId, venueId, type, query = db.query, aliasId = null) {
 	const normalizedEditionId = normalizeNumber(editionId);
 	if (!normalizedEditionId) {
 		return null;
@@ -537,14 +519,15 @@ async function ensureEditionEvent(editionId, entry, cityId, venueId, type, query
 	const editionRows = await query(`SELECT name FROM edition WHERE id = ? LIMIT 1`, [normalizedEditionId]);
 	const eventName = `${editionRows?.[0]?.name || "Festival"} · ${entry.date}`;
 	const slug = await buildUniqueSlug({ query }, "event", eventName);
-	const eventResult = await query(`INSERT INTO event (name, slug, date, city_id, venue_id, type, description) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
+	const eventResult = await query(`INSERT INTO event (name, slug, date, city_id, venue_id, type, description, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
 		eventName,
 		slug,
 		entry.date,
 		cityId,
 		venueId,
 		type,
-		`Importado de setlist.fm: ${entry.url}`
+		`Importado de setlist.fm: ${entry.url}`,
+		aliasId
 	]);
 	await query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [normalizedEditionId, eventResult.insertId]);
 	return { id: eventResult.insertId, created: true };
@@ -647,20 +630,20 @@ async function persistEntries(entries, payload) {
 			} else {
 				const positionRows = await query(`SELECT COALESCE(MAX(position), 0) AS max_position FROM gig WHERE venue_id = ? AND date = ?`, [venue.id, entry.date]);
 				const position = Number(positionRows?.[0]?.max_position || 0) + 1;
-				const gigResult = await query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, position) VALUES (?, ?, ?, ?, ?, ?)`, [entry.date, city.id, venue.id, artist.id, type, position]);
+				const gigResult = await query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, position, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, [entry.date, venue.city_id, venue.id, artist.id, type, position, venue.alias_id]);
 				gigId = gigResult.insertId;
 				action = "created_gig";
 				summary.created_gigs += 1;
 			}
 
-			prepared.push({ entry, gigId, artistId: artist.id, cityId: city.id, venueId: venue.id, action });
+			prepared.push({ entry, gigId, artistId: artist.id, cityId: venue.city_id, venueId: venue.id, aliasId: venue.alias_id, action });
 		}
 
 		// Preparar primeiro todos os concertos permite nomear um evento com os vários artistas.
-		for (const { entry, gigId, artistId, cityId, venueId, action } of prepared) {
+		for (const { entry, gigId, artistId, cityId, venueId, aliasId, action } of prepared) {
 			let eventId = targetEventId || null;
 			if (targetEditionId) {
-				const event = await ensureEditionEvent(targetEditionId, entry, cityId, venueId, type, query);
+				const event = await ensureEditionEvent(targetEditionId, entry, cityId, venueId, type, query, aliasId);
 				eventId = event.id;
 				if (event.created) summary.created_events++;
 				touchedEditionIds.add(targetEditionId);

@@ -34,7 +34,7 @@ async function getUserEvents(userId, page = 1, filters = {}) {
 	const rows = await db.query(
 		`
 		SELECT event.id, event.date, event.name, event.image, event.type,
-		       venue.name as venue, city.name as city,
+		       COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = event.venue_alias_id AND vn.venue_id = venue.id), venue.name) as venue, city.name as city,
 		       user_event.status, user_event.has_ticket, user_event.favorite
 		FROM user_event
 		INNER JOIN event ON user_event.event_id = event.id
