@@ -3,6 +3,8 @@ const fetch = require("node-fetch");
 const db = require("./db");
 const fs = require("fs");
 const path = require("path");
+const { normalizeCityName, normalizeCityState } = require("./city");
+const { isFestivalVenueName } = require("./venueNames");
 
 const { getSetlist, fetchSetlist } = require("./concertSetlist");
 function apiKey() {
@@ -163,8 +165,8 @@ async function importCities() {
 		for (const venue of venues) {
 			if (!venue.city) continue;
 
-			const name = venue.city.name?.trim();
-			const state = venue.city.state?.trim() || null;
+			const name = normalizeCityName(venue.city.name, venue.city.country?.code);
+			const state = normalizeCityState(venue.city.state, venue.city.country?.code);
 
 			if (!name) continue;
 
@@ -210,8 +212,9 @@ async function importVenues() {
 		for (const venue of venues) {
 			const name = venue.name?.trim();
 			if (!name) continue; // ignorar venues sem nome
+			if (isFestivalVenueName(name)) continue;
 
-			const cityName = venue.city?.name?.trim();
+			const cityName = normalizeCityName(venue.city?.name, venue.city?.country?.code);
 			if (!cityName) continue;
 
 			const state = venue.city?.state?.trim() || null;
@@ -275,55 +278,10 @@ async function importVenues() {
 	}
 }
 
-async function mergeDuplicateVenues() {
-	try {
-		// Seleciona apenas os venues originais sem city/coords
-		const originals = await db.query(`
-  SELECT * FROM venue 
-  WHERE city_id IS NULL AND lat IS NULL AND lng IS NULL
-`);
-
-		for (const dup of originals) {
-			const name = dup.name;
-			console.log(`\n🔹 Processando venue duplicado: ${name}`);
-
-			// 2) Obter todas as venues com este nome
-			const venues = await db.query(`SELECT * FROM venue WHERE name = ? ORDER BY id ASC`, [name]);
-
-			// Presumimos que a primeira é a "mãe" (a que queremos manter)
-			const master = venues[0];
-			const replicas = venues.slice(1);
-
-			for (const rep of replicas) {
-				// 3) Atualizar dados na mãe se estiverem vazios
-				const updateFields = {};
-				if (!master.city_id && rep.city_id) updateFields.city_id = rep.city_id;
-				if (!master.lat && rep.lat) updateFields.lat = rep.lat;
-				if (!master.lng && rep.lng) updateFields.lng = rep.lng;
-
-				if (Object.keys(updateFields).length > 0) {
-					const setClause = Object.keys(updateFields)
-						.map((f) => `${f} = ?`)
-						.join(", ");
-					const values = Object.values(updateFields).concat(master.id);
-					await db.query(`UPDATE venue SET ${setClause} WHERE id = ?`, values);
-					console.log(`  ✏️ Atualizada venue mãe ID ${master.id} com dados da réplica ID ${rep.id}`);
-				}
-
-				// 4) Atualizar todos os gigs que apontam para a réplica
-				await db.query(`UPDATE gig SET venue_id = ? WHERE venue_id = ?`, [master.id, rep.id]);
-				console.log(`  🔄 Gigs da réplica ID ${rep.id} apontados para mãe ID ${master.id}`);
-
-				// 5) Apagar a réplica
-				await db.query(`DELETE FROM venue WHERE id = ?`, [rep.id]);
-				console.log(`  🗑 Apagada réplica ID ${rep.id}`);
-			}
-		}
-
-		console.log("\n✅ Merge concluído!");
-	} catch (err) {
-		console.error("💥 Erro ao fazer merge das venues:", err);
-	}
+function mergeDuplicateVenues(req, res) {
+	// O mesmo nome pode identificar espaços diferentes em cidades diferentes.
+	// As associações confirmadas usam a gestão de locais, que exige a mesma cidade.
+	return res.status(409).json({ message: "A associação automática de locais apenas pelo nome foi desativada. Usa a gestão de locais para associar fichas confirmadas do mesmo espaço e da mesma cidade." });
 }
 
 module.exports = {

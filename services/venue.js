@@ -2,7 +2,7 @@ const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
 const { validateCityId } = require("./venueCity");
-const { ensureAlias, resolveVenue, findVenueByName } = require("./venueNames");
+const { ensureAlias, resolveVenue, findVenueByName, assertPhysicalVenueName } = require("./venueNames");
 
 function fail(message, statusCode = 400) {
 	throw Object.assign(new Error(message), { statusCode });
@@ -102,6 +102,7 @@ async function create(venue) {
 		const cityId = await validateCityId(venue.city_id || venue.city, query);
 		const name = venue.name?.trim();
 		if (!name || name.length > 255) fail("Indica um nome de local com até 255 caracteres.");
+		assertPhysicalVenueName(name);
 		const existing = await findVenueByName(name, cityId, query);
 		if (existing) return { id: existing.id, alias_id: existing.alias_id, message: "Este local já existe nesta cidade." };
 		const result = await query(`INSERT INTO venue (name, city_id, lat, lng) VALUES (?, ?, ?, ?)`, [name, cityId, normalizeCoordinate(venue.lat), normalizeCoordinate(venue.lng)]);
@@ -127,6 +128,7 @@ async function update(id, venue) {
 		const cityId = await validateCityId(venue.city_id || venue.city || current.city_id, query);
 		const name = venue.name?.trim();
 		if (!name || name.length > 255) fail("Indica um nome de local com até 255 caracteres.");
+		assertPhysicalVenueName(name);
 		const existing = await findVenueByName(name, cityId, query);
 		if (existing && existing.id !== current.id) fail("Já existe outro local com esse nome nesta cidade. Usa a associação de espaços.", 409);
 		if (current.name !== name) {

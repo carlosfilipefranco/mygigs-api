@@ -2,9 +2,10 @@ const db = require("./db");
 const { getUserPhotos } = require("./userPhotos");
 const helper = require("../helper");
 const config = require("../config");
-const { selectVenue, findVenueByName, selectedAlias } = require("./venueNames");
+const { selectVenue, findVenueByName, selectedAlias, assertPhysicalVenueName } = require("./venueNames");
 const { getEditionIdsForGig, syncEditionDatesForEditionIds } = require("./editionDates");
 const reviewPreview = require("./reviewPreview");
+const { normalizeCityName } = require("./city");
 
 function hasOwn(object, key) {
 	return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -710,7 +711,7 @@ async function create(gigs) {
 			let venueId = normalizeNumber(gig.venue_id || gig.venue?.id);
 			let aliasId = selectedAlias(gig);
 			if (!venueId) {
-				const cityName = typeof gig.city === "string" ? gig.city.trim() : null;
+				const cityName = typeof gig.city === "string" ? normalizeCityName(gig.city, gig.country_code) : null;
 				let cityId = normalizeNumber(gig.city_id || gig.city?.id);
 				if (!cityId && cityName) {
 					const cities = await query(`SELECT id FROM city WHERE name = ?`, [cityName]);
@@ -718,6 +719,7 @@ async function create(gigs) {
 				}
 				const venueName = typeof gig.venue === "string" ? gig.venue.trim() : gig.venue?.name;
 				if (!venueName) throw Object.assign(new Error("Indica o local do concerto."), { statusCode: 400 });
+				assertPhysicalVenueName(venueName);
 				const match = cityId ? await findVenueByName(venueName, cityId, query) : null;
 				const venues = match ? [match] : await query(`SELECT id FROM venue WHERE name = ?${cityId ? " AND city_id = ?" : ""} FOR UPDATE`, cityId ? [venueName, cityId] : [venueName]);
 				if (match && aliasId === undefined) aliasId = match.alias_id;

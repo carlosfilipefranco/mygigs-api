@@ -4,9 +4,18 @@ function fail(message, statusCode = 400) {
 	throw Object.assign(new Error(message), { statusCode });
 }
 
+function isFestivalVenueName(name) {
+	return /^(super\s+bock\s+super\s+rock|sbsr)$/i.test(String(name || "").trim());
+}
+
+function assertPhysicalVenueName(name) {
+	if (isFestivalVenueName(name)) fail("Super Bock Super Rock é um festival. Seleciona o recinto físico da edição.");
+}
+
 async function ensureAlias(venueId, name, query = db.query) {
 	const trimmed = typeof name === "string" ? name.trim() : "";
 	if (!trimmed || trimmed.length > 255) fail("Indica um nome de local com até 255 caracteres.");
+	assertPhysicalVenueName(trimmed);
 	const rows = await query(`SELECT id FROM venue_alias WHERE venue_id = ? AND name = ?`, [venueId, trimmed]);
 	if (rows.length) return rows[0].id;
 	const result = await query(`INSERT INTO venue_alias (venue_id, name) VALUES (?, ?)`, [venueId, trimmed]);
@@ -59,4 +68,4 @@ function selectedAlias(input) {
 	return undefined;
 }
 
-module.exports = { ensureAlias, resolveVenue, selectVenue, findVenueByName, selectedAlias };
+module.exports = { ensureAlias, resolveVenue, selectVenue, findVenueByName, selectedAlias, isFestivalVenueName, assertPhysicalVenueName };

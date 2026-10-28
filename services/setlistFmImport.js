@@ -1,10 +1,11 @@
 const { serviceKey } = require("./securityConfig");
 const fetch = require("node-fetch");
 const db = require("./db");
-const { findVenueByName, selectVenue } = require("./venueNames");
+const { findVenueByName, selectVenue, assertPhysicalVenueName } = require("./venueNames");
 const { buildUniqueSlug } = require("./slug");
 const { syncEditionDates, getEditionIdsForEvent, syncEditionDatesForEditionIds } = require("./editionDates");
 const { ensureGigEvent } = require("./gigEvents");
+const { normalizeCityName, normalizeCityState } = require("./city");
 
 
 const API_BASE_URL = "https://api.setlist.fm/rest/1.0";
@@ -333,8 +334,8 @@ async function findArtist(name) {
 	return rows[0] || null;
 }
 
-async function findCity(name) {
-	const rows = await db.query(`SELECT id, name, state FROM city WHERE LOWER(name) = LOWER(?) LIMIT 1`, [name]);
+async function findCity(name, countryCode = null) {
+	const rows = await db.query(`SELECT id, name, state FROM city WHERE LOWER(name) = LOWER(?) LIMIT 1`, [normalizeCityName(name, countryCode)]);
 	return rows[0] || null;
 }
 
@@ -353,7 +354,7 @@ async function findGig(artistId, venueId, date) {
 
 async function enrichEntry(entry) {
 	const artist = await findArtist(entry.artist_name);
-	const city = await findCity(entry.city_name);
+	const city = await findCity(entry.city_name, entry.country_code);
 	const venue = city?.id ? await findVenue(entry.venue_name, city.id) : null;
 	const gig = artist?.id && venue?.id ? await findGig(artist.id, venue.id, entry.date) : null;
 	const setlistRows = gig?.id ? await db.query(`SELECT id FROM setlist WHERE gig_id = ? LIMIT 1`, [gig.id]) : [];
@@ -473,19 +474,22 @@ async function ensureArtist(entry, type, query = db.query) {
 }
 
 async function ensureCity(entry, query = db.query) {
-	const existing = await query(`SELECT id, state FROM city WHERE LOWER(name) = LOWER(?) LIMIT 1`, [entry.city_name]);
+	const name = normalizeCityName(entry.city_name, entry.country_code);
+	const state = normalizeCityState(entry.state, entry.country_code);
+	const existing = await query(`SELECT id, state FROM city WHERE LOWER(name) = LOWER(?) LIMIT 1`, [name]);
 	if (existing.length) {
-		if (entry.state && !existing[0].state) {
-			await query(`UPDATE city SET state = ? WHERE id = ?`, [entry.state, existing[0].id]);
+		if (state && !existing[0].state) {
+			await query(`UPDATE city SET state = ? WHERE id = ?`, [state, existing[0].id]);
 		}
 		return { id: existing[0].id, created: false };
 	}
 
-	const result = await query(`INSERT INTO city (name, state) VALUES (?, ?)`, [entry.city_name, entry.state || null]);
+	const result = await query(`INSERT INTO city (name, state) VALUES (?, ?)`, [name, state]);
 	return { id: result.insertId, created: true };
 }
 
 async function ensureVenue(entry, cityId, query = db.query) {
+	assertPhysicalVenueName(entry.venue_name);
 	const existing = await findVenueByName(entry.venue_name, cityId, query);
 	if (existing) {
 		const venue = await selectVenue(existing.id, existing.alias_id, query);

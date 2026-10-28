@@ -1,6 +1,7 @@
 const http = require("http");
 const https = require("https");
 const db = require("./db");
+const { normalizeCityName } = require("./city");
 
 const MONTHS = {
 	jan: 1,
@@ -506,15 +507,17 @@ function getBolPageData(html, sourceUrl) {
 async function findCityFromLocation(location) {
 	const cities = await db.query("SELECT id, name FROM city");
 	const normalizedLocation = normalize(location);
-	const city = cities
-		.filter((item) => normalizedLocation.endsWith(normalize(item.name)))
+	const match = cities
+		.flatMap(city => (normalizeCityName(city.name) === "Lisboa" ? [city.name, "Lisbon"] : [city.name]).map(name => ({ city, name })))
+		.filter(item => normalizedLocation.endsWith(normalize(item.name)))
 		.sort((a, b) => normalize(b.name).length - normalize(a.name).length)[0];
+	const city = match?.city;
 
 	if (!city) {
 		return { city: null, venueName: location };
 	}
 
-	const normalizedCity = normalize(city.name);
+	const normalizedCity = normalize(match.name);
 	const locationWords = normalizedLocation.split(" ");
 	const cityWords = normalizedCity.split(" ");
 	const venueName = locationWords.slice(0, locationWords.length - cityWords.length).join(" ");
@@ -542,7 +545,7 @@ async function findByName(table, name, cityId = null) {
 			JOIN (SELECT id AS venue_id, name, NULL AS alias_id FROM venue UNION ALL SELECT venue_id, name, id AS alias_id FROM venue_alias) n ON n.venue_id=v.id
 			${cityId ? "WHERE v.city_id = ?" : ""}`, cityId ? [cityId] : [])
 		: await db.query(`SELECT id, name FROM ${table}`);
-	const normalizedName = normalize(name);
+	const normalizedName = normalize(table === "city" ? normalizeCityName(name) : name);
 	const nameTokens = normalizedName.split(" ").filter((token) => token.length > 1 && !["de", "da", "do", "das", "dos"].includes(token));
 	const exactMatches = rows.filter((row) => normalize(row.name) === normalizedName);
 	if (table === "venue" && new Set(exactMatches.map(row => row.id)).size > 1) return null;
