@@ -3,6 +3,7 @@ const helper = require("../helper");
 const config = require("../config");
 const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 const fetch = require("node-fetch");
+const artistMetadata = require("./artistMetadata");
 const lastFmKey = "aef314af1cb8fbe8e84aca457c5b70e8";
 const fanartKey = "a9722f9e6e7aa1e040c0dd5d3d23e4e2";
 const spotify_client_id = "adc9c5b33c7145a5b7b8967c9c7ba74e";
@@ -81,9 +82,8 @@ async function get(id, userId = null) {
 		result["songs"] = songs;
 
 		if (result.type == "1") {
-			const lastfm = await fetch("https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=" + result.name + "&api_key=" + lastFmKey + "&format=json&index=" + id);
-			const body = await lastfm.json();
-			result["body"] = body;
+			result.biography = await artistMetadata.get(result, process.env.LASTFM_API_KEY || lastFmKey);
+			result.body = artistMetadata.legacyBody(result, result.biography);
 		}
 		result["gigs"] = gigs.map((gig) => ({
 			...gig,
@@ -97,6 +97,16 @@ async function get(id, userId = null) {
 	}
 
 	return result;
+}
+
+async function refreshBiography(id) {
+	const resolvedId = await resolveEntityIdByIdentifier(db, "artist", id);
+	const rows = resolvedId ? await db.query("SELECT id, name, mbid, type FROM artist WHERE id = ? LIMIT 1", [resolvedId]) : [];
+	const artist = rows[0];
+	if (!artist) throw Object.assign(new Error("Artista não encontrado."), { statusCode: 404 });
+	if (Number(artist.type) !== 1) throw Object.assign(new Error("A biografia do Last.fm só está disponível para artistas de música."), { statusCode: 400 });
+	const biography = await artistMetadata.refresh(artist, process.env.LASTFM_API_KEY || lastFmKey, true);
+	return { biography, body: artistMetadata.legacyBody(artist, biography) };
 }
 
 async function updateSpotifyImage(id) {
@@ -214,5 +224,6 @@ module.exports = {
 	update,
 	remove,
 	createBulk,
+	refreshBiography,
 	updateSpotifyImage
 };

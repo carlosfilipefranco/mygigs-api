@@ -17,6 +17,7 @@
 		"backfill:slugs": "node scripts/backfill-slugs.js",
 		"backfill:gig-events": "node scripts/backfill-gig-events.js",
 		"migrate:venue-aliases": "node scripts/migrate-venue-aliases.js",
+		"migrate:artist-metadata": "node scripts/migrate-artist-metadata.js",
 		"venues:merge": "node scripts/merge-venues.js"
 	},
 	"keywords": [],

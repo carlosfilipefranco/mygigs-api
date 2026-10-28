@@ -33,6 +33,14 @@ router.post("/create-bulk", requireAdmin, async function (req, res, next) {
 	}
 });
 
+router.post("/:id/refresh-biography", requireAdmin, async function (req, res, next) {
+	try {
+		res.json(await artist.refreshBiography(req.params.id));
+	} catch (err) {
+		next(err);
+	}
+});
+
 /* PUT artist */
 router.put("/:id", requireAdmin, async function (req, res, next) {
 	try {
