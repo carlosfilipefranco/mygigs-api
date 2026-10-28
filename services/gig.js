@@ -1,6 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const { getVenueCityId } = require("./venueCity");
 const { getEditionIdsForGig, syncEditionDatesForEditionIds } = require("./editionDates");
 const reviewPreview = require("./reviewPreview");
 
@@ -92,14 +93,14 @@ function normalizeStageName(value) {
 	return trimmed || null;
 }
 
-async function resolveStageId(eventId, inputStageId, inputStageName) {
+async function resolveStageId(eventId, inputStageId, inputStageName, query = db.query) {
 	if (!eventId) {
 		return null;
 	}
 
 	const stageId = normalizeNumber(inputStageId);
 	if (stageId) {
-		const stageRows = await db.query(`SELECT id FROM event_stage WHERE id = ? AND event_id = ? LIMIT 1`, [stageId, eventId]);
+		const stageRows = await query(`SELECT id FROM event_stage WHERE id = ? AND event_id = ? LIMIT 1`, [stageId, eventId]);
 		if (stageRows.length) {
 			return stageRows[0].id;
 		}
@@ -113,18 +114,18 @@ async function resolveStageId(eventId, inputStageId, inputStageName) {
 		return null;
 	}
 
-	const existingRows = await db.query(`SELECT id, name FROM event_stage WHERE event_id = ? AND LOWER(name) = LOWER(?) LIMIT 1`, [eventId, stageName]);
+	const existingRows = await query(`SELECT id, name FROM event_stage WHERE event_id = ? AND LOWER(name) = LOWER(?) LIMIT 1`, [eventId, stageName]);
 	if (existingRows.length) {
 		const existing = existingRows[0];
 		if (existing.name !== stageName && existing.name?.toLowerCase() === stageName.toLowerCase()) {
-			await db.query(`UPDATE event_stage SET name = ? WHERE id = ? AND event_id = ?`, [stageName, existing.id, eventId]);
+			await query(`UPDATE event_stage SET name = ? WHERE id = ? AND event_id = ?`, [stageName, existing.id, eventId]);
 		}
 		return existing.id;
 	}
 
-	const positionRows = await db.query(`SELECT COALESCE(MAX(position), 0) AS max_position FROM event_stage WHERE event_id = ?`, [eventId]);
+	const positionRows = await query(`SELECT COALESCE(MAX(position), 0) AS max_position FROM event_stage WHERE event_id = ?`, [eventId]);
 	const nextPosition = Number(positionRows?.[0]?.max_position || 0) + 1;
-	const insertResult = await db.query(`INSERT INTO event_stage (event_id, name, position) VALUES (?, ?, ?)`, [eventId, stageName, nextPosition]);
+	const insertResult = await query(`INSERT INTO event_stage (event_id, name, position) VALUES (?, ?, ?)`, [eventId, stageName, nextPosition]);
 	return insertResult.insertId;
 }
 
@@ -264,6 +265,8 @@ async function get(id, userId = null) {
         artist.id AS artist_id,
         artist.slug AS artist_slug,
         venue.name AS venue,
+        venue.city_id AS venue_city_id,
+        (SELECT name FROM city WHERE id = venue.city_id) AS venue_city,
         venue.id AS venue_id,
         city.name AS city,
         city.id AS city_id,
@@ -697,37 +700,36 @@ async function userEventDashboard(type, userId, period = null) {
 }
 
 async function create(gigs) {
-	gigs.forEach(async (gig, index) => {
-		var artist = await db.query(`SELECT id FROM artist WHERE name="${gig.artist}"`);
-		if (!artist.length) {
-			artist = await db.query(`INSERT INTO artist (name)  VALUES  ("${gig.artist}")`);
+	return db.transaction(async (query) => {
+		for (const [index, gig] of gigs.entries()) {
+			let venueId = normalizeNumber(gig.venue_id || gig.venue?.id);
+			if (!venueId) {
+				const cityName = typeof gig.city === "string" ? gig.city.trim() : null;
+				let cityId = normalizeNumber(gig.city_id || gig.city?.id);
+				if (!cityId && cityName) {
+					const cities = await query(`SELECT id FROM city WHERE name = ?`, [cityName]);
+					cityId = cities[0]?.id || (await query(`INSERT INTO city (name) VALUES (?)`, [cityName])).insertId;
+				}
+				const venueName = typeof gig.venue === "string" ? gig.venue.trim() : gig.venue?.name;
+				if (!venueName) throw Object.assign(new Error("Indica o local do concerto."), { statusCode: 400 });
+				const venues = await query(`SELECT id FROM venue WHERE name = ?${cityId ? " AND city_id = ?" : ""} FOR UPDATE`, cityId ? [venueName, cityId] : [venueName]);
+				if (venues.length > 1 || (!venues.length && !cityId)) {
+					throw Object.assign(new Error("Seleciona um local com cidade definida."), { statusCode: 400 });
+				}
+				venueId = venues[0]?.id || (await query(`INSERT INTO venue (name, city_id) VALUES (?, ?)`, [venueName, cityId])).insertId;
+			}
+			const cityId = await getVenueCityId(venueId, query);
+			const artists = await query(`SELECT id FROM artist WHERE name = ?`, [gig.artist]);
+			const artistId = artists[0]?.id || (await query(`INSERT INTO artist (name) VALUES (?)`, [gig.artist])).insertId;
+			let date = null;
+			if (gig.date && gig.date !== "*") {
+				const [day, month, year] = gig.date.split("-");
+				date = `${year}-${month}-${day}`;
+			}
+			await query(`INSERT INTO gig (artist_id, venue_id, city_id, position, date) VALUES (?, ?, ?, ?, ?)`, [artistId, venueId, cityId, index, date]);
 		}
-		var city = await db.query(`SELECT id FROM city WHERE name="${gig.city}"`);
-		if (!city.length) {
-			city = await db.query(`INSERT INTO city (name)  VALUES  ("${gig.city}")`);
-		}
-		var venue = await db.query(`SELECT id FROM venue WHERE name="${gig.venue}"`);
-		if (!venue.length) {
-			venue = await db.query(`INSERT INTO venue (name)  VALUES  ("${gig.venue}")`);
-		}
-		let insert = `INSERT INTO gig (artist_id, venue_id, city_id)  VALUES  ("${artist[0].id}", "${venue[0].id}", "${city[0].id}")`;
-		var date = null;
-		if (gig.date && gig.date != "*") {
-			var dateParts = gig.date.split("-");
-			var dateObject = new Date(+dateParts[2], dateParts[1] - 1, +dateParts[0]);
-			date = new Date(dateObject).toISOString().split("T")[0];
-			insert = `INSERT INTO gig (artist_id, venue_id, city_id, position, date)  VALUES  ("${artist[0].id}", "${venue[0].id}", "${city[0].id}", "${index}", "${date}")`;
-		}
-		const result = await db.query(insert);
-
-		// if (result.affectedRows) {
-		// 	message = "gig created successfully";
-		// }
+		return { message: "finished" };
 	});
-
-	let message = "finished";
-
-	return { message };
 }
 
 async function sort(gigs) {
@@ -755,149 +757,148 @@ async function images(images) {
 }
 
 async function update(id, gig) {
-	const gigId = normalizeNumber(id);
-	if (!gigId) {
-		throw new Error("Gig inválido");
-	}
-
-	const currentRows = await db.query(`SELECT id, date, start_time, end_time, artist_id, venue_id, city_id FROM gig WHERE id = ? LIMIT 1`, [gigId]);
-	if (!currentRows.length) {
-		throw new Error("Gig não encontrado");
-	}
-
-	const linkedEditionIds = await getEditionIdsForGig(gigId);
-	const nextArtistId = hasOwn(gig, "artist_id") ? normalizeNumber(gig.artist_id) : undefined;
-	const nextVenueId = hasOwn(gig, "venue_id") ? normalizeNumber(gig.venue_id) : undefined;
-	const nextCityId = hasOwn(gig, "city_id") ? normalizeNumber(gig.city_id) : undefined;
-	const nextDate = hasOwn(gig, "date") ? normalizeDate(gig.date) : undefined;
-	const nextStartTime = hasOwn(gig, "start_time") ? normalizeTime(gig.start_time) : undefined;
-	const nextEndTime = hasOwn(gig, "end_time") ? normalizeTime(gig.end_time) : undefined;
-	const nextStageName = hasOwn(gig, "stage_name") ? normalizeStageName(gig.stage_name) : undefined;
-	const providedEventId = hasOwn(gig, "event_id") ? normalizeNumber(gig.event_id) : null;
-
-	if (hasOwn(gig, "artist_id") && !nextArtistId) {
-		throw new Error("Artista inválido.");
-	}
-	if (hasOwn(gig, "venue_id") && !nextVenueId) {
-		throw new Error("Venue inválido.");
-	}
-	if (hasOwn(gig, "city_id") && !nextCityId) {
-		throw new Error("Cidade inválida.");
-	}
-	if (hasOwn(gig, "date") && nextDate === undefined) {
-		throw new Error("Data inválida. Usa o formato YYYY-MM-DD.");
-	}
-	if (hasOwn(gig, "start_time") && nextStartTime === undefined) {
-		throw new Error("Hora de início inválida. Usa HH:mm ou HH:mm:ss.");
-	}
-	if (hasOwn(gig, "end_time") && nextEndTime === undefined) {
-		throw new Error("Hora de fim inválida. Usa HH:mm ou HH:mm:ss.");
-	}
-	if (hasOwn(gig, "stage_name") && nextStageName === undefined) {
-		throw new Error("Nome de palco inválido.");
-	}
-	if (hasOwn(gig, "event_id") && gig.event_id !== null && gig.event_id !== "" && !providedEventId) {
-		throw new Error("event_id inválido.");
-	}
-	if (nextArtistId) {
-		const artistRows = await db.query(`SELECT id FROM artist WHERE id = ? LIMIT 1`, [nextArtistId]);
-		if (!artistRows.length) {
-			throw new Error("Artista não encontrado.");
+	return db.transaction(async (query) => {
+		const gigId = normalizeNumber(id);
+		if (!gigId) {
+			throw new Error("Gig inválido");
 		}
-	}
-	if (nextVenueId) {
-		const venueRows = await db.query(`SELECT id FROM venue WHERE id = ? LIMIT 1`, [nextVenueId]);
-		if (!venueRows.length) {
-			throw new Error("Venue não encontrado.");
+
+		const currentRows = await query(`SELECT id, date, start_time, end_time, artist_id, venue_id, city_id FROM gig WHERE id = ? FOR UPDATE`, [gigId]);
+		if (!currentRows.length) {
+			throw new Error("Gig não encontrado");
 		}
-	}
-	if (nextCityId) {
-		const cityRows = await db.query(`SELECT id FROM city WHERE id = ? LIMIT 1`, [nextCityId]);
-		if (!cityRows.length) {
-			throw new Error("Cidade não encontrada.");
+
+		const linkedEditionIds = await getEditionIdsForGig(gigId, query);
+		const nextArtistId = hasOwn(gig, "artist_id") ? normalizeNumber(gig.artist_id) : undefined;
+		const nextVenueId = hasOwn(gig, "venue_id") ? normalizeNumber(gig.venue_id) : undefined;
+		const nextCityId = await getVenueCityId(nextVenueId === undefined ? currentRows[0].venue_id : nextVenueId, query);
+		const nextDate = hasOwn(gig, "date") ? normalizeDate(gig.date) : undefined;
+		const nextStartTime = hasOwn(gig, "start_time") ? normalizeTime(gig.start_time) : undefined;
+		const nextEndTime = hasOwn(gig, "end_time") ? normalizeTime(gig.end_time) : undefined;
+		const nextStageName = hasOwn(gig, "stage_name") ? normalizeStageName(gig.stage_name) : undefined;
+		const providedEventId = hasOwn(gig, "event_id") ? normalizeNumber(gig.event_id) : null;
+
+		if (hasOwn(gig, "artist_id") && !nextArtistId) {
+			throw new Error("Artista inválido.");
 		}
-	}
-
-	let affectedRows = 0;
-	const gigFields = [];
-	const gigParams = [];
-
-	if (hasOwn(gig, "artist_id")) {
-		gigFields.push("artist_id = ?");
-		gigParams.push(nextArtistId);
-	}
-	if (hasOwn(gig, "venue_id")) {
-		gigFields.push("venue_id = ?");
-		gigParams.push(nextVenueId);
-	}
-	if (hasOwn(gig, "city_id")) {
-		gigFields.push("city_id = ?");
-		gigParams.push(nextCityId);
-	}
-	if (hasOwn(gig, "date")) {
-		gigFields.push("date = ?");
-		gigParams.push(nextDate);
-	}
-	if (hasOwn(gig, "start_time")) {
-		gigFields.push("start_time = ?");
-		gigParams.push(nextStartTime);
-	}
-	if (hasOwn(gig, "end_time")) {
-		gigFields.push("end_time = ?");
-		gigParams.push(nextEndTime);
-	}
-
-	if (gigFields.length) {
-		const updateResult = await db.query(`UPDATE gig SET ${gigFields.join(", ")} WHERE id = ?`, [...gigParams, gigId]);
-		affectedRows += Number(updateResult.affectedRows || 0);
-	}
-	if (hasOwn(gig, "artist_id")) {
-		const setlistUpdate = await db.query(`UPDATE setlist SET artist_id = ? WHERE gig_id = ?`, [nextArtistId, gigId]);
-		affectedRows += Number(setlistUpdate.affectedRows || 0);
-	}
-
-	const shouldUpdateEventGig =
-		hasOwn(gig, "event_id") ||
-		hasOwn(gig, "stage_name") ||
-		hasOwn(gig, "stage_id") ||
-		hasOwn(gig, "start_time") ||
-		hasOwn(gig, "end_time");
-
-	if (shouldUpdateEventGig) {
-		const eventGigRows = await db.query(`SELECT event_id, stage_id, start_time, end_time FROM event_gig WHERE gig_id = ?`, [gigId]);
-		if (eventGigRows.length) {
-			let targetRows = eventGigRows;
-			if (providedEventId) {
-				targetRows = eventGigRows.filter((row) => Number(row.event_id) === providedEventId);
-				if (!targetRows.length) {
-					throw new Error("Este concerto não pertence ao evento indicado.");
-				}
-			} else if ((hasOwn(gig, "stage_name") || hasOwn(gig, "stage_id")) && eventGigRows.length > 1) {
-				throw new Error("Indica event_id para editar palco quando o concerto pertence a vários eventos.");
-			}
-
-			for (const row of targetRows) {
-				const eventId = Number(row.event_id);
-				const stageId = hasOwn(gig, "stage_name") || hasOwn(gig, "stage_id") ? await resolveStageId(eventId, gig.stage_id, nextStageName) : row.stage_id;
-				if (stageId === undefined) {
-					throw new Error("Palco inválido.");
-				}
-
-				const eventStartTime = hasOwn(gig, "start_time") ? nextStartTime : row.start_time;
-				const eventEndTime = hasOwn(gig, "end_time") ? nextEndTime : row.end_time;
-				const result = await db.query(`UPDATE event_gig SET stage_id = ?, start_time = ?, end_time = ? WHERE event_id = ? AND gig_id = ?`, [stageId, eventStartTime, eventEndTime, eventId, gigId]);
-				affectedRows += Number(result.affectedRows || 0);
+		if (hasOwn(gig, "venue_id") && !nextVenueId) {
+			throw new Error("Venue inválido.");
+		}
+		if (hasOwn(gig, "date") && nextDate === undefined) {
+			throw new Error("Data inválida. Usa o formato YYYY-MM-DD.");
+		}
+		if (hasOwn(gig, "start_time") && nextStartTime === undefined) {
+			throw new Error("Hora de início inválida. Usa HH:mm ou HH:mm:ss.");
+		}
+		if (hasOwn(gig, "end_time") && nextEndTime === undefined) {
+			throw new Error("Hora de fim inválida. Usa HH:mm ou HH:mm:ss.");
+		}
+		if (hasOwn(gig, "stage_name") && nextStageName === undefined) {
+			throw new Error("Nome de palco inválido.");
+		}
+		if (hasOwn(gig, "event_id") && gig.event_id !== null && gig.event_id !== "" && !providedEventId) {
+			throw new Error("event_id inválido.");
+		}
+		if (nextArtistId) {
+			const artistRows = await query(`SELECT id FROM artist WHERE id = ? LIMIT 1`, [nextArtistId]);
+			if (!artistRows.length) {
+				throw new Error("Artista não encontrado.");
 			}
 		}
-	}
+		if (nextVenueId) {
+			const venueRows = await query(`SELECT id FROM venue WHERE id = ? LIMIT 1`, [nextVenueId]);
+			if (!venueRows.length) {
+				throw new Error("Venue não encontrado.");
+			}
+		}
+		if (nextCityId) {
+			const cityRows = await query(`SELECT id FROM city WHERE id = ? LIMIT 1`, [nextCityId]);
+			if (!cityRows.length) {
+				throw new Error("Cidade não encontrada.");
+			}
+		}
 
-	if (!affectedRows) {
-		return { message: "No changes" };
-	}
+		let affectedRows = 0;
+		const gigFields = [];
+		const gigParams = [];
 
-	await syncEditionDatesForEditionIds(linkedEditionIds);
+		if (hasOwn(gig, "artist_id")) {
+			gigFields.push("artist_id = ?");
+			gigParams.push(nextArtistId);
+		}
+		if (hasOwn(gig, "venue_id")) {
+			gigFields.push("venue_id = ?");
+			gigParams.push(nextVenueId);
+		}
+		if (nextCityId) {
+			gigFields.push("city_id = ?");
+			gigParams.push(nextCityId);
+		}
+		if (hasOwn(gig, "date")) {
+			gigFields.push("date = ?");
+			gigParams.push(nextDate);
+		}
+		if (hasOwn(gig, "start_time")) {
+			gigFields.push("start_time = ?");
+			gigParams.push(nextStartTime);
+		}
+		if (hasOwn(gig, "end_time")) {
+			gigFields.push("end_time = ?");
+			gigParams.push(nextEndTime);
+		}
 
-	return { message: "gig updated successfully" };
+		if (gigFields.length) {
+			const updateResult = await query(`UPDATE gig SET ${gigFields.join(", ")} WHERE id = ?`, [...gigParams, gigId]);
+			affectedRows += Number(updateResult.affectedRows || 0);
+		}
+		if (hasOwn(gig, "artist_id")) {
+			const setlistUpdate = await query(`UPDATE setlist SET artist_id = ? WHERE gig_id = ?`, [nextArtistId, gigId]);
+			affectedRows += Number(setlistUpdate.affectedRows || 0);
+		}
+
+		const shouldUpdateEventGig =
+			hasOwn(gig, "event_id") ||
+			hasOwn(gig, "stage_name") ||
+			hasOwn(gig, "stage_id") ||
+			hasOwn(gig, "start_time") ||
+			hasOwn(gig, "end_time");
+
+		if (shouldUpdateEventGig) {
+			const eventGigRows = await query(`SELECT event_id, stage_id, start_time, end_time FROM event_gig WHERE gig_id = ?`, [gigId]);
+			if (eventGigRows.length) {
+				let targetRows = eventGigRows;
+				if (providedEventId) {
+					targetRows = eventGigRows.filter((row) => Number(row.event_id) === providedEventId);
+					if (!targetRows.length) {
+						throw new Error("Este concerto não pertence ao evento indicado.");
+					}
+				} else if ((hasOwn(gig, "stage_name") || hasOwn(gig, "stage_id")) && eventGigRows.length > 1) {
+					throw new Error("Indica event_id para editar palco quando o concerto pertence a vários eventos.");
+				}
+
+				for (const row of targetRows) {
+					const eventId = Number(row.event_id);
+					const stageId = hasOwn(gig, "stage_name") || hasOwn(gig, "stage_id") ? await resolveStageId(eventId, gig.stage_id, nextStageName, query) : row.stage_id;
+					if (stageId === undefined) {
+						throw new Error("Palco inválido.");
+					}
+
+					const eventStartTime = hasOwn(gig, "start_time") ? nextStartTime : row.start_time;
+					const eventEndTime = hasOwn(gig, "end_time") ? nextEndTime : row.end_time;
+					const result = await query(`UPDATE event_gig SET stage_id = ?, start_time = ?, end_time = ? WHERE event_id = ? AND gig_id = ?`, [stageId, eventStartTime, eventEndTime, eventId, gigId]);
+					affectedRows += Number(result.affectedRows || 0);
+				}
+			}
+		}
+
+		if (!affectedRows) {
+			return { message: "No changes" };
+		}
+
+		await syncEditionDatesForEditionIds(linkedEditionIds, query);
+
+		return { message: "gig updated successfully" };
+	});
 }
 
 async function remove(id, options = {}) {

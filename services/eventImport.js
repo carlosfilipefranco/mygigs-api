@@ -526,7 +526,7 @@ async function findCityFromLocation(location) {
 	};
 }
 
-async function findByName(table, name) {
+async function findByName(table, name, cityId = null) {
 	if (!name) {
 		return null;
 	}
@@ -535,10 +535,16 @@ async function findByName(table, name) {
 		return null;
 	}
 
-	const rows = await db.query(`SELECT id, name FROM ${table}`);
+	const rows = table === "venue"
+		? await db.query(`SELECT v.id, v.name, v.city_id, c.name AS city,
+			CONCAT(v.name, COALESCE(CONCAT(' — ', c.name), ' — Cidade por definir')) AS display_name
+			FROM venue v LEFT JOIN city c ON c.id = v.city_id ${cityId ? "WHERE v.city_id = ?" : ""}`, cityId ? [cityId] : [])
+		: await db.query(`SELECT id, name FROM ${table}`);
 	const normalizedName = normalize(name);
 	const nameTokens = normalizedName.split(" ").filter((token) => token.length > 1 && !["de", "da", "do", "das", "dos"].includes(token));
-	const exactMatch = rows.find((row) => normalize(row.name) === normalizedName);
+	const exactMatches = rows.filter((row) => normalize(row.name) === normalizedName);
+	if (table === "venue" && exactMatches.length > 1) return null;
+	const exactMatch = exactMatches[0];
 
 	if (exactMatch) {
 		return exactMatch;
@@ -596,7 +602,7 @@ async function withDatabaseMatches(data) {
 		city = city || locationMatch.city;
 	}
 
-	const venue = await findByName("venue", venueName);
+	const venue = await findByName("venue", venueName, city?.id);
 	const artistName = data.artistName || data.name;
 	const artist = await findByName("artist", artistName);
 

@@ -1,14 +1,15 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const { validateCityId } = require("./venueCity");
 
 async function getMultiple(page = 1, search = null) {
 	const offset = helper.getOffset(page, config.listPerPage);
-	let searchQuery = "";
-	if (search) {
-		searchQuery = `WHERE LOWER(venue.name) LIKE '%${search}%'`;
-	}
-	const rows = await db.query(`SELECT id, name, lat, lng FROM venue ${searchQuery}  LIMIT ${offset},${config.listPerPage}`);
+	const searchQuery = search ? "WHERE LOWER(venue.name) LIKE ? OR LOWER(city.name) LIKE ?" : "";
+	const params = search ? [`%${search.toLowerCase()}%`, `%${search.toLowerCase()}%`] : [];
+	const rows = await db.query(`SELECT venue.id, venue.name, venue.city_id, city.name AS city,
+		CONCAT(venue.name, COALESCE(CONCAT(' — ', city.name), ' — Cidade por definir')) AS display_name, venue.lat, venue.lng
+		FROM venue LEFT JOIN city ON city.id = venue.city_id ${searchQuery} ORDER BY venue.name, city.name LIMIT ${offset},${config.listPerPage}`, params);
 	const data = helper.emptyOrRows(rows);
 
 	let count = rows.length;
@@ -35,9 +36,9 @@ async function get(id) {
 			city.id AS city_id,
 			city.name AS city
 		FROM venue
-		INNER JOIN city ON venue.city_id = city.id
-		WHERE venue.id = ${id}
-	`);
+		LEFT JOIN city ON venue.city_id = city.id
+		WHERE venue.id = ?
+	`, [id]);
 
 	const gigs = await db.query(`
 		SELECT
@@ -58,9 +59,9 @@ async function get(id) {
 		INNER JOIN city ON gig.city_id = city.id
 		LEFT JOIN event_gig ON event_gig.gig_id = gig.id
 		LEFT JOIN event ON event.id = event_gig.event_id
-		WHERE venue.id = ${id}
+		WHERE venue.id = ?
 		ORDER BY gig.date
-	`);
+	`, [id]);
 
 	return {
 		gigs,
@@ -69,43 +70,25 @@ async function get(id) {
 }
 
 async function create(venue) {
-	const rows = await db.query(`SELECT id FROM venue WHERE name=?`, [venue.name]);
-	const lat = normalizeCoordinate(venue.lat);
-	const lng = normalizeCoordinate(venue.lng);
-	var result;
-
-	if (rows.length) {
-		const id = rows[0].id;
-		result = await db.query(`UPDATE venue SET name=?, lat=?, lng=? WHERE id=?`, [venue.name, lat, lng, id]);
-	} else {
-		result = await db.query(`INSERT INTO venue (name, lat, lng) VALUES (?, ?, ?)`, [venue.name, lat, lng]);
-	}
-
-	let message = "Error in creating Venue";
-
-	if (result.affectedRows) {
-		message = "Venue created successfully";
-	}
-
-	return { message };
+	return db.transaction(async (query) => {
+		const cityId = await validateCityId(venue.city_id || venue.city, query);
+		const name = venue.name?.trim();
+		if (!name) throw Object.assign(new Error("Indica o nome do local."), { statusCode: 400 });
+		const rows = await query(`SELECT id FROM venue WHERE name = ? AND city_id = ? FOR UPDATE`, [name, cityId]);
+		const lat = normalizeCoordinate(venue.lat);
+		const lng = normalizeCoordinate(venue.lng);
+		if (rows.length) {
+			await query(`UPDATE venue SET lat = COALESCE(?, lat), lng = COALESCE(?, lng) WHERE id = ?`, [lat, lng, rows[0].id]);
+			return { id: rows[0].id, message: "Venue already exists in this city" };
+		}
+		const result = await query(`INSERT INTO venue (name, city_id, lat, lng) VALUES (?, ?, ?, ?)`, [name, cityId, lat, lng]);
+		return { id: result.insertId, message: "Venue created successfully" };
+	});
 }
 
 async function createBulk(venues) {
-	venues.forEach(async (venue) => {
-		const rows = await db.query(`SELECT id FROM venue WHERE name="${venue}"`);
-		var result;
-
-		if (rows.length) {
-			const id = rows[0].id;
-			result = await db.query(`UPDATE venue SET name="${venue}" WHERE id=${id}`);
-		} else {
-			result = await db.query(`INSERT INTO venue (name)  VALUES  ("${venue}")`);
-		}
-	});
-
-	let message = "Venues created successfully";
-
-	return { message };
+	for (const venue of venues) await create(venue);
+	return { message: "Venues created successfully" };
 }
 
 function normalizeCoordinate(value) {
@@ -118,17 +101,19 @@ function normalizeCoordinate(value) {
 }
 
 async function update(id, venue) {
-	const lat = normalizeCoordinate(venue.lat);
-	const lng = normalizeCoordinate(venue.lng);
-	const result = await db.query(`UPDATE venue SET name=?, lat=?, lng=? WHERE id=?`, [venue.name, lat, lng, id]);
-
-	let message = "Error in updating Venue";
-
-	if (result.affectedRows) {
-		message = "Venue updated successfully";
-	}
-
-	return { message };
+	return db.transaction(async (query) => {
+		const rows = await query(`SELECT city_id FROM venue WHERE id = ? FOR UPDATE`, [id]);
+		if (!rows.length) throw Object.assign(new Error("Local não encontrado."), { statusCode: 404 });
+		const cityId = await validateCityId(venue.city_id || venue.city || rows[0].city_id, query);
+		const name = venue.name?.trim();
+		if (!name) throw Object.assign(new Error("Indica o nome do local."), { statusCode: 400 });
+		await query(`UPDATE venue SET name = ?, city_id = ?, lat = ?, lng = ? WHERE id = ?`, [name, cityId, normalizeCoordinate(venue.lat), normalizeCoordinate(venue.lng), id]);
+		if (Number(rows[0].city_id) !== cityId) {
+			await query(`UPDATE gig SET city_id = ? WHERE venue_id = ?`, [cityId, id]);
+			await query(`UPDATE event SET city_id = ? WHERE venue_id = ?`, [cityId, id]);
+		}
+		return { message: "Venue updated successfully" };
+	});
 }
 
 async function remove(id) {

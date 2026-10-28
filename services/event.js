@@ -1,6 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const { getVenueCityId } = require("./venueCity");
 const eventImageStorage = require("./eventImageStorage");
 const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 const { syncEditionDates, syncEditionDatesForEditionIds, getEditionIdsForEvent } = require("./editionDates");
@@ -462,7 +463,6 @@ async function get(id, userId = null) {
 
 async function create(event) {
 	const slots = normalizeArtistSlots(event.artists);
-	const cityId = normalizeNumber(event?.city?.id || event?.city_id || event?.city);
 	const venueId = normalizeNumber(event?.venue?.id || event?.venue_id || event?.venue);
 	const type = Number(event?.type) || 1;
 	const editionId = event.edition ? normalizeNumber(event.edition.edition_id || event.edition.id || event.edition) : null;
@@ -479,11 +479,12 @@ async function create(event) {
 		const artists = await db.query(`SELECT id, name FROM artist WHERE id IN (${artistIds.map(() => "?").join(",")})`, artistIds);
 		name = artistIds.map((id) => artists.find((artist) => Number(artist.id) === id)?.name).filter(Boolean).join(" + ").slice(0, 255) || null;
 	}
-	if (!name || !event?.date || !cityId || !venueId || !slots.length) {
+	if (!name || !event?.date || !venueId || !slots.length) {
 		throw new Error("Missing required event fields");
 	}
 
 	const eventId = await db.transaction(async (query) => {
+		const cityId = await getVenueCityId(venueId, query);
 		const slug = await buildUniqueSlug({ query }, "event", name);
 		const result = await query(`INSERT INTO event (name, slug, date, city_id, venue_id, type, description, headliner_artist_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [name, slug, event.date, cityId, venueId, type, event.description || null, headlinerId]);
 		const eventId = result.insertId;
@@ -571,7 +572,7 @@ async function update(id, event) {
 			throw new Error("Event not found");
 		}
 
-		const currentRows = await query(`SELECT type, headliner_artist_id FROM event WHERE id = ? FOR UPDATE`, [resolvedId]);
+		const currentRows = await query(`SELECT type, headliner_artist_id, venue_id FROM event WHERE id = ? FOR UPDATE`, [resolvedId]);
 		if (!currentRows.length) throw new Error("Event not found");
 		const linkedEditionIds = await getEditionIdsForEvent(resolvedId, query);
 		const currentGigs = await query(`SELECT eg.gig_id, g.artist_id FROM event_gig eg INNER JOIN gig g ON g.id = eg.gig_id WHERE eg.event_id = ?`, [resolvedId]);
@@ -595,15 +596,11 @@ async function update(id, event) {
 		});
 
 		const nextDate = hasOwn(event, "date") ? normalizeDate(event.date) : undefined;
-		const nextCityId = hasOwn(event, "city") || hasOwn(event, "city_id") ? normalizeNumber(event?.city?.id || event?.city_id || event?.city) : undefined;
 		const nextVenueId = hasOwn(event, "venue") || hasOwn(event, "venue_id") ? normalizeNumber(event?.venue?.id || event?.venue_id || event?.venue) : undefined;
 		const nextType = hasOwn(event, "type") ? Number(event.type) || null : undefined;
 
 		if (hasOwn(event, "date") && nextDate === undefined) {
 			throw new Error("Data inválida. Usa o formato YYYY-MM-DD.");
-		}
-		if ((hasOwn(event, "city") || hasOwn(event, "city_id")) && !nextCityId) {
-			throw new Error("Cidade inválida.");
 		}
 		if ((hasOwn(event, "venue") || hasOwn(event, "venue_id")) && !nextVenueId) {
 			throw new Error("Local inválido.");
@@ -612,13 +609,15 @@ async function update(id, event) {
 			throw new Error("Tipo inválido.");
 		}
 
+		const nextCityId = await getVenueCityId(nextVenueId === undefined ? currentRows[0].venue_id : nextVenueId, query);
+
 		const eventFields = ["name=?", "slug=?", "image=?", "description=?", "headliner_artist_id=?"];
 		const eventParams = [event.name, slug, storedImage.image || null, event.description || null, headlinerId];
 		if (hasOwn(event, "date")) {
 			eventFields.push("date=?");
 			eventParams.push(nextDate);
 		}
-		if (hasOwn(event, "city") || hasOwn(event, "city_id")) {
+		if (nextCityId) {
 			eventFields.push("city_id=?");
 			eventParams.push(nextCityId);
 		}
@@ -638,7 +637,7 @@ async function update(id, event) {
 			gigSyncFields.push("g.date=?");
 			gigSyncParams.push(nextDate);
 		}
-		if (hasOwn(event, "city") || hasOwn(event, "city_id")) {
+		if (nextVenueId !== undefined) {
 			gigSyncFields.push("g.city_id=?");
 			gigSyncParams.push(nextCityId);
 		}
