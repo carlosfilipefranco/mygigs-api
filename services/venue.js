@@ -37,20 +37,51 @@ async function getMultiple(page = 1, search = null, cityId = null) {
 	return { data: helper.emptyOrRows(rows), meta: { page, count: totals[0].count } };
 }
 
-async function get(id) {
+async function get(id, { page = 1, scope = "all", type = 1, userId = null } = {}) {
+	const requestedPage = Number(page);
+	const gigType = Number(type);
+	if (!Number.isInteger(requestedPage) || requestedPage < 1 || requestedPage > 100000) fail("Página inválida.");
+	if (![1, 2].includes(gigType)) fail("Tipo de evento inválido.");
+	if (!["all", "mine"].includes(scope)) fail("Filtro inválido.");
+	if (scope === "mine" && !userId) fail("Inicia sessão para veres os concertos que marcaste como vistos.", 401);
 	const resolved = await resolveVenue(id);
-	const venues = await db.query(`SELECT venue.id, venue.name, venue.lat, venue.lng, venue.city_id, city.name AS city
-		FROM venue LEFT JOIN city ON city.id = venue.city_id WHERE venue.id = ?`, [resolved.id]);
-	const aliases = await db.query(`SELECT id, name FROM venue_alias WHERE venue_id = ? ORDER BY name`, [resolved.id]);
+	const saved = `EXISTS (SELECT 1 FROM user_gig ug WHERE ug.gig_id = gig.id AND ug.user_id = ? AND ug.status = 'going')`;
+	const attended = `(${saved} AND gig.date < CURDATE())`;
+	const [venues, aliases, totals] = await Promise.all([
+		db.query(`SELECT venue.id, venue.name, venue.lat, venue.lng, venue.city_id, city.name AS city
+			FROM venue LEFT JOIN city ON city.id = venue.city_id WHERE venue.id = ?`, [resolved.id]),
+		db.query(`SELECT id, name FROM venue_alias WHERE venue_id = ? ORDER BY name`, [resolved.id]),
+		db.query(`SELECT COUNT(*) AS total_gigs, COALESCE(SUM(${attended}), 0) AS attended_gigs
+			FROM gig WHERE gig.venue_id = ? AND gig.type = ?`, [userId, resolved.id, gigType])
+	]);
 	venues[0].aliases = aliases.filter(alias => alias.name.toLowerCase() !== venues[0].name.toLowerCase());
+	const stats = { total_gigs: Number(totals[0].total_gigs), attended_gigs: Number(totals[0].attended_gigs) };
+	const total = scope === "mine" ? stats.attended_gigs : stats.total_gigs;
+	const pageSize = 20;
+	const pages = Math.ceil(total / pageSize);
+	const pageNumber = Math.min(requestedPage, Math.max(1, pages));
+	const params = [userId, resolved.id, gigType];
+	if (scope === "mine") params.push(userId);
+	// Uma única relação com evento por concerto evita duplicações entre páginas.
 	const gigs = await db.query(`SELECT gig.id, gig.date, event.id AS event_id, event.name AS event_name, event.slug AS event_slug,
 		artist.name AS artist, artist.image, artist.id AS artist_id, artist.slug AS artist_slug,
-		COALESCE(va.name, venue.name) AS venue, venue.name AS venue_current_name, city.name AS city
+		COALESCE(va.name, venue.name) AS venue, venue.name AS venue_current_name, city.name AS city,
+		${saved} AS is_saved, (gig.date < CURDATE()) AS is_past
 		FROM gig INNER JOIN artist ON gig.artist_id = artist.id INNER JOIN venue ON gig.venue_id = venue.id
 		LEFT JOIN venue_alias va ON va.id = gig.venue_alias_id AND va.venue_id = venue.id
-		INNER JOIN city ON gig.city_id = city.id LEFT JOIN event_gig ON event_gig.gig_id = gig.id
-		LEFT JOIN event ON event.id = event_gig.event_id WHERE venue.id = ? ORDER BY gig.date, gig.id`, [resolved.id]);
-	return { gigs, venue: venues[0], canonical_id: resolved.id, redirected: Number(id) !== resolved.id };
+		INNER JOIN city ON gig.city_id = city.id
+		LEFT JOIN event ON event.id = (SELECT MIN(eg.event_id) FROM event_gig eg WHERE eg.gig_id = gig.id)
+		WHERE venue.id = ? AND gig.type = ?${scope === "mine" ? ` AND ${attended}` : ""}
+		ORDER BY gig.date DESC, gig.id DESC LIMIT ${pageSize} OFFSET ${(pageNumber - 1) * pageSize}`, params);
+	for (const gig of gigs) {
+		gig.attended = !!(gig.is_saved && gig.is_past);
+		gig.going = !!(gig.is_saved && !gig.is_past && gig.date);
+		delete gig.is_saved;
+		delete gig.is_past;
+	}
+	return { gigs, venue: venues[0], stats,
+		meta: { page: pageNumber, page_size: pageSize, total, pages, has_more: pageNumber < pages, scope },
+		canonical_id: resolved.id, redirected: Number(id) !== resolved.id };
 }
 
 async function addNames(venueId, cityId, names, query) {

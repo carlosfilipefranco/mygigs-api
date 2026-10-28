@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const venue = require("../services/venue");
-const { requireAdmin } = require("../middleware/auth");
+const { requireAdmin, optionalAuth } = require("../middleware/auth");
 
 /* GET venues. */
 router.get("/", async function (req, res, next) {
@@ -43,9 +43,12 @@ router.put("/:id", requireAdmin, async function (req, res, next) {
 });
 
 /* GET venue */
-router.get("/:id", async function (req, res, next) {
+router.get("/:id", optionalAuth, async function (req, res, next) {
 	try {
-		res.json(await venue.get(req.params.id, req.body));
+		res.set("Cache-Control", "private, no-store");
+		res.json(await venue.get(req.params.id, {
+			page: req.query.page, scope: req.query.scope, type: req.query.type, userId: req.user?.id || null
+		}));
 	} catch (err) {
 		console.error(`Error while updating city`, err.message);
 		next(err);

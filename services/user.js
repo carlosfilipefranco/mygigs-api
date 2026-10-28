@@ -1,4 +1,5 @@
 const db = require("./db");
+const { getUserPhotos } = require("./userPhotos");
 const bcrypt = require("bcryptjs");
 const { randomBytes } = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
@@ -17,6 +18,7 @@ module.exports = {
 	loginWithGoogle,
 	get,
 	getPublicProfile,
+	getPublicPhotos,
 	updateProfile,
 	remove
 };
@@ -282,6 +284,14 @@ async function getPublicProfile(id) {
 		recent_gigs: recentGigs,
 		upcoming_gigs: upcomingGigs
 	};
+}
+
+async function getPublicPhotos(id, page = 1) {
+	const userId = normalizeUserId(id);
+	if (!userId) return null;
+	const users = await db.query(`SELECT id FROM user WHERE id = ? LIMIT 1`, [userId]);
+	if (!users.length) return null;
+	return getUserPhotos(userId, page, { musicOnly: true });
 }
 
 async function updateProfile(id, payload = {}) {

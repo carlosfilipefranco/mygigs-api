@@ -89,6 +89,17 @@ router.delete("/me", requireAuth, async function (req, res, next) {
 	}
 });
 
+/* Fotografias públicas de concertos adicionadas pelo utilizador. */
+router.get("/:id/photos", async function (req, res, next) {
+	try {
+		const photos = await user.getPublicPhotos(req.params.id, req.query.page);
+		if (!photos) return res.status(404).json({ message: "User not found" });
+		res.json(photos);
+	} catch (err) {
+		next(err);
+	}
+});
+
 /* GET public user profile */
 router.get("/:id", async function (req, res, next) {
 	try {

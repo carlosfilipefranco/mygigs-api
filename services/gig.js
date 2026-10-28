@@ -1,4 +1,5 @@
 const db = require("./db");
+const { getUserPhotos } = require("./userPhotos");
 const helper = require("../helper");
 const config = require("../config");
 const { selectVenue, findVenueByName, selectedAlias } = require("./venueNames");
@@ -987,22 +988,7 @@ async function getReviewPreview(gigId, reviewId) {
 }
 
 async function getMyPhotos(userId, page = 1) {
-	const pageNumber = Math.max(1, Number.parseInt(page, 10) || 1);
-	const limit = 24;
-	const offset = (pageNumber - 1) * limit;
-	const rows = await db.query(
-		`SELECT gm.id, gm.url, gm.user_id, u.name AS user_name,
-		        g.id AS gig_id, g.date, a.name AS artist, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue
-		 FROM gig_media gm
-		 INNER JOIN gig g ON g.id = gm.gig_id
-		 INNER JOIN artist a ON a.id = g.artist_id
-		 INNER JOIN venue v ON v.id = g.venue_id
-		 LEFT JOIN user u ON u.id = gm.user_id
-		 WHERE gm.type = 'image' AND gm.user_id = ?
-		 ORDER BY gm.id DESC LIMIT ${limit + 1} OFFSET ${offset}`,
-		[userId]
-	);
-	return { data: rows.slice(0, limit), hasMore: rows.length > limit, page: pageNumber };
+	return getUserPhotos(userId, page);
 }
 
 async function addMedia(gigId, body, userId) {
