@@ -172,7 +172,7 @@ async function getPublicProfile(id) {
 		return null;
 	}
 
-	const [statsRows, topArtists, festivalStats, recentGigs, upcomingGigs] = await Promise.all([
+	const [statsRows, topArtists, festivalStats, recentGigs, upcomingGigs, countryStats] = await Promise.all([
 		db.query(
 			`
 			SELECT
@@ -266,6 +266,22 @@ async function getPublicProfile(id) {
 			LIMIT 12
 			`,
 			[userId]
+		),
+		db.query(
+			`
+			SELECT country.code, country.name, COUNT(DISTINCT gig.id) AS gig_count
+			FROM user_gig
+			INNER JOIN gig ON user_gig.gig_id = gig.id
+			LEFT JOIN city ON city.id = gig.city_id
+			LEFT JOIN country ON country.code = city.country_code
+			WHERE user_gig.user_id = ?
+			  AND user_gig.status = 'going'
+			  AND gig.type = 1
+			  AND gig.date < CURDATE()
+			GROUP BY country.code, country.name
+			ORDER BY gig_count DESC, country.name ASC
+			`,
+			[userId]
 		)
 	]);
 
@@ -281,6 +297,12 @@ async function getPublicProfile(id) {
 		},
 		top_artists: topArtists,
 		festival_stats: festivalStats,
+		country_stats: countryStats.filter(country => country.code).map(country => ({
+			code: country.code,
+			name: country.name,
+			gig_count: Number(country.gig_count)
+		})),
+		unclassified_country_gigs: countryStats.filter(country => !country.code).reduce((total, country) => total + Number(country.gig_count), 0),
 		recent_gigs: recentGigs,
 		upcoming_gigs: upcomingGigs
 	};
