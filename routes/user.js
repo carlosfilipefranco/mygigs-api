@@ -100,6 +100,16 @@ router.get("/:id/photos", async function (req, res, next) {
 	}
 });
 
+router.get("/:id/countries/:code/gigs", async function (req, res, next) {
+	try {
+		const result = await user.getCountryGigs(req.params.id, req.params.code, req.query.page);
+		if (!result) return res.status(404).json({ message: "User not found" });
+		res.json(result);
+	} catch (err) {
+		next(err);
+	}
+});
+
 /* GET public user profile */
 router.get("/:id", async function (req, res, next) {
 	try {

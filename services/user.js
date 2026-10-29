@@ -19,6 +19,7 @@ module.exports = {
 	get,
 	getPublicProfile,
 	getPublicPhotos,
+	getCountryGigs,
 	updateProfile,
 	remove
 };
@@ -306,6 +307,38 @@ async function getPublicProfile(id) {
 		recent_gigs: recentGigs,
 		upcoming_gigs: upcomingGigs
 	};
+}
+
+async function getCountryGigs(id, countryCode, page = 1) {
+	const userId = normalizeUserId(id);
+	if (!userId) return null;
+	const code = String(countryCode || "").trim().toUpperCase();
+	const requestedPage = Number(page);
+	if (!/^[A-Z]{2}$/.test(code)) throw Object.assign(new Error("País inválido."), { statusCode: 400 });
+	if (!Number.isInteger(requestedPage) || requestedPage < 1 || requestedPage > 100000) {
+		throw Object.assign(new Error("Página inválida."), { statusCode: 400 });
+	}
+	const users = await db.query(`SELECT id FROM user WHERE id = ? LIMIT 1`, [userId]);
+	if (!users.length) return null;
+	const from = `FROM gig
+		INNER JOIN city ON city.id = gig.city_id
+		WHERE city.country_code = ? AND gig.type = 1 AND gig.date < CURDATE()
+		AND EXISTS (SELECT 1 FROM user_gig ug WHERE ug.gig_id = gig.id AND ug.user_id = ? AND ug.status = 'going')`;
+	const totals = await db.query(`SELECT COUNT(*) AS total ${from}`, [code, userId]);
+	const total = Number(totals[0].total);
+	const pageSize = 20;
+	const pages = Math.ceil(total / pageSize);
+	const pageNumber = Math.min(requestedPage, Math.max(1, pages));
+	const gigs = await db.query(`SELECT gig.id, gig.date, artist.name AS artist, artist.image,
+		COALESCE(va.name, venue.name) AS venue, city.name AS city
+		FROM gig INNER JOIN city ON city.id = gig.city_id
+		INNER JOIN artist ON artist.id = gig.artist_id
+		INNER JOIN venue ON venue.id = gig.venue_id
+		LEFT JOIN venue_alias va ON va.id = gig.venue_alias_id AND va.venue_id = gig.venue_id
+		WHERE city.country_code = ? AND gig.type = 1 AND gig.date < CURDATE()
+		AND EXISTS (SELECT 1 FROM user_gig ug WHERE ug.gig_id = gig.id AND ug.user_id = ? AND ug.status = 'going')
+		ORDER BY gig.date DESC, gig.id DESC LIMIT ${pageSize} OFFSET ${(pageNumber - 1) * pageSize}`, [code, userId]);
+	return { gigs, meta: { page: pageNumber, page_size: pageSize, total, pages } };
 }
 
 async function getPublicPhotos(id, page = 1) {
