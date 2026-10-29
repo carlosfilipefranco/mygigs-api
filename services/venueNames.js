@@ -5,11 +5,11 @@ function fail(message, statusCode = 400) {
 }
 
 function isFestivalVenueName(name) {
-	return /^(super\s+bock\s+super\s+rock|sbsr)$/i.test(String(name || "").trim());
+	return /^(super\s+bock\s+super\s+rock|sbsr|(?:meo\s+)?kalorama)(?:\s+\d{4})?$/i.test(String(name || "").trim());
 }
 
 function assertPhysicalVenueName(name) {
-	if (isFestivalVenueName(name)) fail("Super Bock Super Rock é um festival. Seleciona o recinto físico da edição.");
+	if (isFestivalVenueName(name)) fail(`«${String(name).trim()}» é um festival. Seleciona o recinto físico da edição.`);
 }
 
 async function ensureAlias(venueId, name, query = db.query) {
