@@ -1,6 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const { editionDate } = require("./concertDates");
 const { validateCityId } = require("./venueCity");
 const { ensureAlias, resolveVenue, findVenueByName, assertPhysicalVenueName } = require("./venueNames");
 
@@ -63,7 +64,7 @@ async function get(id, { page = 1, scope = "all", type = 1, userId = null } = {}
 	const params = [userId, resolved.id, gigType];
 	if (scope === "mine") params.push(userId);
 	// Uma única relação com evento por concerto evita duplicações entre páginas.
-	const gigs = await db.query(`SELECT gig.id, gig.date, event.id AS event_id, event.name AS event_name, event.slug AS event_slug,
+	const gigs = await db.query(`SELECT gig.id, gig.date, ${editionDate()} AS edition_date_start, ${editionDate("gig", "date_end")} AS edition_date_end, event.id AS event_id, event.name AS event_name, event.slug AS event_slug,
 		artist.name AS artist, artist.image, artist.id AS artist_id, artist.slug AS artist_slug,
 		COALESCE(va.name, venue.name) AS venue, venue.name AS venue_current_name, city.name AS city,
 		${saved} AS is_saved, (gig.date < CURDATE()) AS is_past
@@ -75,7 +76,7 @@ async function get(id, { page = 1, scope = "all", type = 1, userId = null } = {}
 		ORDER BY gig.date DESC, gig.id DESC LIMIT ${pageSize} OFFSET ${(pageNumber - 1) * pageSize}`, params);
 	for (const gig of gigs) {
 		gig.attended = !!(gig.is_saved && gig.is_past);
-		gig.going = !!(gig.is_saved && !gig.is_past && gig.date);
+		gig.going = !!(gig.is_saved && !gig.is_past && (gig.date || gig.edition_date_end));
 		delete gig.is_saved;
 		delete gig.is_past;
 	}

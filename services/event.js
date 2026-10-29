@@ -5,6 +5,8 @@ const { selectVenue, selectedAlias } = require("./venueNames");
 const eventImageStorage = require("./eventImageStorage");
 const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 const { syncEditionDates, syncEditionDatesForEditionIds, getEditionIdsForEvent } = require("./editionDates");
+const festivalProgram = require("./festivalProgram");
+const { eventEditionDate, upcomingEvent } = require("./concertDates");
 
 function hasOwn(object, key) {
 	return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -273,8 +275,8 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 	}
 
 	if (period === "upcoming") {
-		filters.push("event.date >= CURDATE()");
-		orderBy = "event.date ASC";
+		filters.push(upcomingEvent());
+		orderBy = `COALESCE(event.date, GREATEST(CURDATE(), ${eventEditionDate()})) ASC, event.date IS NULL, event.id`;
 	}
 
 	if (period === "past") {
@@ -290,6 +292,7 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 		`SELECT
 			event.id,
 			event.date,
+			${eventEditionDate()} AS edition_date_start, ${eventEditionDate("event", "date_end")} AS edition_date_end,
 			event.name,
 			event.slug,
 			event.image,
@@ -352,6 +355,7 @@ async function get(id, userId = null) {
 		`
 		SELECT e.id AS event_id, e.name AS event_name, e.slug AS event_slug, e.image AS event_image, e.description AS event_description, e.type AS event_type${userEventSelect}${userGigSelect},
 		       e.headliner_artist_id,
+		       ${eventEditionDate("e")} AS edition_date_start, ${eventEditionDate("e", "date_end")} AS edition_date_end,
 		       EXISTS(SELECT 1 FROM edition_event ee WHERE ee.event_id = e.id) AS is_festival,
 		       (
 		       	SELECT COUNT(*)
@@ -417,6 +421,7 @@ async function get(id, userId = null) {
 	const gigs = result.map((row) => ({
 		id: row.gig_id,
 		date: row.date,
+		edition_date_start: row.edition_date_start, edition_date_end: row.edition_date_end,
 		start_time: row.event_start_time || row.gig_start_time || null,
 		end_time: row.event_end_time || row.gig_end_time || null,
 		stage_id: row.stage_id || null,
@@ -473,6 +478,20 @@ async function create(event) {
 		throw error;
 	}
 	const headlinerId = type === 1 && !editionId ? resolveHeadliner(event, slots.map((slot) => slot.artist_id), true) : null;
+	if (editionId) {
+		const venue = await selectVenue(inputVenueId, selectedAlias(event));
+		const saved = await festivalProgram.saveProgram(editionId, slots.map(slot => ({ ...slot, date: event.date || null })), type, venue);
+		if (saved.id && event.description) await db.query(`UPDATE event SET description = COALESCE(description, ?) WHERE id = ?`, [event.description, saved.id]);
+		if (saved.id && saved.created_events && event.image) {
+			try {
+				const stored = await eventImageStorage.storeEventImage({ id: saved.id, name: event.name || "Festival", image: event.image, replaceExisting: false });
+				if (stored.image) await db.query(`UPDATE event SET image = ? WHERE id = ?`, [stored.image, saved.id]);
+			} catch (error) {
+				console.error("Error while storing festival event image", error.message);
+			}
+		}
+		return saved;
+	}
 	let name = event?.name?.trim() || null;
 	if (!name && slots.length) {
 		const artistIds = headlinerId ? [headlinerId] : slots.map((slot) => slot.artist_id);

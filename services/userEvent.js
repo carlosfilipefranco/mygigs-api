@@ -1,6 +1,7 @@
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
+const { upcomingEvent, eventEditionDate } = require("./concertDates");
 
 const validStatuses = ["wishlist", "going", "attended", "missed"];
 
@@ -21,8 +22,8 @@ async function getUserEvents(userId, page = 1, filters = {}) {
 	}
 
 	if (filters.period === "upcoming") {
-		where.push("event.date >= CURDATE()");
-		orderBy = "event.date ASC";
+		where.push(upcomingEvent());
+		orderBy = `COALESCE(event.date, GREATEST(CURDATE(), ${eventEditionDate()})) ASC, event.date IS NULL, event.id`;
 	}
 
 	if (filters.period === "past") {
@@ -33,7 +34,7 @@ async function getUserEvents(userId, page = 1, filters = {}) {
 	const whereSql = `WHERE ${where.join(" AND ")}`;
 	const rows = await db.query(
 		`
-		SELECT event.id, event.date, event.name, event.image, event.type,
+		SELECT event.id, event.date, ${eventEditionDate()} AS edition_date_start, ${eventEditionDate("event", "date_end")} AS edition_date_end, event.name, event.image, event.type,
 		       COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = event.venue_alias_id AND vn.venue_id = venue.id), venue.name) as venue, city.name as city,
 		       user_event.status, user_event.has_ticket, user_event.favorite
 		FROM user_event

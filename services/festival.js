@@ -127,7 +127,7 @@ async function get(id, userId = null) {
 		       edition.name AS edition_name,
 		       edition.slug AS edition_slug,
 		       edition.date_start,
-		       COUNT(DISTINCT DATE(ev.date)) AS total_days,
+		       CASE WHEN edition.dates_confirmed = 1 THEN DATEDIFF(edition.date_end, edition.date_start) + 1 ELSE COUNT(DISTINCT DATE(ev.date)) END AS total_days,
 		       COUNT(DISTINCT CASE WHEN ug.status = 'going' OR ue.status IN ('attended', 'going') THEN DATE(ev.date) END) AS user_attended_days
 		FROM festival
 		INNER JOIN edition ON festival.id = edition.festival_id

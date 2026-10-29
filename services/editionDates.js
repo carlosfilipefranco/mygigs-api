@@ -31,7 +31,7 @@ async function syncEditionDates(editionId, query = db.query) {
 				INNER JOIN event ON event.id = edition_event.event_id
 				WHERE edition_event.edition_id = ?
 			)
-		WHERE id = ?
+		WHERE id = ? AND dates_confirmed = 0
 		`,
 		[normalizedEditionId, normalizedEditionId, normalizedEditionId]
 	);

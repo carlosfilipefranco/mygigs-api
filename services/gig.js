@@ -5,6 +5,8 @@ const config = require("../config");
 const { selectVenue, findVenueByName, selectedAlias, assertPhysicalVenueName } = require("./venueNames");
 const { getEditionIdsForGig, syncEditionDatesForEditionIds } = require("./editionDates");
 const reviewPreview = require("./reviewPreview");
+const { editionDate, upcomingGig, gigSortDate, upcomingEvent, eventEditionDate } = require("./concertDates");
+const festivalProgram = require("./festivalProgram");
 const { normalizeCityName } = require("./city");
 
 function hasOwn(object, key) {
@@ -152,13 +154,13 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 
 	if (normalizedSearch) {
 		const query = `%${normalizedSearch}%`;
-		filters.push("(LOWER(artist.name) LIKE ? OR (LOWER(venue.name) LIKE ? OR EXISTS (SELECT 1 FROM venue_alias vn WHERE vn.venue_id = venue.id AND LOWER(vn.name) LIKE ?)) OR LOWER(city.name) LIKE ? OR LOWER(gig.date) LIKE ?)");
+		filters.push(`(LOWER(artist.name) LIKE ? OR (LOWER(venue.name) LIKE ? OR EXISTS (SELECT 1 FROM venue_alias vn WHERE vn.venue_id = venue.id AND LOWER(vn.name) LIKE ?)) OR LOWER(city.name) LIKE ? OR LOWER(COALESCE(gig.date, ${editionDate()})) LIKE ?)`);
 		params.push(query, query, query, query, query);
 	}
 
 	if (period === "upcoming") {
-		filters.push("gig.date >= CURDATE()");
-		orderBy = normalizedOrder === "latest" ? "gig.id DESC" : "gig.date ASC, gig.position";
+		filters.push(upcomingGig());
+		orderBy = normalizedOrder === "latest" ? "gig.id DESC" : `${gigSortDate()} ASC, gig.date IS NULL, gig.position, gig.id`;
 	} else if (period === "past") {
 		filters.push("gig.date < CURDATE()");
 		orderBy = normalizedOrder === "latest" ? "gig.id DESC" : "gig.date DESC, gig.position";
@@ -180,6 +182,7 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 		SELECT
 			gig.id,
 			gig.date,
+			${editionDate()} AS edition_date_start, ${editionDate("gig", "date_end")} AS edition_date_end,
 			artist.id AS artist_id,
 			artist.name AS artist,
 			artist.slug AS artist_slug,
@@ -198,7 +201,7 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 				FROM user_gig ugc
 				WHERE ugc.gig_id = gig.id
 				  AND ugc.status = 'going'
-				  AND gig.date >= CURDATE()
+				  AND ${upcomingGig()}
 			) AS interested_count,
 			CASE WHEN setlist.id IS NOT NULL THEN TRUE ELSE FALSE END AS has_setlist,
 			ug.status AS status,
@@ -285,7 +288,8 @@ async function get(id, userId = null) {
         festival.name AS festival_name,
         edition.id AS edition_id,
         edition.name AS edition_name,
-        edition.slug AS edition_slug
+        edition.slug AS edition_slug,
+        edition.date_start AS edition_date_start, edition.date_end AS edition_date_end
     FROM gig
     INNER JOIN artist ON gig.artist_id = artist.id
     INNER JOIN venue ON gig.venue_id = venue.id
@@ -313,7 +317,7 @@ async function get(id, userId = null) {
 		`
 		SELECT
 			SUM(CASE WHEN ug.status = 'going' AND g.date < CURDATE() THEN 1 ELSE 0 END) AS went_count,
-			SUM(CASE WHEN ug.status = 'going' AND g.date >= CURDATE() THEN 1 ELSE 0 END) AS interested_count
+			SUM(CASE WHEN ug.status = 'going' AND ${upcomingGig('g')} THEN 1 ELSE 0 END) AS interested_count
 		FROM gig g
 		LEFT JOIN user_gig ug ON ug.gig_id = g.id
 		WHERE g.id = ?
@@ -434,11 +438,11 @@ function buildPeriodClause(period, field = "gig.date", options = {}) {
 	const includeNullOnPast = !!options.includeNullOnPast;
 
 	if (period === "upcoming") {
-		return ` AND ${field} >= CURDATE()`;
+		return field === "gig.date" ? ` AND ${upcomingGig()}` : field === "event.date" ? ` AND ${upcomingEvent()}` : ` AND ${field} >= CURDATE()`;
 	}
 	if (period === "past") {
 		if (includeNullOnPast) {
-			return ` AND (${field} < CURDATE() OR ${field} IS NULL)`;
+			return ` AND (${field} < CURDATE() OR (${field} IS NULL AND NOT EXISTS (SELECT 1 FROM event_gig cdg INNER JOIN edition_event cde ON cde.event_id = cdg.event_id WHERE cdg.gig_id = gig.id)))`;
 		}
 		return ` AND ${field} < CURDATE()`;
 	}
@@ -477,7 +481,7 @@ async function dashboard(type = 1, userId = null, period = null, scope = null) {
 async function globalDashboard(type, period = null) {
 	const periodClause = buildPeriodClause(period, "gig.date");
 	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig WHERE type = ?${periodClause}`, [type]);
-	const gigs_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS gig_count FROM gig WHERE type = ?${periodClause} GROUP BY YEAR(date) ORDER BY YEAR(date);`, [type]);
+	const gigs_by_year = await db.query(`SELECT YEAR(COALESCE(gig.date, ${editionDate()})) AS year, COUNT(*) AS gig_count FROM gig WHERE type = ?${periodClause} GROUP BY year ORDER BY year;`, [type]);
 	const gigs_by_artist = await db.query(
 		`
 		SELECT artist.id, artist.name, artist.slug, artist.image, artist.id as artist_id, COUNT(gig.id) AS gig_count
@@ -549,18 +553,18 @@ async function userGigDashboard(type, userId, period = null) {
 		SELECT COUNT(DISTINCT gig.id) AS upcoming_gigs
 		FROM user_gig
 		INNER JOIN gig ON user_gig.gig_id = gig.id
-		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ? AND gig.date >= CURDATE()
+		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ? AND ${upcomingGig()}
 		`,
 		[userId, type]
 	);
 	const gigs_by_year = await db.query(
 		`
-		SELECT YEAR(gig.date) AS year, COUNT(DISTINCT gig.id) AS gig_count
+		SELECT YEAR(COALESCE(gig.date, ${editionDate()})) AS year, COUNT(DISTINCT gig.id) AS gig_count
 		FROM user_gig
 		INNER JOIN gig ON user_gig.gig_id = gig.id
 		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?${periodClause}
-		GROUP BY YEAR(gig.date)
-		ORDER BY YEAR(gig.date)
+		GROUP BY year
+		ORDER BY year
 		`,
 		[userId, type]
 	);
@@ -626,12 +630,12 @@ async function userEventDashboard(type, userId, period = null) {
 	);
 	const gigs_by_year = await db.query(
 		`
-		SELECT YEAR(event.date) AS year, COUNT(DISTINCT event.id) AS gig_count
+		SELECT YEAR(COALESCE(event.date, ${eventEditionDate()})) AS year, COUNT(DISTINCT event.id) AS gig_count
 		FROM user_event
 		INNER JOIN event ON user_event.event_id = event.id
 		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?${periodClause}
-		GROUP BY YEAR(event.date)
-		ORDER BY YEAR(event.date)
+		GROUP BY year
+		ORDER BY year
 		`,
 		[userId, ...countedStatuses, type]
 	);
@@ -686,7 +690,7 @@ async function userEventDashboard(type, userId, period = null) {
 		SELECT COUNT(DISTINCT event.id) AS upcoming_gigs
 		FROM user_event
 		INNER JOIN event ON user_event.event_id = event.id
-		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ? AND event.date >= CURDATE()
+		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ? AND ${upcomingEvent()}
 		`,
 		[userId, ...countedStatuses, type]
 	);
@@ -866,6 +870,18 @@ async function update(id, gig) {
 			affectedRows += Number(setlistUpdate.affectedRows || 0);
 		}
 
+		if (hasOwn(gig, "date") && linkedEditionIds.length) {
+			if (linkedEditionIds.length !== 1) throw Object.assign(new Error("Este concerto pertence a várias edições. Revê as associações antes de alterar o dia."), { statusCode: 409 });
+			const edition = await festivalProgram.loadEdition(linkedEditionIds[0], query, true);
+			await festivalProgram.placeFestivalGig(query, edition, gigId, nextDate, {
+				stage_name: hasOwn(gig, "stage_name") ? nextStageName : undefined,
+				start_time: hasOwn(gig, "start_time") ? nextStartTime : undefined,
+				end_time: hasOwn(gig, "end_time") ? nextEndTime : undefined
+			});
+			await syncEditionDatesForEditionIds(linkedEditionIds, query);
+			return { message: "Concerto atualizado sem alterar as marcações." };
+		}
+
 		const shouldUpdateEventGig =
 			hasOwn(gig, "event_id") ||
 			hasOwn(gig, "stage_name") ||
@@ -908,7 +924,7 @@ async function update(id, gig) {
 		await syncEditionDatesForEditionIds(linkedEditionIds, query);
 
 		return { message: "gig updated successfully" };
-	});
+	}, { lockName: "festival-program" });
 }
 
 async function remove(id, options = {}) {

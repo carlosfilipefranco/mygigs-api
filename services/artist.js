@@ -1,3 +1,4 @@
+const { editionDate } = require("./concertDates");
 const db = require("./db");
 const helper = require("../helper");
 const config = require("../config");
@@ -46,7 +47,7 @@ async function get(id, userId = null) {
 		const userGigJoin = userId ? "LEFT JOIN user_gig ON user_gig.gig_id = gig.id AND user_gig.user_id = ?" : "";
 		const gigParams = userId ? [userId, result.id] : [result.id];
 		const gigs = await db.query(
-			`SELECT gig.id, event.id as event_id, event.name as event_name, event.slug as event_slug, gig.date, artist.name as artist, artist.image, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = gig.venue_alias_id AND vn.venue_id = venue.id), venue.name) as venue, city.name as city${userGigSelect}
+			`SELECT gig.id, event.id as event_id, event.name as event_name, event.slug as event_slug, gig.date, ${editionDate()} AS edition_date_start, ${editionDate("gig", "date_end")} AS edition_date_end, artist.name as artist, artist.image, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = gig.venue_alias_id AND vn.venue_id = venue.id), venue.name) as venue, city.name as city${userGigSelect}
 			FROM gig
 			INNER JOIN artist ON gig.artist_id = artist.id
 			INNER JOIN venue ON gig.venue_id = venue.id

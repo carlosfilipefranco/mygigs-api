@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { saveProgram } = require("../services/festivalProgram");
 const edition = require("../services/edition");
 const { requireAdmin, optionalAuth } = require("../middleware/auth");
 
@@ -29,6 +30,15 @@ router.put("/:id", requireAdmin, async function (req, res, next) {
 		res.json(await edition.update(req.params.id, req.body));
 	} catch (err) {
 		console.error(`Error while updating edition`, err.message);
+		next(err);
+	}
+});
+
+/* POST edition program import */
+router.post("/:id/program", requireAdmin, async function (req, res, next) {
+	try {
+		res.json(await saveProgram(req.params.id, req.body.slots, req.body.type || 1));
+	} catch (err) {
 		next(err);
 	}
 });

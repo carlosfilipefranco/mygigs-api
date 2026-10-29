@@ -1,5 +1,6 @@
 const db = require("./db");
 const { getUserPhotos } = require("./userPhotos");
+const { editionDate, upcomingGig, gigSortDate } = require("./concertDates");
 const bcrypt = require("bcryptjs");
 const { randomBytes } = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
@@ -178,7 +179,7 @@ async function getPublicProfile(id) {
 			`
 			SELECT
 				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN gig.id END) AS attended_gigs,
-				COUNT(DISTINCT CASE WHEN gig.date >= CURDATE() THEN gig.id END) AS upcoming_gigs,
+				COUNT(DISTINCT CASE WHEN ${upcomingGig()} THEN gig.id END) AS upcoming_gigs,
 				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN gig.artist_id END) AS artists_seen,
 				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN edition.id END) AS festival_editions,
 				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN event_gig.event_id END) AS total_events
@@ -235,6 +236,7 @@ async function getPublicProfile(id) {
 		db.query(
 			`
 			SELECT gig.id, gig.date, artist.id AS artist_id, artist.name AS artist, artist.slug AS artist_slug,
+			       ${editionDate()} AS edition_date_start, ${editionDate("gig", "date_end")} AS edition_date_end,
 			       artist.image, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = gig.venue_alias_id AND vn.venue_id = venue.id), venue.name) AS venue, city.name AS city
 			FROM user_gig
 			INNER JOIN gig ON user_gig.gig_id = gig.id
@@ -253,6 +255,7 @@ async function getPublicProfile(id) {
 		db.query(
 			`
 			SELECT gig.id, gig.date, artist.id AS artist_id, artist.name AS artist, artist.slug AS artist_slug,
+			       ${editionDate()} AS edition_date_start, ${editionDate("gig", "date_end")} AS edition_date_end,
 			       artist.image, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = gig.venue_alias_id AND vn.venue_id = venue.id), venue.name) AS venue, city.name AS city
 			FROM user_gig
 			INNER JOIN gig ON user_gig.gig_id = gig.id
@@ -262,8 +265,8 @@ async function getPublicProfile(id) {
 			WHERE user_gig.user_id = ?
 			  AND user_gig.status = 'going'
 			  AND gig.type = 1
-			  AND gig.date >= CURDATE()
-			ORDER BY gig.date ASC, gig.id ASC
+			  AND ${upcomingGig()}
+			ORDER BY ${gigSortDate()} ASC, gig.date IS NULL, gig.id ASC
 			LIMIT 12
 			`,
 			[userId]
