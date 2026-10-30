@@ -8,7 +8,7 @@ const { optionalAuth, requireAuth, requireAdmin } = require("../middleware/auth"
 router.get("/", optionalAuth, async function (req, res, next) {
 	try {
 		const userId = req.user ? req.user.id : null;
-		res.json(await gig.getMultiple(userId, req.query.page, req.query.search, req.query.favorite, req.query.type, req.query.period, req.query.mine, req.query.order));
+		res.json(await gig.getMultiple(userId, req.query.page, req.query.search, req.query.favorite, req.query.type, req.query.period, req.query.mine, req.query.order, req.query));
 	} catch (err) {
 		console.error(`Error while getting gig `, err.message);
 		next(err);
@@ -39,7 +39,7 @@ router.post("/clean", requireAdmin, async function (req, res, next) {
 router.get("/dashboard", optionalAuth, async function (req, res, next) {
 	try {
 		const userId = req.user ? req.user.id : null;
-		res.json(await gig.dashboard(req.query.type, userId, req.query.period, req.query.scope));
+		res.json(await gig.dashboard(req.query.type, userId, req.query.period, req.query.scope, req.query));
 	} catch (err) {
 		console.error(`Error while creating gig`, err.message);
 		next(err);
@@ -48,7 +48,7 @@ router.get("/dashboard", optionalAuth, async function (req, res, next) {
 
 router.get("/media/latest", async (req, res, next) => {
 	try {
-		res.json(await gig.getLatestMedia(req.query.type));
+		res.json(await gig.getLatestMedia(req.query.type, req.query));
 	} catch (err) {
 		next(err);
 	}

@@ -1,4 +1,5 @@
 const db = require("./db");
+const { geographyFilter } = require("./geography");
 const helper = require("../helper");
 const config = require("../config");
 const { selectVenue, selectedAlias } = require("./venueNames");
@@ -262,7 +263,7 @@ function resolveStageId(slot, stageLookup) {
 	return null;
 }
 
-async function getMultiple(page = 1, search = null, type = 1, period = null, userId = null) {
+async function getMultiple(page = 1, search = null, type = 1, period = null, userId = null, geography = {}) {
 	const offset = helper.getOffset(page, config.listPerPage);
 	const filters = ["event.type = ?"];
 	const params = [Number(type) || 1];
@@ -284,6 +285,13 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 		orderBy = "event.date DESC";
 	}
 
+	const geo = geographyFilter(geography, "event.city_id");
+	if (geo.predicate) { filters.push(geo.predicate); params.push(...geo.params); }
+	if (geography.mine === 1 || geography.mine === "1") {
+		if (!userId) return { data: [], meta: { page, count: 0 } };
+		filters.push("EXISTS (SELECT 1 FROM user_event mine WHERE mine.event_id=event.id AND mine.user_id=? AND mine.status IN ('going','attended'))");
+		params.push(userId);
+	}
 	const where = `WHERE ${filters.join(" AND ")}`;
 	const userEventSelect = userId ? ", user_event.status, user_event.has_ticket, user_event.favorite" : "";
 	const userEventJoin = userId ? "LEFT JOIN user_event ON user_event.event_id = event.id AND user_event.user_id = ?" : "";
@@ -533,9 +541,10 @@ async function create(event) {
 	return { id: eventId, message: "Event created successfully" };
 }
 
-async function dashboard(type = 1) {
-	const total_events = await db.query(`SELECT COUNT(*) AS total_events FROM event WHERE type = ?`, [type]);
-	const events_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS event_count FROM event WHERE type = ? GROUP BY YEAR(date) ORDER BY YEAR(date);`, [type]);
+async function dashboard(type = 1, geography = {}) {
+	const geo = geographyFilter(geography,'event.city_id');
+	const total_events = await db.query(`SELECT COUNT(*) AS total_events FROM event WHERE type = ?${geo.clause}`, [type,...geo.params]);
+	const events_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS event_count FROM event WHERE type = ?${geo.clause} GROUP BY YEAR(date) ORDER BY YEAR(date);`, [type,...geo.params]);
 
 	return {
 		total_events: total_events[0],

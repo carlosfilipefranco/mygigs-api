@@ -1,4 +1,5 @@
 const db = require("./db");
+const { geographyFilter } = require("./geography");
 const { getUserPhotos } = require("./userPhotos");
 const helper = require("../helper");
 const config = require("../config");
@@ -133,7 +134,7 @@ async function resolveStageId(eventId, inputStageId, inputStageName, query = db.
 	return insertResult.insertId;
 }
 
-async function getMultiple(userId, page = 1, search = null, favorite = null, type = 1, period = null, mine = null, order = "date") {
+async function getMultiple(userId, page = 1, search = null, favorite = null, type = 1, period = null, mine = null, order = "date", geography = {}) {
 	const offset = helper.getOffset(page, config.listPerPage);
 	const normalizedType = Number(type) || 1;
 	const normalizedSearch = search ? `${search}`.toLowerCase().trim() : null;
@@ -174,6 +175,8 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 		filters.push("ug.favorite = 1 AND ug.status = 'going' AND gig.date < CURDATE()");
 	}
 
+	const geo = geographyFilter(geography);
+	if (geo.predicate) { filters.push(geo.predicate); params.push(...geo.params); }
 	const whereClause = `WHERE ${filters.join(" AND ")}`;
 	const queryParams = [userId, ...params];
 
@@ -469,7 +472,7 @@ function emptyDashboard() {
 	};
 }
 
-async function dashboard(type = 1, userId = null, period = null, scope = null) {
+async function dashboard(type = 1, userId = null, period = null, scope = null, geography = {}) {
 	const normalizedType = Number(type) || 1;
 	const resolvedScope = resolveScope(userId, scope);
 
@@ -477,16 +480,17 @@ async function dashboard(type = 1, userId = null, period = null, scope = null) {
 		if (!userId) {
 			return emptyDashboard();
 		}
-		return normalizedType === 2 ? userEventDashboard(normalizedType, userId, period) : userGigDashboard(normalizedType, userId, period);
+		return normalizedType === 2 ? userEventDashboard(normalizedType, userId, period, geography) : userGigDashboard(normalizedType, userId, period, geography);
 	}
 
-	return globalDashboard(normalizedType, period);
+	return globalDashboard(normalizedType, period, geography);
 }
 
-async function globalDashboard(type, period = null) {
-	const periodClause = buildPeriodClause(period, "gig.date");
-	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig WHERE type = ?${periodClause}`, [type]);
-	const gigs_by_year = await db.query(`SELECT YEAR(COALESCE(gig.date, ${editionDate()})) AS year, COUNT(*) AS gig_count FROM gig WHERE type = ?${periodClause} GROUP BY year ORDER BY year;`, [type]);
+async function globalDashboard(type, period = null, geography = {}) {
+	const geo = geographyFilter(geography);
+	const periodClause = buildPeriodClause(period, "gig.date") + geo.clause;
+	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig WHERE type = ?${periodClause}`, [type, ...geo.params]);
+	const gigs_by_year = await db.query(`SELECT YEAR(COALESCE(gig.date, ${editionDate()})) AS year, COUNT(*) AS gig_count FROM gig WHERE type = ?${periodClause} GROUP BY year ORDER BY year;`, [type, ...geo.params]);
 	const gigs_by_artist = await db.query(
 		`
 		SELECT artist.id, artist.name, artist.slug, artist.image, artist.id as artist_id, COUNT(gig.id) AS gig_count
@@ -496,7 +500,7 @@ async function globalDashboard(type, period = null) {
 		GROUP BY artist.id, artist.name, artist.slug, artist.image
 		ORDER BY gig_count DESC;
 		`,
-		[type]
+		[type, ...geo.params]
 	);
 	const editions_by_festival = await db.query(
 		`
@@ -516,7 +520,7 @@ async function globalDashboard(type, period = null) {
 		GROUP BY festival.id, festival.name, festival.slug, festival.image
 		ORDER BY edition_count DESC, total_events DESC
 		`,
-		[type]
+		[type, ...geo.params]
 	);
 	const data = {
 		total_gigs: total_gigs[0],
@@ -527,8 +531,9 @@ async function globalDashboard(type, period = null) {
 	return data;
 }
 
-async function userGigDashboard(type, userId, period = null) {
-	const periodClause = buildPeriodClause(period, "gig.date", { includeNullOnPast: true });
+async function userGigDashboard(type, userId, period = null, geography = {}) {
+	const geo = geographyFilter(geography);
+	const periodClause = buildPeriodClause(period, "gig.date", { includeNullOnPast: true }) + geo.clause;
 	const total_gigs = await db.query(
 		`
 		SELECT COUNT(DISTINCT gig.id) AS total_gigs
@@ -536,7 +541,7 @@ async function userGigDashboard(type, userId, period = null) {
 		INNER JOIN gig ON user_gig.gig_id = gig.id
 		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?${periodClause}
 		`,
-		[userId, type]
+		[userId, type, ...geo.params]
 	);
 	const summaryTotals = await db.query(
 		`
@@ -551,16 +556,16 @@ async function userGigDashboard(type, userId, period = null) {
 		LEFT JOIN edition ON edition.id = edition_event.edition_id
 		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ?${periodClause}
 		`,
-		[userId, type]
+		[userId, type, ...geo.params]
 	);
 	const upcoming_gigs = await db.query(
 		`
 		SELECT COUNT(DISTINCT gig.id) AS upcoming_gigs
 		FROM user_gig
 		INNER JOIN gig ON user_gig.gig_id = gig.id
-		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ? AND ${upcomingGig()}
+		WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ? AND ${upcomingGig()}${geo.clause}
 		`,
-		[userId, type]
+		[userId, type, ...geo.params]
 	);
 	const gigs_by_year = await db.query(
 		`
@@ -571,7 +576,7 @@ async function userGigDashboard(type, userId, period = null) {
 		GROUP BY year
 		ORDER BY year
 		`,
-		[userId, type]
+		[userId, type, ...geo.params]
 	);
 	const gigs_by_artist = await db.query(
 		`
@@ -583,7 +588,7 @@ async function userGigDashboard(type, userId, period = null) {
 		GROUP BY artist.id, artist.name, artist.slug, artist.image
 		ORDER BY gig_count DESC
 		`,
-		[userId, type]
+		[userId, type, ...geo.params]
 	);
 	const editions_by_festival = await db.query(
 		`
@@ -604,7 +609,7 @@ async function userGigDashboard(type, userId, period = null) {
 		GROUP BY festival.id, festival.name, festival.slug, festival.image
 		ORDER BY edition_count DESC, total_events DESC
 		`,
-		[userId, type]
+		[userId, type, ...geo.params]
 	);
 
 	return {
@@ -621,9 +626,10 @@ async function userGigDashboard(type, userId, period = null) {
 	};
 }
 
-async function userEventDashboard(type, userId, period = null) {
+async function userEventDashboard(type, userId, period = null, geography = {}) {
 	const countedStatuses = ["going", "attended"];
-	const periodClause = buildPeriodClause(period, "event.date");
+	const geo = geographyFilter(geography, "event.city_id");
+	const periodClause = buildPeriodClause(period, "event.date") + geo.clause;
 	const total_gigs = await db.query(
 		`
 		SELECT COUNT(DISTINCT event.id) AS total_gigs
@@ -631,7 +637,7 @@ async function userEventDashboard(type, userId, period = null) {
 		INNER JOIN event ON user_event.event_id = event.id
 		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?${periodClause}
 		`,
-		[userId, ...countedStatuses, type]
+		[userId, ...countedStatuses, type, ...geo.params]
 	);
 	const gigs_by_year = await db.query(
 		`
@@ -642,7 +648,7 @@ async function userEventDashboard(type, userId, period = null) {
 		GROUP BY year
 		ORDER BY year
 		`,
-		[userId, ...countedStatuses, type]
+		[userId, ...countedStatuses, type, ...geo.params]
 	);
 	const gigs_by_artist = await db.query(
 		`
@@ -656,7 +662,7 @@ async function userEventDashboard(type, userId, period = null) {
 		GROUP BY artist.id, artist.name, artist.slug, artist.image
 		ORDER BY gig_count DESC
 		`,
-		[userId, ...countedStatuses, type]
+		[userId, ...countedStatuses, type, ...geo.params]
 	);
 	const editions_by_festival = await db.query(
 		`
@@ -676,7 +682,7 @@ async function userEventDashboard(type, userId, period = null) {
 		GROUP BY festival.id, festival.name, festival.slug, festival.image
 		ORDER BY edition_count DESC, total_events DESC
 		`,
-		[userId, ...countedStatuses, type]
+		[userId, ...countedStatuses, type, ...geo.params]
 	);
 	const total_artists = await db.query(
 		`
@@ -688,16 +694,16 @@ async function userEventDashboard(type, userId, period = null) {
 		INNER JOIN artist ON artist.id = gig.artist_id
 		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ?${periodClause}
 		`,
-		[userId, ...countedStatuses, type]
+		[userId, ...countedStatuses, type, ...geo.params]
 	);
 	const upcoming_gigs = await db.query(
 		`
 		SELECT COUNT(DISTINCT event.id) AS upcoming_gigs
 		FROM user_event
 		INNER JOIN event ON user_event.event_id = event.id
-		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ? AND ${upcomingEvent()}
+		WHERE user_event.user_id = ? AND user_event.status IN (?, ?) AND event.type = ? AND ${upcomingEvent()}${geo.clause}
 		`,
-		[userId, ...countedStatuses, type]
+		[userId, ...countedStatuses, type, ...geo.params]
 	);
 
 	return {
@@ -723,8 +729,13 @@ async function create(gigs) {
 				const cityName = typeof gig.city === "string" ? normalizeCityName(gig.city, gig.country_code) : null;
 				let cityId = normalizeNumber(gig.city_id || gig.city?.id);
 				if (!cityId && cityName) {
-					const cities = await query(`SELECT id FROM city WHERE name = ?`, [cityName]);
-					cityId = cities[0]?.id || (await query(`INSERT INTO city (name) VALUES (?)`, [cityName])).insertId;
+					if (gig.country_code) {
+						cityId = (await require('./city').ensureCity({name:cityName,country_code:gig.country_code,state:gig.state,municipality:gig.municipality},query)).id;
+					} else {
+						const cities = await query(`SELECT id FROM city WHERE name = ? LIMIT 2`, [cityName]);
+						if (cities.length !== 1) throw Object.assign(new Error('Seleciona a cidade e o país do concerto.'), {statusCode:400});
+						cityId = cities[0].id;
+					}
 				}
 				const venueName = typeof gig.venue === "string" ? gig.venue.trim() : gig.venue?.name;
 				if (!venueName) throw Object.assign(new Error("Indica o local do concerto."), { statusCode: 400 });
@@ -977,13 +988,14 @@ async function clean() {
 	return { message };
 }
 
-async function getLatestMedia(type = "1") {
+async function getLatestMedia(type = "1", geography = {}) {
 	if (!["1", "2"].includes(String(type))) {
 		const error = new Error("Tipo de espetáculo inválido.");
 		error.statusCode = 400;
 		throw error;
 	}
 
+	const geo = geographyFilter(geography, "g.city_id");
 	const latest = (mediaType, limit) => db.query(
 		`SELECT gm.id, gm.url, gm.user_id, u.name AS user_name,
 		        g.id AS gig_id, g.date, a.name AS artist, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue
@@ -992,9 +1004,9 @@ async function getLatestMedia(type = "1") {
 		 INNER JOIN artist a ON a.id = g.artist_id
 		 INNER JOIN venue v ON v.id = g.venue_id
 		 LEFT JOIN user u ON u.id = gm.user_id
-		 WHERE gm.type = ? AND g.type = ?
+		 WHERE gm.type = ? AND g.type = ?${geo.clause}
 		 ORDER BY gm.id DESC LIMIT ${limit}`,
-		[mediaType, Number(type)]
+		[mediaType, Number(type), ...geo.params]
 	);
 	const [photos, reviews] = await Promise.all([latest("image", 8), latest("link", 4)]);
 	return { photos, reviews };

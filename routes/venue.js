@@ -6,7 +6,7 @@ const { requireAdmin, optionalAuth } = require("../middleware/auth");
 /* GET venues. */
 router.get("/", async function (req, res, next) {
 	try {
-		res.json(await venue.getMultiple(req.query.page, req.query.search, req.query.city_id));
+		res.json(await venue.getMultiple(req.query.page, req.query.search, req.query.city_id, req.query));
 	} catch (err) {
 		console.error(`Error while getting venues `, err.message);
 		next(err);

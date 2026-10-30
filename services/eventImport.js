@@ -507,10 +507,12 @@ function getBolPageData(html, sourceUrl) {
 async function findCityFromLocation(location) {
 	const cities = await db.query("SELECT id, name FROM city");
 	const normalizedLocation = normalize(location);
-	const match = cities
+	const matches = cities
 		.flatMap(city => (normalizeCityName(city.name) === "Lisboa" ? [city.name, "Lisbon"] : [city.name]).map(name => ({ city, name })))
 		.filter(item => normalizedLocation.endsWith(normalize(item.name)))
-		.sort((a, b) => normalize(b.name).length - normalize(a.name).length)[0];
+		.sort((a, b) => normalize(b.name).length - normalize(a.name).length);
+	const match = matches[0];
+	if (match && matches.some(item => normalize(item.name) === normalize(match.name) && item.city.id !== match.city.id)) return {city:null,venueName:location};
 	const city = match?.city;
 
 	if (!city) {
@@ -548,7 +550,7 @@ async function findByName(table, name, cityId = null) {
 	const normalizedName = normalize(table === "city" ? normalizeCityName(name) : name);
 	const nameTokens = normalizedName.split(" ").filter((token) => token.length > 1 && !["de", "da", "do", "das", "dos"].includes(token));
 	const exactMatches = rows.filter((row) => normalize(row.name) === normalizedName);
-	if (table === "venue" && new Set(exactMatches.map(row => row.id)).size > 1) return null;
+	if (["venue", "city"].includes(table) && new Set(exactMatches.map(row => row.id)).size > 1) return null;
 	const exactMatch = exactMatches[0];
 
 	if (exactMatch) {
@@ -571,7 +573,7 @@ async function findByName(table, name, cityId = null) {
 		.sort((a, b) => a.delta - b.delta || normalize(a.row.name).length - normalize(b.row.name).length);
 
 	const best = tokenMatches[0];
-	if (table === "venue" && best && tokenMatches.some(match => match.delta === best.delta && match.row.id !== best.row.id)) return null;
+	if (["venue", "city"].includes(table) && best && tokenMatches.some(match => match.delta === best.delta && match.row.id !== best.row.id)) return null;
 	return best?.row || null;
 }
 

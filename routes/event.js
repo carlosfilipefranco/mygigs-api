@@ -20,7 +20,7 @@ router.post("/setlistfm/import", requireAuth, async (req, res, next) => {
 /* GET events. */
 router.get("/", optionalAuth, async function (req, res, next) {
 	try {
-		res.json(await event.getMultiple(req.query.page, req.query.search, req.query.type, req.query.period, req.user?.id));
+		res.json(await event.getMultiple(req.query.page, req.query.search, req.query.type, req.query.period, req.user?.id, req.query));
 	} catch (err) {
 		console.error(`Error while getting event `, err.message);
 		next(err);
@@ -30,7 +30,7 @@ router.get("/", optionalAuth, async function (req, res, next) {
 /* GET dashboard */
 router.get("/dashboard", async function (req, res, next) {
 	try {
-		res.json(await event.dashboard(req.query.type));
+		res.json(await event.dashboard(req.query.type,req.query));
 	} catch (err) {
 		console.error(`Error while getting event dashboard`, err.message);
 		next(err);

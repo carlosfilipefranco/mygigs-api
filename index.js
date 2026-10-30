@@ -87,6 +87,7 @@ app.use("/", seo);
 app.use("/api/artist", artist);
 app.use("/api/venue", venue);
 app.use("/api/city", city);
+app.use("/api/geography", require('./routes/geography'));
 app.use("/api/gig", gig);
 app.use("/api/event", event);
 app.use("/api/festival", festival);

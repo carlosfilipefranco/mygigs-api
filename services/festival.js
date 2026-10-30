@@ -1,36 +1,23 @@
 const db = require("./db");
+const { geographyFilter } = require("./geography");
 const helper = require("../helper");
 const config = require("../config");
 const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 
-async function getMultiple(page = 1, search = null) {
+async function getMultiple(page = 1, search = null, geography = {}) {
 	const offset = helper.getOffset(page, config.listPerPage);
-	let searchQuery = "";
-	if (search) {
-		searchQuery = `WHERE LOWER(festival.name) LIKE '%${search}%'`;
-	}
-	const rows = await db.query(`SELECT festival.id, festival.name, festival.image, festival.slug FROM festival ${searchQuery} ORDER by name LIMIT ${offset},${config.listPerPage}`);
-
-	// createEditions(rows);
-
-	// populateEditionEvent();
-
-	let count = rows.length;
-	if (!search) {
-		let row = await db.query(`SELECT COUNT(*) as count FROM festival`);
-		count = row[0].count;
-	}
-
-	const data = helper.emptyOrRows(rows);
-	const meta = { page, count };
-
-	return {
-		data,
-		meta
-	};
+	const geo = geographyFilter(geography, 'geo_edition.city_id');
+	const filters = [], params = [];
+	if (search) { filters.push('LOWER(festival.name) LIKE ?'); params.push(`%${String(search).trim().toLowerCase()}%`); }
+	if (geo.predicate) { filters.push(`EXISTS (SELECT 1 FROM edition geo_edition WHERE geo_edition.festival_id=festival.id AND ${geo.predicate})`); params.push(...geo.params); }
+	const where = filters.length ? ` WHERE ${filters.join(' AND ')}` : '';
+	const rows = await db.query(`SELECT festival.id,festival.name,festival.image,festival.slug FROM festival${where} ORDER BY festival.name,festival.id LIMIT ${offset},${config.listPerPage}`,params);
+	const totals = await db.query(`SELECT COUNT(*) AS count FROM festival${where}`,params);
+	return {data:helper.emptyOrRows(rows),meta:{page,count:Number(totals[0].count)}};
 }
 
-async function getUpcomingEditions(page = 1, limit = 8) {
+async function getUpcomingEditions(page = 1, limit = 8, geography = {}) {
+	const geo = geographyFilter(geography, "edition.city_id");
 	const pageNumber = Math.max(1, Number(page) || 1);
 	const pageSize = Math.min(24, Math.max(1, Number(limit) || 8));
 	const offset = helper.getOffset(pageNumber, pageSize);
@@ -68,10 +55,11 @@ async function getUpcomingEditions(page = 1, limit = 8) {
 		WHERE edition.date_start IS NOT NULL
 		  AND DATE(edition.date_start) <= CURDATE()
 		  AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
+		${geo.clause}
 		${groupByClause}
 		ORDER BY DATE(edition.date_start) ASC, edition.name ASC
 		LIMIT ${pageSize}
-	`
+	`, geo.params
 	);
 	const upcomingLimit = Math.max(pageSize - ongoingRows.length, Math.ceil(pageSize / 2));
 	const upcomingRows = await db.query(
@@ -79,10 +67,11 @@ async function getUpcomingEditions(page = 1, limit = 8) {
 		${selectClause}
 		WHERE edition.date_start IS NOT NULL
 		  AND DATE(edition.date_start) > CURDATE()
+		${geo.clause}
 		${groupByClause}
 		ORDER BY DATE(edition.date_start) ASC, edition.name ASC
 		LIMIT ${offset}, ${upcomingLimit}
-	`
+	`, geo.params
 	);
 
 	const countRows = await db.query(
@@ -96,8 +85,8 @@ async function getUpcomingEditions(page = 1, limit = 8) {
 				  DATE(edition.date_start) <= CURDATE()
 				  AND DATE(COALESCE(edition.date_end, edition.date_start)) >= CURDATE()
 			  )
-		  )
-		`
+		  )${geo.clause}
+		`, geo.params
 	);
 	const mapRows = (rows, isOngoing) =>
 		helper.emptyOrRows(rows).map((edition) => ({

@@ -1,4 +1,5 @@
 const db = require("./db");
+const { geographyFilter } = require("./geography");
 const helper = require("../helper");
 const config = require("../config");
 const { editionDate } = require("./concertDates");
@@ -9,7 +10,7 @@ function fail(message, statusCode = 400) {
 	throw Object.assign(new Error(message), { statusCode });
 }
 
-async function getMultiple(page = 1, search = null, cityId = null) {
+async function getMultiple(page = 1, search = null, cityId = null, geography = {}) {
 	const offset = helper.getOffset(page, config.listPerPage);
 	const text = typeof search === "string" ? search.trim().toLowerCase() : "";
 	const filters = [], params = [];
@@ -21,6 +22,8 @@ async function getMultiple(page = 1, search = null, cityId = null) {
 		if (!Number.isInteger(Number(cityId)) || Number(cityId) <= 0) fail("Cidade inválida.");
 		filters.push("venue.city_id = ?");params.push(Number(cityId));
 	}
+	const geo = geographyFilter(geography, "venue.city_id");
+	if (geo.predicate) { filters.push(geo.predicate); params.push(...geo.params); }
 	const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 	const matches = text ? `(SELECT a.id FROM venue_alias a WHERE a.venue_id = venue.id AND LOWER(a.name) LIKE ? ORDER BY (LOWER(a.name) = ?) DESC, a.name LIMIT 1)` : "NULL";
 	const rows = await db.query(`SELECT venue.id, venue.name, venue.city_id, city.name AS city, venue.lat, venue.lng, ${matches} AS alias_id

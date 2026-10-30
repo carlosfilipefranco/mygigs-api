@@ -271,6 +271,8 @@ function mapSetlist(raw) {
 		city_name: normalizeText(city?.name),
 		state: normalizeText(city?.state),
 		country_code: normalizeText(city?.country?.code),
+		country_name: normalizeText(city?.country?.name),
+		city_source_id: city?.id != null ? String(city.id) : null,
 		lat: coords?.lat || null,
 		lng: coords?.long || null,
 		url: normalizeText(raw?.url),
@@ -334,9 +336,8 @@ async function findArtist(name) {
 	return rows[0] || null;
 }
 
-async function findCity(name, countryCode = null) {
-	const rows = await db.query(`SELECT id, name, state FROM city WHERE LOWER(name) = LOWER(?) LIMIT 1`, [normalizeCityName(name, countryCode)]);
-	return rows[0] || null;
+async function findCity(name, countryCode = null, state = null, sourceId = null) {
+	return require('./city').findCity({ name, country_code: countryCode, state, source:'setlistfm', source_id:sourceId });
 }
 
 async function findVenue(name, cityId = null) {
@@ -354,7 +355,7 @@ async function findGig(artistId, venueId, date) {
 
 async function enrichEntry(entry) {
 	const artist = await findArtist(entry.artist_name);
-	const city = await findCity(entry.city_name, entry.country_code);
+	const city = await findCity(entry.city_name, entry.country_code, entry.state, entry.city_source_id);
 	const venue = city?.id ? await findVenue(entry.venue_name, city.id) : null;
 	const gig = artist?.id && venue?.id ? await findGig(artist.id, venue.id, entry.date) : null;
 	const setlistRows = gig?.id ? await db.query(`SELECT id FROM setlist WHERE gig_id = ? LIMIT 1`, [gig.id]) : [];
@@ -474,18 +475,8 @@ async function ensureArtist(entry, type, query = db.query) {
 }
 
 async function ensureCity(entry, query = db.query) {
-	const name = normalizeCityName(entry.city_name, entry.country_code);
-	const state = normalizeCityState(entry.state, entry.country_code);
-	const existing = await query(`SELECT id, state FROM city WHERE LOWER(name) = LOWER(?) LIMIT 1`, [name]);
-	if (existing.length) {
-		if (state && !existing[0].state) {
-			await query(`UPDATE city SET state = ? WHERE id = ?`, [state, existing[0].id]);
-		}
-		return { id: existing[0].id, created: false };
-	}
-
-	const result = await query(`INSERT INTO city (name, state) VALUES (?, ?)`, [name, state]);
-	return { id: result.insertId, created: true };
+	return require('./city').ensureCity({ name: entry.city_name, state: entry.state, country_code: entry.country_code, country_name: entry.country_name,
+		source: 'setlistfm', source_id: entry.city_source_id }, query, true);
 }
 
 async function ensureVenue(entry, cityId, query = db.query) {

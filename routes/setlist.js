@@ -21,7 +21,9 @@ router.post("/fetch", requireAuth, requestLimit({ max: 10, windowMs: 60 * 1000 }
 });
 
 router.get("/import", requireAdmin, setlistService.importSetlists);
-router.get("/import-cities", requireAdmin, setlistService.importCities);
+router.get("/import-cities", requireAdmin, async (req,res,next) => {
+	try {res.json(await setlistService.importCities());} catch(error) {next(error);}
+});
 router.get("/import-venues", requireAdmin, setlistService.mergeDuplicateVenues);
 
 router.get("/fetch-venues-pt", requireAdmin, async (req, res, next) => {

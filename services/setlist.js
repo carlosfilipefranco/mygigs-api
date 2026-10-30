@@ -159,38 +159,20 @@ async function importCities() {
 		const raw = fs.readFileSync(OUTPUT_FILE, "utf8");
 		const venues = JSON.parse(raw);
 
-		// 2. Usar map para criar chave única cityName -> state
 		const cityMap = new Map();
-
 		for (const venue of venues) {
-			if (!venue.city) continue;
-
-			const name = normalizeCityName(venue.city.name, venue.city.country?.code);
-			const state = normalizeCityState(venue.city.state, venue.city.country?.code);
-
-			if (!name) continue;
-
-			if (!cityMap.has(name)) {
-				cityMap.set(name, state);
-			}
+			if (!venue.city?.name) continue;
+			const input = {
+				name: normalizeCityName(venue.city.name,venue.city.country?.code),
+				state: normalizeCityState(venue.city.state,venue.city.country?.code),
+				country_code: venue.city.country?.code || null, country_name: venue.city.country?.name || null,
+				source: 'setlistfm', source_id: venue.city.id != null ? String(venue.city.id) : null
+			};
+			const key = input.source_id || JSON.stringify([input.country_code,input.name,input.state]);
+			cityMap.set(key,input);
 		}
-
-		console.log(`📍 Encontradas ${cityMap.size} cidades únicas.`);
-
-		// 3. Inserir/Atualizar BD
-		for (const [name, state] of cityMap) {
-			// Verificar se já existe
-			const existing = await db.query("SELECT id FROM city WHERE name = ? LIMIT 1", [name]);
-
-			if (existing.length > 0) {
-				// Atualizar state
-				await db.query("UPDATE city SET state = ? WHERE id = ?", [state, existing[0].id]);
-				console.log(`🔄 Atualizada cidade: ${name} (${state})`);
-			} else {
-				// Inserir nova
-				await db.query("INSERT INTO city (name, state) VALUES (?, ?)", [name, state]);
-				console.log(`🆕 Inserida cidade: ${name} (${state})`);
-			}
+		for (const input of cityMap.values()) {
+			await db.transaction(query => require('./city').ensureCity(input,query,true));
 		}
 
 		console.log("🎉 Importação concluída!");
@@ -222,15 +204,10 @@ async function importVenues() {
 			const lat = venue.city?.coords?.lat || null;
 			const lng = venue.city?.coords?.long || null;
 
-			// 1. Obter city_id
-			const cityRow = await db.query("SELECT id FROM city WHERE name = ? LIMIT 1", [cityName]);
-
-			if (cityRow.length === 0) {
-				console.warn(`⚠ Cidade '${cityName}' não existe na BD. Ignorar venue '${name}'.`);
-				continue;
-			}
-
-			const cityId = cityRow[0].id;
+			const cityId = (await db.transaction(query => require('./city').ensureCity({
+				name:cityName,state,country_code:venue.city?.country?.code || null,country_name:venue.city?.country?.name || null,
+				source:'setlistfm',source_id:venue.city?.id != null ? String(venue.city.id):null
+			},query,true))).id;
 
 			// 2. Verificar duplicado (name + city_id + coords)
 			const existing = await db.query(

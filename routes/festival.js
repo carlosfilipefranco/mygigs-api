@@ -6,7 +6,7 @@ const { optionalAuth, requireAdmin } = require("../middleware/auth");
 /* GET festival. */
 router.get("/", async function (req, res, next) {
 	try {
-		res.json(await festival.getMultiple(req.query.page, req.query.search));
+		res.json(await festival.getMultiple(req.query.page, req.query.search, req.query));
 	} catch (err) {
 		console.error(`Error while getting gig `, err.message);
 		next(err);
@@ -36,7 +36,7 @@ router.put("/:id", requireAdmin, async function (req, res, next) {
 /* GET upcoming festival editions */
 router.get("/upcoming-editions", async function (req, res, next) {
 	try {
-		res.json(await festival.getUpcomingEditions(req.query.page, req.query.limit));
+		res.json(await festival.getUpcomingEditions(req.query.page, req.query.limit, req.query));
 	} catch (err) {
 		console.error(`Error while getting upcoming festival editions`, err.message);
 		next(err);

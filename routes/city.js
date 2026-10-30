@@ -6,7 +6,7 @@ const { requireAdmin } = require("../middleware/auth");
 /* GET city. */
 router.get("/", async function (req, res, next) {
 	try {
-		res.json(await city.getMultiple(req.query.page));
+		res.json(await city.getMultiple(req.query.page, req.query));
 	} catch (err) {
 		console.error(`Error while getting city `, err.message);
 		next(err);
