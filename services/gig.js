@@ -162,8 +162,8 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 		filters.push(upcomingGig());
 		orderBy = normalizedOrder === "latest" ? "gig.id DESC" : `${gigSortDate()} ASC, gig.date IS NULL, gig.position, gig.id`;
 	} else if (period === "past") {
-		filters.push("gig.date < CURDATE()");
-		orderBy = normalizedOrder === "latest" ? "gig.id DESC" : "gig.date DESC, gig.position";
+		filters.push(buildPeriodFilter(period, "gig.date", { includeNullOnPast: mineOnly }));
+		orderBy = normalizedOrder === "latest" ? "gig.id DESC" : "gig.date DESC, gig.position, gig.id";
 	}
 
 	if (mineOnly) {
@@ -343,7 +343,7 @@ async function get(id, userId = null) {
 
 	// 🔥 Buscar media (imagens, videos, links)
 	const mediaRows = await db.query(
-		`SELECT gm.id, gm.url, gm.type, gm.user_id, u.name AS user_name
+		`SELECT gm.id, gm.gig_id, gm.url, gm.type, gm.user_id, u.name AS user_name
 		 FROM gig_media gm
 		 LEFT JOIN user u ON u.id = gm.user_id
 		 WHERE gm.gig_id = ? ORDER BY gm.id DESC`,
@@ -434,19 +434,24 @@ function resolveScope(userId, scope) {
 	return userId ? "me" : "global";
 }
 
-function buildPeriodClause(period, field = "gig.date", options = {}) {
+function buildPeriodFilter(period, field = "gig.date", options = {}) {
 	const includeNullOnPast = !!options.includeNullOnPast;
 
 	if (period === "upcoming") {
-		return field === "gig.date" ? ` AND ${upcomingGig()}` : field === "event.date" ? ` AND ${upcomingEvent()}` : ` AND ${field} >= CURDATE()`;
+		return field === "gig.date" ? upcomingGig() : field === "event.date" ? upcomingEvent() : `${field} >= CURDATE()`;
 	}
 	if (period === "past") {
 		if (includeNullOnPast) {
-			return ` AND (${field} < CURDATE() OR (${field} IS NULL AND NOT EXISTS (SELECT 1 FROM event_gig cdg INNER JOIN edition_event cde ON cde.event_id = cdg.event_id WHERE cdg.gig_id = gig.id)))`;
+			return `(${field} < CURDATE() OR (${field} IS NULL AND NOT EXISTS (SELECT 1 FROM event_gig cdg INNER JOIN edition_event cde ON cde.event_id = cdg.event_id WHERE cdg.gig_id = gig.id)))`;
 		}
-		return ` AND ${field} < CURDATE()`;
+		return `${field} < CURDATE()`;
 	}
 	return "";
+}
+
+function buildPeriodClause(period, field = "gig.date", options = {}) {
+	const filter = buildPeriodFilter(period, field, options);
+	return filter ? ` AND ${filter}` : "";
 }
 
 function emptyDashboard() {
@@ -1060,14 +1065,28 @@ async function updateMedia(gigId, mediaId, body, userId) {
 	return { success: true };
 }
 
-async function deleteMedia(gigId, mediaId) {
-	const result = await db.query(`DELETE FROM gig_media WHERE id=? AND gig_id=?`, [mediaId, gigId]);
-
-	if (result.affectedRows === 0) {
-		throw new Error("Media não encontrado");
+async function deleteMedia(gigId, mediaId, user) {
+	if (!user?.id) {
+		throw Object.assign(new Error("Inicia sessão para apagar fotografias e reviews."), { statusCode: 401 });
+	}
+	const gigIdentifier = Number(gigId);
+	const mediaIdentifier = Number(mediaId);
+	if (![gigIdentifier, mediaIdentifier].every(id => Number.isSafeInteger(id) && id > 0)) {
+		throw Object.assign(new Error("Identificador inválido."), { statusCode: 400 });
 	}
 
-	return { success: true };
+	return db.transaction(async (query) => {
+		const rows = await query(`SELECT user_id, type FROM gig_media WHERE id = ? AND gig_id = ? FOR UPDATE`, [mediaIdentifier, gigIdentifier]);
+		if (!rows.length) {
+			throw Object.assign(new Error("Conteúdo não encontrado."), { statusCode: 404 });
+		}
+		const media = rows[0];
+		if (user.role !== "admin" && (Number(media.user_id) !== Number(user.id) || !["image", "link"].includes(media.type))) {
+			throw Object.assign(new Error("Só podes apagar as fotografias e reviews que adicionaste."), { statusCode: 403 });
+		}
+		await query(`DELETE FROM gig_media WHERE id = ? AND gig_id = ?`, [mediaIdentifier, gigIdentifier]);
+		return { success: true };
+	});
 }
 
 module.exports = {

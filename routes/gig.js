@@ -162,9 +162,9 @@ router.put("/:id/media/:mediaId", requireAdmin, async (req, res, next) => {
 	}
 });
 
-router.delete("/:id/media/:mediaId", requireAdmin, async (req, res, next) => {
+router.delete("/:id/media/:mediaId", requireAuth, async (req, res, next) => {
 	try {
-		res.json(await gig.deleteMedia(req.params.id, req.params.mediaId));
+		res.json(await gig.deleteMedia(req.params.id, req.params.mediaId, req.user));
 	} catch (err) {
 		console.error("Error while deleting media", err.message);
 		next(err);
