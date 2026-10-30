@@ -1,0 +1,4175 @@
+{
+  "source": "Existing geography audited on 2026-10-28; snapshot on 2026-10-30",
+  "countries": [
+    {
+      "code": "BE",
+      "name": "Bélgica"
+    },
+    {
+      "code": "DK",
+      "name": "Dinamarca"
+    },
+    {
+      "code": "ES",
+      "name": "Espanha"
+    },
+    {
+      "code": "FR",
+      "name": "França"
+    },
+    {
+      "code": "IE",
+      "name": "Irlanda"
+    },
+    {
+      "code": "IT",
+      "name": "Itália"
+    },
+    {
+      "code": "NL",
+      "name": "Países Baixos"
+    },
+    {
+      "code": "PT",
+      "name": "Portugal"
+    },
+    {
+      "code": "SE",
+      "name": "Suécia"
+    },
+    {
+      "code": "US",
+      "name": "Estados Unidos da América"
+    }
+  ],
+  "subdivisions": [
+    {
+      "id": 1,
+      "country_code": "PT",
+      "name": "Aveiro",
+      "kind": "district"
+    },
+    {
+      "id": 2,
+      "country_code": "PT",
+      "name": "Beja",
+      "kind": "district"
+    },
+    {
+      "id": 3,
+      "country_code": "PT",
+      "name": "Braga",
+      "kind": "district"
+    },
+    {
+      "id": 4,
+      "country_code": "PT",
+      "name": "Bragança",
+      "kind": "district"
+    },
+    {
+      "id": 5,
+      "country_code": "PT",
+      "name": "Castelo Branco",
+      "kind": "district"
+    },
+    {
+      "id": 6,
+      "country_code": "PT",
+      "name": "Coimbra",
+      "kind": "district"
+    },
+    {
+      "id": 7,
+      "country_code": "PT",
+      "name": "Faro",
+      "kind": "district"
+    },
+    {
+      "id": 8,
+      "country_code": "PT",
+      "name": "Guarda",
+      "kind": "district"
+    },
+    {
+      "id": 9,
+      "country_code": "PT",
+      "name": "Leiria",
+      "kind": "district"
+    },
+    {
+      "id": 10,
+      "country_code": "PT",
+      "name": "Lisboa",
+      "kind": "district"
+    },
+    {
+      "id": 11,
+      "country_code": "PT",
+      "name": "Madeira",
+      "kind": "autonomous_region"
+    },
+    {
+      "id": 12,
+      "country_code": "PT",
+      "name": "Portalegre",
+      "kind": "district"
+    },
+    {
+      "id": 13,
+      "country_code": "PT",
+      "name": "Porto",
+      "kind": "district"
+    },
+    {
+      "id": 14,
+      "country_code": "PT",
+      "name": "Santarém",
+      "kind": "district"
+    },
+    {
+      "id": 15,
+      "country_code": "PT",
+      "name": "Setúbal",
+      "kind": "district"
+    },
+    {
+      "id": 16,
+      "country_code": "PT",
+      "name": "Viana do Castelo",
+      "kind": "district"
+    },
+    {
+      "id": 17,
+      "country_code": "PT",
+      "name": "Vila Real",
+      "kind": "district"
+    },
+    {
+      "id": 18,
+      "country_code": "PT",
+      "name": "Viseu",
+      "kind": "district"
+    },
+    {
+      "id": 19,
+      "country_code": "PT",
+      "name": "Évora",
+      "kind": "district"
+    },
+    {
+      "id": 20,
+      "country_code": "BE",
+      "name": "Brabante Flamengo",
+      "kind": "province"
+    },
+    {
+      "id": 21,
+      "country_code": "SE",
+      "name": "Estocolmo",
+      "kind": "county"
+    },
+    {
+      "id": 22,
+      "country_code": "ES",
+      "name": "Comunidade de Madrid",
+      "kind": "autonomous_community"
+    },
+    {
+      "id": 23,
+      "country_code": "ES",
+      "name": "País Basco",
+      "kind": "autonomous_community"
+    },
+    {
+      "id": 24,
+      "country_code": "ES",
+      "name": "Catalunha",
+      "kind": "autonomous_community"
+    },
+    {
+      "id": 25,
+      "country_code": "ES",
+      "name": "Galiza",
+      "kind": "autonomous_community"
+    },
+    {
+      "id": 26,
+      "country_code": "FR",
+      "name": "Ilha de França",
+      "kind": "region"
+    },
+    {
+      "id": 27,
+      "country_code": "IT",
+      "name": "Sicília",
+      "kind": "region"
+    },
+    {
+      "id": 28,
+      "country_code": "IT",
+      "name": "Toscana",
+      "kind": "region"
+    },
+    {
+      "id": 29,
+      "country_code": "IT",
+      "name": "Lácio",
+      "kind": "region"
+    },
+    {
+      "id": 30,
+      "country_code": "IE",
+      "name": "Meath",
+      "kind": "county"
+    },
+    {
+      "id": 31,
+      "country_code": "IT",
+      "name": "Friul-Veneza Júlia",
+      "kind": "region"
+    },
+    {
+      "id": 32,
+      "country_code": "IT",
+      "name": "Lombardia",
+      "kind": "region"
+    },
+    {
+      "id": 33,
+      "country_code": "NL",
+      "name": "Holanda do Norte",
+      "kind": "province"
+    },
+    {
+      "id": 34,
+      "country_code": "DK",
+      "name": "Região da Capital",
+      "kind": "region"
+    },
+    {
+      "id": 35,
+      "country_code": "US",
+      "name": "Nova Iorque",
+      "kind": "state"
+    },
+    {
+      "id": 36,
+      "country_code": "IT",
+      "name": "Campânia",
+      "kind": "region"
+    },
+    {
+      "id": 37,
+      "country_code": "PT",
+      "name": "Açores",
+      "kind": "autonomous_region"
+    }
+  ],
+  "cities": [
+    {
+      "id": 1,
+      "name": "Lisboa",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 11,
+      "name": "Paredes de Coura",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 39,
+      "name": "Werchter",
+      "state": "Brabante Flamengo",
+      "country_code": "BE",
+      "subdivision_id": 20,
+      "subdivision_name": "Brabante Flamengo"
+    },
+    {
+      "id": 64,
+      "name": "Porto",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 70,
+      "name": "Estocolmo",
+      "state": "Estocolmo",
+      "country_code": "SE",
+      "subdivision_id": 21,
+      "subdivision_name": "Estocolmo"
+    },
+    {
+      "id": 74,
+      "name": "Guimarães",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 80,
+      "name": "Braga",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 95,
+      "name": "Albufeira",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 118,
+      "name": "Madrid",
+      "state": "Comunidade de Madrid",
+      "country_code": "ES",
+      "subdivision_id": 22,
+      "subdivision_name": "Comunidade de Madrid"
+    },
+    {
+      "id": 122,
+      "name": "Bilbau",
+      "state": "País Basco",
+      "country_code": "ES",
+      "subdivision_id": 23,
+      "subdivision_name": "País Basco"
+    },
+    {
+      "id": 140,
+      "name": "Póvoa de Varzim",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 153,
+      "name": "Caminha",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 176,
+      "name": "Oeiras",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 190,
+      "name": "Barcelona",
+      "state": "Catalunha",
+      "country_code": "ES",
+      "subdivision_id": 24,
+      "subdivision_name": "Catalunha"
+    },
+    {
+      "id": 206,
+      "name": "Vigo",
+      "state": "Galiza",
+      "country_code": "ES",
+      "subdivision_id": 25,
+      "subdivision_name": "Galiza"
+    },
+    {
+      "id": 219,
+      "name": "Ponte de Lima",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 224,
+      "name": "Paris",
+      "state": "Ilha de França",
+      "country_code": "FR",
+      "subdivision_id": 26,
+      "subdivision_name": "Ilha de França"
+    },
+    {
+      "id": 225,
+      "name": "Caldas das Taipas",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 230,
+      "name": "Famalicão",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 267,
+      "name": "Taormina",
+      "state": "Sicília",
+      "country_code": "IT",
+      "subdivision_id": 27,
+      "subdivision_name": "Sicília"
+    },
+    {
+      "id": 269,
+      "name": "Florença",
+      "state": "Toscana",
+      "country_code": "IT",
+      "subdivision_id": 28,
+      "subdivision_name": "Toscana"
+    },
+    {
+      "id": 271,
+      "name": "Vila Real",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 281,
+      "name": "Gondomar",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 286,
+      "name": "Chaves",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 297,
+      "name": "Fafe",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 316,
+      "name": "Cascais",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 331,
+      "name": "Roma",
+      "state": "Lácio",
+      "country_code": "IT",
+      "subdivision_id": 29,
+      "subdivision_name": "Lácio"
+    },
+    {
+      "id": 366,
+      "name": "Matosinhos",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 400,
+      "name": "Barcelos",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 418,
+      "name": "Slane",
+      "state": "Meath",
+      "country_code": "IE",
+      "subdivision_id": 30,
+      "subdivision_name": "Meath"
+    },
+    {
+      "id": 463,
+      "name": "Portimão",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 465,
+      "name": "Sesimbra",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 472,
+      "name": "Trieste",
+      "state": "Friul-Veneza Júlia",
+      "country_code": "IT",
+      "subdivision_id": 31,
+      "subdivision_name": "Friul-Veneza Júlia"
+    },
+    {
+      "id": 473,
+      "name": "Milão",
+      "state": "Lombardia",
+      "country_code": "IT",
+      "subdivision_id": 32,
+      "subdivision_name": "Lombardia"
+    },
+    {
+      "id": 493,
+      "name": "Vila do Conde",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 518,
+      "name": "Faro",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 563,
+      "name": "Coimbra",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 579,
+      "name": "Maia",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 613,
+      "name": "Zambujeira do Mar",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 638,
+      "name": "Amesterdão",
+      "state": "Holanda do Norte",
+      "country_code": "NL",
+      "subdivision_id": 33,
+      "subdivision_name": "Holanda do Norte"
+    },
+    {
+      "id": 783,
+      "name": "Arcos de Valdevez",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 810,
+      "name": "Vagos",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 905,
+      "name": "Penafiel",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1138,
+      "name": "Santiago de Compostela",
+      "state": "Galiza",
+      "country_code": "ES",
+      "subdivision_id": 25,
+      "subdivision_name": "Galiza"
+    },
+    {
+      "id": 1139,
+      "name": "Aveiro",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1140,
+      "name": "Frederiksberg",
+      "state": "Região da Capital",
+      "country_code": "DK",
+      "subdivision_id": 34,
+      "subdivision_name": "Região da Capital"
+    },
+    {
+      "id": 1141,
+      "name": "Nova Iorque",
+      "state": "Nova Iorque",
+      "country_code": "US",
+      "subdivision_id": 35,
+      "subdivision_name": "Nova Iorque"
+    },
+    {
+      "id": 1142,
+      "name": "Pompeia",
+      "state": "Campânia",
+      "country_code": "IT",
+      "subdivision_id": 36,
+      "subdivision_name": "Campânia"
+    },
+    {
+      "id": 1143,
+      "name": "Gouveia",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1144,
+      "name": "Vilar de Maçada",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1145,
+      "name": "Bustos",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1146,
+      "name": "Ponta Delgada",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1148,
+      "name": "Vale de Cambra",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1149,
+      "name": "Mértola",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1150,
+      "name": "Trofa",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1151,
+      "name": "Câmara de Lobos",
+      "state": "Madeira",
+      "country_code": "PT",
+      "subdivision_id": 11,
+      "subdivision_name": "Madeira"
+    },
+    {
+      "id": 1153,
+      "name": "Estoril",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1154,
+      "name": "Alcochete",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1155,
+      "name": "Almada",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1156,
+      "name": "Águeda",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1157,
+      "name": "Espinho",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1158,
+      "name": "Corvo",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1159,
+      "name": "Valença do Minho",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1160,
+      "name": "Leiria",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1161,
+      "name": "Vilar de Mouros",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1162,
+      "name": "Benavente",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1163,
+      "name": "Salvaterra de Magos",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1164,
+      "name": "Loures",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1165,
+      "name": "Sabrosa",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1166,
+      "name": "Sanfins do Douro",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1167,
+      "name": "Amarante",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1168,
+      "name": "Castanheira",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1169,
+      "name": "Tondela",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1171,
+      "name": "Santiago do Cacém",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1172,
+      "name": "Castelo Branco",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1173,
+      "name": "Felgueiras",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1174,
+      "name": "Carvoeiro",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1175,
+      "name": "Torres Novas",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1176,
+      "name": "Vila Nova de Gaia",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1177,
+      "name": "Melides",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1179,
+      "name": "Sines",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1180,
+      "name": "Barreiro",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1181,
+      "name": "Crato",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1182,
+      "name": "Rosais",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1183,
+      "name": "Vila de Rei",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1184,
+      "name": "Mangualde",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1185,
+      "name": "Ílhavo",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1186,
+      "name": "Santo Tirso",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1187,
+      "name": "Marvila",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1188,
+      "name": "Beja",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1189,
+      "name": "Fundão",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1190,
+      "name": "Sintra",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1191,
+      "name": "Tomar",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1192,
+      "name": "Póvoa",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1193,
+      "name": "Caldas da Rainha",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1194,
+      "name": "Santarém",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1195,
+      "name": "Alpedriz",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1196,
+      "name": "Praia da Vitória",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1197,
+      "name": "Linda-a-Velha",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1198,
+      "name": "Lumiar",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1199,
+      "name": "Pedrouços",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1200,
+      "name": "Sacavém",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1201,
+      "name": "Montijo",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1202,
+      "name": "Pombal",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1203,
+      "name": "Alvalade",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1204,
+      "name": "Évora",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1205,
+      "name": "Odemira",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1206,
+      "name": "Estremoz",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1207,
+      "name": "Porto de Mós",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1208,
+      "name": "Mexilhoeira Grande",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1209,
+      "name": "São Mamede",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1210,
+      "name": "Torres Vedras",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1211,
+      "name": "Ericeira",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1212,
+      "name": "Viana do Castelo",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1213,
+      "name": "Vouzela",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1214,
+      "name": "Sertã Municipality",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1215,
+      "name": "Esmoriz",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1216,
+      "name": "Óbidos",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1217,
+      "name": "Foia",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1218,
+      "name": "Maceira",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1219,
+      "name": "Falagueira",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1220,
+      "name": "Setúbal",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1221,
+      "name": "Ourém",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1222,
+      "name": "Ponte de Sor",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1223,
+      "name": "Carcavelos",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1224,
+      "name": "Grândola",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1225,
+      "name": "Oliveira de Frades Municipality",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1226,
+      "name": "Benfica",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1227,
+      "name": "Costa de Caparica",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1228,
+      "name": "Ovar",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1229,
+      "name": "Moscavide",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1230,
+      "name": "Peniche",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1231,
+      "name": "Aljezur",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1232,
+      "name": "Águas Santas",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1233,
+      "name": "Lagos",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1234,
+      "name": "Glória do Ribatejo",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1235,
+      "name": "Viseu",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1236,
+      "name": "Lourinhã",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1237,
+      "name": "Covilha",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1238,
+      "name": "Vila Franca de Xira",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1239,
+      "name": "São João da Madeira",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1240,
+      "name": "Rossio ao Sul do Tejo",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1241,
+      "name": "Amoreira",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1242,
+      "name": "Zambujal",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1243,
+      "name": "Alcobaça",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1244,
+      "name": "Monforte",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1245,
+      "name": "Sete Cidades",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1246,
+      "name": "Moita",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1247,
+      "name": "Pinhal Novo",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1248,
+      "name": "Vale do Lobo",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1249,
+      "name": "Seixal",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1250,
+      "name": "Valongo",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1251,
+      "name": "Marco de Canaveses",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1252,
+      "name": "Mortágua",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1253,
+      "name": "Penacova",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1254,
+      "name": "Lousada",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1255,
+      "name": "Vila Nova da Cerveira",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1256,
+      "name": "Mafra",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1257,
+      "name": "Lagoa",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1258,
+      "name": "Cinfães",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1259,
+      "name": "Esposende",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1260,
+      "name": "Sabugal",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1261,
+      "name": "Moimenta da Beira",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1262,
+      "name": "Santo André",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1263,
+      "name": "Guarda",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1264,
+      "name": "Carnaxide",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1265,
+      "name": "Buarcos",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1266,
+      "name": "Barroselas",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1267,
+      "name": "Rio Neiva",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1268,
+      "name": "Alenquer",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1269,
+      "name": "Vila Nogueira de Azeitão",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1270,
+      "name": "Loulé",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1271,
+      "name": "Anadia Municipality",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1272,
+      "name": "Sobreda",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1273,
+      "name": "São Pedro do Sul",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1274,
+      "name": "Praia da Légua",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1275,
+      "name": "Rio Maior",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1276,
+      "name": "Casais de São Lourenço",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1277,
+      "name": "Silves",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1278,
+      "name": "Vieira do Minho",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1279,
+      "name": "Elvas",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1280,
+      "name": "Funchal",
+      "state": "Madeira",
+      "country_code": "PT",
+      "subdivision_id": 11,
+      "subdivision_name": "Madeira"
+    },
+    {
+      "id": 1281,
+      "name": "Fátima",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1283,
+      "name": "Comenda",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1284,
+      "name": "Olhão",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1285,
+      "name": "Belém Tower",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1286,
+      "name": "Quarteira",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1287,
+      "name": "Vilamoura",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1288,
+      "name": "Maceda",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1290,
+      "name": "Bobadela",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1291,
+      "name": "Celorico de Basto",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1292,
+      "name": "Marinha Grande",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1293,
+      "name": "Portalegre",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1294,
+      "name": "Sever do Vouga",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1295,
+      "name": "Calheta",
+      "state": "Madeira",
+      "country_code": "PT",
+      "subdivision_id": 11,
+      "subdivision_name": "Madeira"
+    },
+    {
+      "id": 1296,
+      "name": "Alcântara",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1297,
+      "name": "Charneca",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1298,
+      "name": "Santa Maria da Feira",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1299,
+      "name": "Lapa dos Dinheiros",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1300,
+      "name": "Tróia",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1301,
+      "name": "Vila Franca do Campo",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1302,
+      "name": "Paços de Ferreira",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1303,
+      "name": "Parchal",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1304,
+      "name": "Constantina",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1305,
+      "name": "Bairro Alto",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1306,
+      "name": "Vargos",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1307,
+      "name": "Odivelas",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1308,
+      "name": "Resende Municipality",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1309,
+      "name": "Miranda do Corvo",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1310,
+      "name": "Vila Nova de Famalicão",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1311,
+      "name": "Vila Velha de Ródão",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1312,
+      "name": "Póvoa de Lisboa",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1313,
+      "name": "Sertã",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1314,
+      "name": "Tavira",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1315,
+      "name": "Seia",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1316,
+      "name": "Figueira da Foz",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1317,
+      "name": "Monte Gordo",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1318,
+      "name": "Belmonte",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1319,
+      "name": "Montemor-o-Velho",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1320,
+      "name": "Santa Iria da Azóia",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1321,
+      "name": "Castro Marim",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1322,
+      "name": "Lamego",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1323,
+      "name": "Paredes",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1324,
+      "name": "Palmela",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1325,
+      "name": "Lobão",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1326,
+      "name": "Cartaxo",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1327,
+      "name": "Vila Real de Santo António",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1328,
+      "name": "Albergaria-a-Velha",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1329,
+      "name": "Mirandela",
+      "state": "Bragança",
+      "country_code": "PT",
+      "subdivision_id": 4,
+      "subdivision_name": "Bragança"
+    },
+    {
+      "id": 1330,
+      "name": "Moledo",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1331,
+      "name": "Samora Correia",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1332,
+      "name": "Alverca",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1333,
+      "name": "Carregal do Sal",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1334,
+      "name": "Poceirão",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1335,
+      "name": "Benedita",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1336,
+      "name": "Lordelo",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1337,
+      "name": "Ferreira do Alentejo",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1338,
+      "name": "Martingança",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1339,
+      "name": "Bragança",
+      "state": "Bragança",
+      "country_code": "PT",
+      "subdivision_id": 4,
+      "subdivision_name": "Bragança"
+    },
+    {
+      "id": 1340,
+      "name": "Idanha-a-Nova",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1341,
+      "name": "Madalena",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1342,
+      "name": "Almeirim",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1343,
+      "name": "Alpiarça",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1344,
+      "name": "Pampilhosa da Serra",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1345,
+      "name": "Barosa",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1346,
+      "name": "Abrantes",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1347,
+      "name": "Ponte da Barca",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1348,
+      "name": "Aljustrel",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1349,
+      "name": "Montemor-o-Novo",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1350,
+      "name": "Corroios",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1351,
+      "name": "Estarreja",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1352,
+      "name": "Castro Verde Municipality",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1353,
+      "name": "Aldeia de Paio Pires",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1354,
+      "name": "Oliveira de Azeméis",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1355,
+      "name": "Amadora",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1356,
+      "name": "Sátão Municipality",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1357,
+      "name": "Torre de Moncorvo",
+      "state": "Bragança",
+      "country_code": "PT",
+      "subdivision_id": 4,
+      "subdivision_name": "Bragança"
+    },
+    {
+      "id": 1358,
+      "name": "Ancas",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1359,
+      "name": "Cais do Sodré",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1360,
+      "name": "Castanheira do Ribatejo",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1361,
+      "name": "Arruda dos Vinhos",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1362,
+      "name": "Distrito do Porto",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1363,
+      "name": "Góis",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1364,
+      "name": "Vizela",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1366,
+      "name": "Cortegaça",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1367,
+      "name": "Coruche",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1368,
+      "name": "Cacilhas",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1369,
+      "name": "Olivais",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1370,
+      "name": "Angra do Heroísmo",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1371,
+      "name": "Castelo de Paiva",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1372,
+      "name": "Arada",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1373,
+      "name": "Ferreiros",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1374,
+      "name": "Coimbrão",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1375,
+      "name": "Pedrógão",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1376,
+      "name": "Caldas de Vizela",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1377,
+      "name": "Praia de Mira",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1378,
+      "name": "Lombo Meão",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1379,
+      "name": "Trafaria",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1380,
+      "name": "Cercal",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1381,
+      "name": "Queluz",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1382,
+      "name": "Massamá",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1383,
+      "name": "Entroncamento",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1384,
+      "name": "Ponta do Sol",
+      "state": "Madeira",
+      "country_code": "PT",
+      "subdivision_id": 11,
+      "subdivision_name": "Madeira"
+    },
+    {
+      "id": 1385,
+      "name": "Perola do Algarve",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1386,
+      "name": "Alcabideche",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1387,
+      "name": "Almancil",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1388,
+      "name": "Vila Nova de Paiva",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1389,
+      "name": "Feira",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1390,
+      "name": "Alandroal",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1391,
+      "name": "Distrito de Viseu",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1392,
+      "name": "Cantanhede",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1393,
+      "name": "Ermesinde",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1394,
+      "name": "Almodôvar",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1395,
+      "name": "Ajuda",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1396,
+      "name": "Fafião",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1397,
+      "name": "Pinhel",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1398,
+      "name": "Fatela",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1399,
+      "name": "Mondim de Basto",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1400,
+      "name": "Caparica",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1401,
+      "name": "Soure",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1402,
+      "name": "Carrazeda de Anciães",
+      "state": "Bragança",
+      "country_code": "PT",
+      "subdivision_id": 4,
+      "subdivision_name": "Bragança"
+    },
+    {
+      "id": 1403,
+      "name": "São Brás de Alportel",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1404,
+      "name": "Anadia",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1405,
+      "name": "Vila Nova de Poiares Municipality",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1406,
+      "name": "Azambuja",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1407,
+      "name": "Alter do Chão Municipality",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1408,
+      "name": "Trancoso",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1409,
+      "name": "Bairro do Alto da Ajuda",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1410,
+      "name": "Mealhada Municipality",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1411,
+      "name": "Baião",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1412,
+      "name": "Batalha",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1413,
+      "name": "Amiais de Baixo",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1414,
+      "name": "Marinhais",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1415,
+      "name": "Santa Comba Dão",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1416,
+      "name": "Condeixa-a-Nova",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1418,
+      "name": "Sardoal",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1419,
+      "name": "Ourique",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1420,
+      "name": "Rosário",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1421,
+      "name": "Gansaria",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1422,
+      "name": "Negrais",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1423,
+      "name": "Figueiró",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1424,
+      "name": "Arrentela",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1425,
+      "name": "Amora",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1426,
+      "name": "Vila Viçosa",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1427,
+      "name": "Freamunde",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1428,
+      "name": "Lavre",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1429,
+      "name": "Nisa",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1430,
+      "name": "Viana do Alentejo",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1431,
+      "name": "Favaios",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1432,
+      "name": "Meda",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1433,
+      "name": "Enxofães",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1434,
+      "name": "Alijó Municipality",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1435,
+      "name": "Póvoa de Santa Iria",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1436,
+      "name": "Outeiro de Pisões",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1437,
+      "name": "Guia",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1438,
+      "name": "Leça da Palmeira",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1439,
+      "name": "Senhora da Hora",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1440,
+      "name": "Sagres",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1441,
+      "name": "Vila Praia de Âncora",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1442,
+      "name": "Monte da Alagada",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1443,
+      "name": "Foz do Arelho",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1444,
+      "name": "Nelas Municipality",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1445,
+      "name": "Barcarena",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1446,
+      "name": "Gafanha da Nazaré",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1447,
+      "name": "Alcanena",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1448,
+      "name": "Baixa da Banheira",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1449,
+      "name": "Rio de Mouro",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1450,
+      "name": "Rio de Moinhos",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1451,
+      "name": "Arganil",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1452,
+      "name": "Caxias",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1453,
+      "name": "Oliveira do Bairro",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1454,
+      "name": "Carviçais",
+      "state": "Bragança",
+      "country_code": "PT",
+      "subdivision_id": 4,
+      "subdivision_name": "Bragança"
+    },
+    {
+      "id": 1455,
+      "name": "Santa Marta",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1456,
+      "name": "Santo Isidro de Pegões",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1457,
+      "name": "Amarante (São Gonçalo)",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1458,
+      "name": "Atouguia da Baleia",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1459,
+      "name": "Paço de Arcos",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1460,
+      "name": "Lousã",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1461,
+      "name": "Gavião",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1462,
+      "name": "Mira",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1463,
+      "name": "Estômbar",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1464,
+      "name": "Vendas Novas",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1465,
+      "name": "Santa Maria de Lamas",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1466,
+      "name": "Panóias",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1467,
+      "name": "Venda do Pinheiro",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1468,
+      "name": "São Martinho do Porto",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1469,
+      "name": "Concelho",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1470,
+      "name": "Algoz",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1471,
+      "name": "Vila Verde",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1472,
+      "name": "Luso",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1473,
+      "name": "Lajes",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1474,
+      "name": "Chamusca",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1475,
+      "name": "Valpaços",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1476,
+      "name": "Alpedrinha",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1477,
+      "name": "Sosa",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1478,
+      "name": "Argoncilhe",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1479,
+      "name": "Monte Redondo",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1480,
+      "name": "Lazarim",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1481,
+      "name": "Barra",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1482,
+      "name": "Manteigas",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1483,
+      "name": "Amares",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1484,
+      "name": "Paul",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1485,
+      "name": "Freixianda",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1486,
+      "name": "Praia da Vagueira",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1487,
+      "name": "Mem Martins",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1488,
+      "name": "Fermentelos",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1489,
+      "name": "Parede",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1490,
+      "name": "Boliqueime",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1491,
+      "name": "Gafanha da Boa Hora",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1492,
+      "name": "Vila do Porto",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1493,
+      "name": "Praia da Barra",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1494,
+      "name": "Manta Rota",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1495,
+      "name": "Ansião",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1496,
+      "name": "Recarei",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1497,
+      "name": "Bombarral",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1498,
+      "name": "Alvaiázere",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1499,
+      "name": "Póvoa de Lanhoso",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1500,
+      "name": "Arraiolos",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1501,
+      "name": "Arouca",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1502,
+      "name": "Mosteiros",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1503,
+      "name": "Estói",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1504,
+      "name": "São João da Talha",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1505,
+      "name": "Fuzeta",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1506,
+      "name": "Pernes",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1507,
+      "name": "Campo das Cebolas",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1508,
+      "name": "Nazaré",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1509,
+      "name": "Fontes",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1510,
+      "name": "Campo Pequeno",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1511,
+      "name": "Barreiros",
+      "state": "Portalegre",
+      "country_code": "PT",
+      "subdivision_id": 12,
+      "subdivision_name": "Portalegre"
+    },
+    {
+      "id": 1512,
+      "name": "Praia da Tocha",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1513,
+      "name": "Calvão",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1514,
+      "name": "Monção Municipality",
+      "state": "Viana do Castelo",
+      "country_code": "PT",
+      "subdivision_id": 16,
+      "subdivision_name": "Viana do Castelo"
+    },
+    {
+      "id": 1515,
+      "name": "Sendim",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1516,
+      "name": "Caldelas",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1517,
+      "name": "Oliveira do Hospital",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1518,
+      "name": "Pindelo dos Milagres",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1519,
+      "name": "Moura Municipality",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1520,
+      "name": "Alcácer do Sal",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1521,
+      "name": "Bemposta",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1522,
+      "name": "Tercena",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1523,
+      "name": "São Domingos de Benfica",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1524,
+      "name": "Borba",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1525,
+      "name": "Valado de Frades",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1526,
+      "name": "Vila do Bispo",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1527,
+      "name": "Tábua Municipality",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1528,
+      "name": "Peso da Régua",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1529,
+      "name": "Praia Fonte da Telha",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1530,
+      "name": "Olhos de Água",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1531,
+      "name": "Alcoutim",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1533,
+      "name": "Porto Alto",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1534,
+      "name": "Cabeceiras de Basto",
+      "state": "Braga",
+      "country_code": "PT",
+      "subdivision_id": 3,
+      "subdivision_name": "Braga"
+    },
+    {
+      "id": 1535,
+      "name": "Almograve",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1536,
+      "name": "Murtosa",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1538,
+      "name": "São Pedro de Moel",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1539,
+      "name": "Ribeira Quente",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1540,
+      "name": "Zorro",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1541,
+      "name": "Castanheira de Pêra",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1542,
+      "name": "Ribeira Grande",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    },
+    {
+      "id": 1543,
+      "name": "Salvada",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1544,
+      "name": "Macieira de Cambra",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1545,
+      "name": "São Jacinto",
+      "state": "Aveiro",
+      "country_code": "PT",
+      "subdivision_id": 1,
+      "subdivision_name": "Aveiro"
+    },
+    {
+      "id": 1546,
+      "name": "Portel",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1547,
+      "name": "São Vicente",
+      "state": "Madeira",
+      "country_code": "PT",
+      "subdivision_id": 11,
+      "subdivision_name": "Madeira"
+    },
+    {
+      "id": 1548,
+      "name": "Serpa",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1549,
+      "name": "Campolide",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1550,
+      "name": "Vila de Porto Santo",
+      "state": "Madeira",
+      "country_code": "PT",
+      "subdivision_id": 11,
+      "subdivision_name": "Madeira"
+    },
+    {
+      "id": 1551,
+      "name": "Montalegre",
+      "state": "Vila Real",
+      "country_code": "PT",
+      "subdivision_id": 17,
+      "subdivision_name": "Vila Real"
+    },
+    {
+      "id": 1552,
+      "name": "Ansião Municipality",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1553,
+      "name": "São João da Pesqueira",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1554,
+      "name": "Dos Anjos",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1555,
+      "name": "Santa Cruz",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1556,
+      "name": "Santana",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1557,
+      "name": "Azeitão",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1558,
+      "name": "Baltar",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1559,
+      "name": "Quinta do Conde",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1560,
+      "name": "Redondo",
+      "state": "Évora",
+      "country_code": "PT",
+      "subdivision_id": 19,
+      "subdivision_name": "Évora"
+    },
+    {
+      "id": 1561,
+      "name": "Hotel Costa da Caparica",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1562,
+      "name": "Tunes",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1563,
+      "name": "Valada",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1564,
+      "name": "Condeixa-a-Velha",
+      "state": "Coimbra",
+      "country_code": "PT",
+      "subdivision_id": 6,
+      "subdivision_name": "Coimbra"
+    },
+    {
+      "id": 1565,
+      "name": "Benquerença",
+      "state": "Castelo Branco",
+      "country_code": "PT",
+      "subdivision_id": 5,
+      "subdivision_name": "Castelo Branco"
+    },
+    {
+      "id": 1566,
+      "name": "Pechão",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1567,
+      "name": "Cabo Ruivo",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1568,
+      "name": "Santo Ovídio",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1569,
+      "name": "Tramagal",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1571,
+      "name": "Sobral da Adiça",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1572,
+      "name": "Meia Via",
+      "state": "Santarém",
+      "country_code": "PT",
+      "subdivision_id": 14,
+      "subdivision_name": "Santarém"
+    },
+    {
+      "id": 1573,
+      "name": "Famões",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1574,
+      "name": "Caneças",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1575,
+      "name": "São Julião do Tojal",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1576,
+      "name": "Quinta do Anjo",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1577,
+      "name": "Sete Rios",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1578,
+      "name": "Tabuaço",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1579,
+      "name": "Mercês",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1580,
+      "name": "Santa Apolónia",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1581,
+      "name": "Amor",
+      "state": "Leiria",
+      "country_code": "PT",
+      "subdivision_id": 9,
+      "subdivision_name": "Leiria"
+    },
+    {
+      "id": 1582,
+      "name": "Alvor",
+      "state": "Faro",
+      "country_code": "PT",
+      "subdivision_id": 7,
+      "subdivision_name": "Faro"
+    },
+    {
+      "id": 1583,
+      "name": "Cacém",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1584,
+      "name": "Queluz de Baixo",
+      "state": "Lisboa",
+      "country_code": "PT",
+      "subdivision_id": 10,
+      "subdivision_name": "Lisboa"
+    },
+    {
+      "id": 1585,
+      "name": "Grijó",
+      "state": "Porto",
+      "country_code": "PT",
+      "subdivision_id": 13,
+      "subdivision_name": "Porto"
+    },
+    {
+      "id": 1586,
+      "name": "Valhelhas",
+      "state": "Guarda",
+      "country_code": "PT",
+      "subdivision_id": 8,
+      "subdivision_name": "Guarda"
+    },
+    {
+      "id": 1587,
+      "name": "Tarouca",
+      "state": "Viseu",
+      "country_code": "PT",
+      "subdivision_id": 18,
+      "subdivision_name": "Viseu"
+    },
+    {
+      "id": 1588,
+      "name": "Vila Nova da Baronia",
+      "state": "Beja",
+      "country_code": "PT",
+      "subdivision_id": 2,
+      "subdivision_name": "Beja"
+    },
+    {
+      "id": 1589,
+      "name": "Miranda do Douro",
+      "state": "Bragança",
+      "country_code": "PT",
+      "subdivision_id": 4,
+      "subdivision_name": "Bragança"
+    },
+    {
+      "id": 1590,
+      "name": "Nanterre",
+      "state": "Ilha de França",
+      "country_code": "FR",
+      "subdivision_id": 26,
+      "subdivision_name": "Ilha de França"
+    },
+    {
+      "id": 1591,
+      "name": "Alvalade do Sado",
+      "state": "Setúbal",
+      "country_code": "PT",
+      "subdivision_id": 15,
+      "subdivision_name": "Setúbal"
+    },
+    {
+      "id": 1592,
+      "name": "Vinhais",
+      "state": "Bragança",
+      "country_code": "PT",
+      "subdivision_id": 4,
+      "subdivision_name": "Bragança"
+    },
+    {
+      "id": 1593,
+      "name": "Nordeste",
+      "state": "Açores",
+      "country_code": "PT",
+      "subdivision_id": 37,
+      "subdivision_name": "Açores"
+    }
+  ]
+}

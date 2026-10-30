@@ -19,7 +19,8 @@
 		"migrate:venue-aliases": "node scripts/migrate-venue-aliases.js",
 		"migrate:artist-metadata": "node scripts/migrate-artist-metadata.js",
 		"migrate:festival-dates": "node scripts/migrate-festival-dates.js",
-		"venues:merge": "node scripts/merge-venues.js"
+		"venues:merge": "node scripts/merge-venues.js",
+		"migrate:geography": "node scripts/migrate-geography.js"
 	},
 	"keywords": [],
 	"author": "",
