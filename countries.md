@@ -65,3 +65,20 @@ Dividiria em sete tarefas, com uma entrega concreta para validares no fim de cad
    Recordar os filtros entre visitas. Manter o histórico e as estatísticas pessoais com todos os países por defeito, permitindo filtrá-los explicitamente.
    Para validares: persistência das escolhas e inclusão dos concertos no estrangeiro no histórico.
    Avanço uma tarefa de cada vez e espero pela tua validação antes da seguinte. A primeira entrega será a auditoria dos dados atuais.
+
+---
+
+## Estado de implementação — 30 de outubro de 2026
+
+A auditoria (tarefa 1) foi aceite. As tarefas 2–7 estão implementadas no código e a migração geográfica foi aplicada no Railway:
+
+2. **Modelo e zonas:** país, divisão administrativa, município opcional, identificador/origem da fonte e sete zonas de descoberta, com possibilidade de exceção por cidade.
+3. **Criação e importação:** país e identificador da cidade guardados nas importações; localidades homónimas distinguidas pelo contexto; formulário administrativo para criar/editar cidades.
+4. **Classificação:** preservadas as 488 cidades auditadas, incluindo 469 portuguesas e 19 estrangeiras; atribuídas as sete zonas portuguesas. Mantêm-se os IDs e relações. Os campos sem evidência suficiente não são inventados.
+5. **API:** filtro comum por país/zona/cidade em concertos, eventos, locais, festivais, próximas edições, estatísticas e conteúdos da Home, antes da paginação e nas contagens.
+6. **Interface pública:** seletores de país/zona/cidade, Portugal por defeito na primeira visita, seleção visível, pesquisa de cidade e limpeza dos filtros.
+7. **Preferências e área pessoal:** preferências públicas e pessoais independentes, persistidas no dispositivo; histórico pessoal com todos os países por defeito; filtros mantidos na navegação para a pesquisa.
+
+As zonas são agrupamentos do produto com uma correspondência inicial por distrito, documentada em [docs/geography.md](docs/geography.md). A mesma documentação descreve os endpoints, regras de classificação, migração e verificação.
+
+A publicação do código da API e do frontend ainda é necessária para disponibilizar a funcionalidade no ambiente publicado. A migração da base de dados já está aplicada.
