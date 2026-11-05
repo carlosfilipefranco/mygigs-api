@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const seoService = require("../services/seo");
+const seoMetadata = require("../services/seoMetadata");
 const config = require("../config");
 
 function resolveSiteUrl(req) {
@@ -34,5 +35,20 @@ async function sendSitemap(req, res, next) {
 
 router.get("/sitemap.xml", sendSitemap);
 router.get("/api/seo/sitemap.xml", sendSitemap);
+
+router.get("/api/seo/pages", async (req, res, next) => {
+	try {
+		const manifest = await seoMetadata.getAllPageMetadata(resolveSiteUrl(req));
+		res.set("Cache-Control", "public, max-age=60").json(manifest);
+	} catch (err) { next(err); }
+});
+
+router.get("/api/seo/page", async (req, res, next) => {
+	try {
+		const page = await seoMetadata.getPageMetadata(req.query.path, resolveSiteUrl(req));
+		if (!page) return res.status(404).json({ message: "Página não encontrada." });
+		res.set("Cache-Control", "public, max-age=60").json(page);
+	} catch (err) { next(err); }
+});
 
 module.exports = router;
