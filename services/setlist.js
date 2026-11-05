@@ -6,7 +6,7 @@ const path = require("path");
 const { normalizeCityName, normalizeCityState } = require("./city");
 const { isFestivalVenueName } = require("./venueNames");
 
-const { getSetlist, fetchSetlist } = require("./concertSetlist");
+const { getSetlist, fetchSetlist, refreshSetlist } = require("./concertSetlist");
 function apiKey() {
 	return serviceKey("SETLISTFM_API_KEY");
 }
@@ -264,6 +264,7 @@ function mergeDuplicateVenues(req, res) {
 module.exports = {
 	getSetlist,
 	fetchSetlist,
+	refreshSetlist,
 	importSetlists,
 	fetchAllPortugalVenues,
 	importCities,

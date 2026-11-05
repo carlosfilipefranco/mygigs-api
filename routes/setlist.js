@@ -20,6 +20,11 @@ router.post("/fetch", requireAuth, requestLimit({ max: 10, windowMs: 60 * 1000 }
 	catch (error) { next(error); }
 });
 
+router.post("/refresh", requireAdmin, requestLimit({ max: 10, windowMs: 60 * 1000 }), async (req, res, next) => {
+	try { res.json(await setlistService.refreshSetlist(req.body?.gigId)); }
+	catch (error) { next(error); }
+});
+
 router.get("/import", requireAdmin, setlistService.importSetlists);
 router.get("/import-cities", requireAdmin, async (req,res,next) => {
 	try {res.json(await setlistService.importCities());} catch(error) {next(error);}

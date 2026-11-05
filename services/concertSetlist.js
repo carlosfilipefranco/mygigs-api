@@ -25,9 +25,19 @@ async function getSetlist(gigIdentifier, query = db.query) {
 }
 
 async function fetchSetlist(gigIdentifier) {
+	return fetchAndStoreSetlist(gigIdentifier, false);
+}
+
+async function refreshSetlist(gigIdentifier) {
+	return fetchAndStoreSetlist(gigIdentifier, true);
+}
+
+async function fetchAndStoreSetlist(gigIdentifier, replaceExisting) {
 	const gigId = positiveId(gigIdentifier);
-	const stored = await getSetlist(gigId);
-	if (stored) return stored;
+	if (!replaceExisting) {
+		const stored = await getSetlist(gigId);
+		if (stored) return stored;
+	}
 	const rows = await db.query(`SELECT g.id, g.artist_id, g.venue_id, g.venue_alias_id, g.city_id, DATE_FORMAT(g.date, '%d-%m-%Y') AS date,
 		a.name AS artist, a.mbid, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue, c.name AS city
 		FROM gig g JOIN artist a ON a.id = g.artist_id JOIN venue v ON v.id = g.venue_id
@@ -49,28 +59,33 @@ async function fetchSetlist(gigIdentifier) {
 		&& key(entry.venue?.city?.name) === key(gig.city) && (!gig.mbid || entry.artist?.mbid === gig.mbid));
 	if (matches.length !== 1) return null;
 	const sets = matches[0].sets?.set;
-	if (!Array.isArray(sets) || !sets.some(set => set.song?.some(song => typeof song.name === "string" && song.name.trim()))) return null;
+	if (!Array.isArray(sets) || sets.some(set => !set || !Array.isArray(set.song))) return null;
+	const songsToStore = sets.flatMap(set => {
+		const encore = Number.isSafeInteger(Number(set.encore)) && Number(set.encore) > 0 ? Number(set.encore) : 0;
+		return set.song.filter(song => typeof song?.name === "string" && song.name.trim())
+			.map(song => ({ name: song.name.trim(), encore }));
+	});
+	if (!songsToStore.length) return null;
 	return db.transaction(async query => {
 		// Confirmar que o concerto não foi editado durante o pedido externo.
 		const current = await query(`SELECT artist_id, venue_id, venue_alias_id, city_id, DATE_FORMAT(date, '%d-%m-%Y') AS date FROM gig WHERE id = ? FOR UPDATE`, [gigId]);
 		if (!current.length || current[0].artist_id !== gig.artist_id || current[0].venue_id !== gig.venue_id || current[0].venue_alias_id !== gig.venue_alias_id || current[0].city_id !== gig.city_id || current[0].date !== gig.date) fail(409, "O concerto foi alterado. Tenta novamente.");
 		const existing = await query(`SELECT id FROM setlist WHERE gig_id = ? LIMIT 1 FOR UPDATE`, [gigId]);
-		if (existing.length) return getSetlist(gigId, query);
+		if (existing.length && !replaceExisting) return getSetlist(gigId, query);
+		if (existing.length) {
+			await query(`DELETE FROM setlist_song WHERE setlist_id IN (SELECT id FROM setlist WHERE gig_id = ?)`, [gigId]);
+			await query(`DELETE FROM setlist WHERE gig_id = ?`, [gigId]);
+		}
 		const result = await query(`INSERT INTO setlist (gig_id, artist_id) VALUES (?, ?)`, [gigId, gig.artist_id]);
 		let position = 1;
-		for (const set of sets) {
-			const encore = Number.isSafeInteger(Number(set.encore)) && Number(set.encore) > 0 ? Number(set.encore) : 0;
-			for (const song of set.song || []) {
-				if (typeof song.name !== "string" || !song.name.trim()) continue;
-				const name = song.name.trim();
-				await query(`INSERT IGNORE INTO song (name, artist_id) VALUES (?, ?)`, [name, gig.artist_id]);
-				const songs = await query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [name, gig.artist_id]);
-				if (!songs.length) fail(502, "Não foi possível guardar a setlist.");
-				await query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [result.insertId, songs[0].id, position++, encore]);
-			}
+		for (const { name, encore } of songsToStore) {
+			await query(`INSERT IGNORE INTO song (name, artist_id) VALUES (?, ?)`, [name, gig.artist_id]);
+			const songs = await query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [name, gig.artist_id]);
+			if (!songs.length) fail(502, "Não foi possível guardar a setlist.");
+			await query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [result.insertId, songs[0].id, position++, encore]);
 		}
 		return getSetlist(gigId, query);
 	}, { lockName: "setlistfm-import" });
 }
 
-module.exports = { getSetlist, fetchSetlist };
+module.exports = { getSetlist, fetchSetlist, refreshSetlist };
