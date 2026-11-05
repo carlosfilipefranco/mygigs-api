@@ -1,7 +1,7 @@
 const db = require("./db");
 const { slugify } = require("./slug");
 
-const STATIC_PATHS = ["/", "/home", "/gigs", "/events", "/artists", "/festivals", "/venues", "/search", "/contact", "/privacy", "/terms"];
+const STATIC_PATHS = ["/", "/concertos", "/eventos", "/artistas", "/festivais", "/locais", "/pesquisa", "/contacto", "/privacidade", "/termos"];
 
 function normalizeSiteUrl(siteUrl) {
 	return `${siteUrl || ""}`.trim().replace(/\/+$/, "");
@@ -106,7 +106,7 @@ async function buildSitemap(siteUrl) {
 			return;
 		}
 
-		appendEntry(buildUrlEntry(normalizedSiteUrl, `/artist/${identifier}`));
+		appendEntry(buildUrlEntry(normalizedSiteUrl, `/artistas/${identifier}`));
 	});
 
 	eventRows.forEach((row) => {
@@ -115,7 +115,7 @@ async function buildSitemap(siteUrl) {
 			return;
 		}
 
-		appendEntry(buildUrlEntry(normalizedSiteUrl, `/event/${identifier}`, row.date));
+		appendEntry(buildUrlEntry(normalizedSiteUrl, `/eventos/${identifier}`, row.date));
 	});
 
 	festivalRows.forEach((row) => {
@@ -124,7 +124,7 @@ async function buildSitemap(siteUrl) {
 			return;
 		}
 
-		appendEntry(buildUrlEntry(normalizedSiteUrl, `/festival/${identifier}`, row.lastmod));
+		appendEntry(buildUrlEntry(normalizedSiteUrl, `/festivais/${identifier}`, row.lastmod));
 	});
 
 	editionRows.forEach((row) => {
@@ -133,7 +133,7 @@ async function buildSitemap(siteUrl) {
 			return;
 		}
 
-		appendEntry(buildUrlEntry(normalizedSiteUrl, `/editions/${identifier}`, row.date_end || row.date_start));
+		appendEntry(buildUrlEntry(normalizedSiteUrl, `/edicoes/${identifier}`, row.date_end || row.date_start));
 	});
 
 	return toSitemapXml(entries);
