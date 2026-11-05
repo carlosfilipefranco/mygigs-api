@@ -68,3 +68,6 @@ node_modules/
 .env.*
 !.env.example
 .secrets/
+
+# Uploaded media is stored in the Railway volume
+/public/uploads/
