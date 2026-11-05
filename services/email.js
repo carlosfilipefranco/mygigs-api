@@ -1,4 +1,20 @@
 const fetch = require("node-fetch");
+const ejs = require("ejs");
+const { readFile } = require("fs/promises");
+const path = require("path");
+
+async function passwordResetContent(code) {
+	const templateRoot = path.join(__dirname, "../templates/emails");
+	const [html, logo] = await Promise.all([
+		ejs.renderFile(path.join(templateRoot, "password-reset.ejs"), { code }),
+		readFile(path.join(templateRoot, "assets/na-grade-logo.png"))
+	]);
+	return {
+		html,
+		text: `Recebemos um pedido para redefinir a palavra-passe da tua conta no Na Grade.\n\nO teu código de recuperação é: ${code}\n\nVolta ao site, introduz este código e escolhe uma nova palavra-passe.\n\nO código é válido durante 10 minutos e só pode ser utilizado uma vez. Não partilhes este código com ninguém.\n\nSe não fizeste este pedido, ignora este email. A tua palavra-passe mantém-se igual.`,
+		attachments: [{ filename: "na-grade-logo.png", content: logo.toString("base64"), content_id: "na-grade-logo" }]
+	};
+}
 
 function configuration() {
 	const apiKey = process.env.RESEND_API_KEY?.trim();
@@ -9,9 +25,10 @@ function configuration() {
 	return { apiKey, from };
 }
 
-async function sendPasswordReset(to, resetUrl) {
+async function sendPasswordReset(to, code) {
 	const { apiKey, from } = configuration();
 	try {
+		const content = await passwordResetContent(code);
 		const response = await fetch("https://api.resend.com/emails", {
 			method: "POST",
 			headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -19,13 +36,13 @@ async function sendPasswordReset(to, resetUrl) {
 				from,
 				to: [to],
 				subject: "Recuperar palavra-passe — Na Grade",
-				text: `Recebemos um pedido para redefinir a palavra-passe da tua conta no Na Grade.\n\nAbre este link para escolher uma nova palavra-passe:\n${resetUrl}\n\nO link é válido durante 30 minutos e só pode ser utilizado uma vez.\n\nSe não fizeste este pedido, ignora este email. A tua palavra-passe mantém-se igual.`
+				...content
 			}),
 			timeout: 10000,
 			redirect: "error"
 		});
 		if (!response.ok) {
-			// Não registar o corpo da resposta: pode conter o destinatário ou o link.
+			// Não registar o corpo da resposta: pode conter o destinatário ou o código.
 			console.error("Password reset email rejected by provider", response.status);
 			throw new Error("Email delivery failed");
 		}
@@ -34,4 +51,4 @@ async function sendPasswordReset(to, resetUrl) {
 	}
 }
 
-module.exports = { configuration, sendPasswordReset };
+module.exports = { configuration, sendPasswordReset, passwordResetContent };
