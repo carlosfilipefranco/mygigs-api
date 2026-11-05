@@ -37,10 +37,29 @@ function geographyFilter(input = {}, cityExpression = 'gig.city_id') {
 	return { predicate, clause: predicate ? ` AND ${predicate}` : '', params, value };
 }
 
-async function options(input = {}) {
+async function visitedCountries(userId, type = 1) {
+	if (!userId) throw Object.assign(new Error('Inicia sessão para consultar os países do teu histórico.'), { statusCode: 401 });
+	const eventType = Number(type);
+	if (![1, 2].includes(eventType)) invalid('Tipo de espetáculo inválido.');
+	const rows = eventType === 1
+		? await db.query(`SELECT city.country_code AS code, country.name, COUNT(DISTINCT gig.id) AS gig_count
+			FROM user_gig INNER JOIN gig ON gig.id = user_gig.gig_id
+			INNER JOIN city ON city.id = gig.city_id LEFT JOIN country ON country.code = city.country_code
+			WHERE user_gig.user_id = ? AND user_gig.status = 'going' AND gig.type = ? AND gig.date < CURDATE()
+			GROUP BY city.country_code, country.name`, [userId, eventType])
+		: await db.query(`SELECT city.country_code AS code, country.name, COUNT(DISTINCT event.id) AS gig_count
+			FROM user_event INNER JOIN event ON event.id = user_event.event_id
+			INNER JOIN city ON city.id = event.city_id LEFT JOIN country ON country.code = city.country_code
+			WHERE user_event.user_id = ? AND user_event.status IN ('going', 'attended') AND event.type = ? AND event.date < CURDATE()
+			GROUP BY city.country_code, country.name`, [userId, eventType]);
+	return rows;
+}
+
+async function options(input = {}, userId = null) {
 	const geo = geographyFilter(input, 'city.id');
+	const personal = input.scope === 'me';
 	const [countries, subdivisions, cities] = await Promise.all([
-		db.query('SELECT code, name FROM country ORDER BY name'),
+		personal ? visitedCountries(userId, input.type || 1) : db.query('SELECT code, name FROM country ORDER BY name'),
 		db.query('SELECT id, country_code, name, kind, zone_code FROM country_subdivision ORDER BY name'),
 		db.query(`SELECT city.id, city.name, city.state, city.country_code, city.subdivision_id, city.municipality,
 			COALESCE(city.zone_code, subdivision.zone_code) AS zone, country.name AS country_name, subdivision.name AS subdivision_name
@@ -48,8 +67,8 @@ async function options(input = {}) {
 			LEFT JOIN country_subdivision subdivision ON subdivision.id = city.subdivision_id
 			WHERE 1=1${geo.clause} ORDER BY city.name, country.name, subdivision.name`, geo.params)
 	]);
-	const availableCountries = [...new Map([...countryCatalog,...countries].map(country=>[country.code,country])).values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-PT'));
-	return { countries:availableCountries, zones: zones.map(({ code, name }) => ({ code, name, country_code: 'PT' })), subdivisions, cities: cities.map(city => ({ ...city, display_name: [...new Set([city.name, city.municipality, city.subdivision_name || city.state, city.country_name || 'País por classificar'].filter(Boolean))].join(' · ') })) };
+	const availableCountries = [...new Map([...(personal ? [] : countryCatalog),...countries.filter(country=>country.code)].map(country=>[country.code,{code:country.code,name:country.name || countryCatalog.find(item=>item.code===country.code)?.name || country.code}])).values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-PT'));
+	return { countries:availableCountries, has_unclassified_countries: !personal || countries.some(country=>!country.code), zones: zones.map(({ code, name }) => ({ code, name, country_code: 'PT' })), subdivisions, cities: cities.map(city => ({ ...city, display_name: [...new Set([city.name, city.municipality, city.subdivision_name || city.state, city.country_name || 'País por classificar'].filter(Boolean))].join(' · ') })) };
 }
 
 module.exports = { zones, normalizeFilters, geographyFilter, options };

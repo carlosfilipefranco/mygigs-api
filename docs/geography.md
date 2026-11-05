@@ -76,7 +76,9 @@ Após a migração, a consulta de leitura de Portugal → Norte → Porto devolv
 - Dashboard pessoal, pesquisa pessoal e listas «Os meus»/«Favoritos»: todos os países por defeito.
 - As duas preferências são guardadas separadamente no dispositivo (`mygigs-geography-discovery` e `mygigs-geography-personal`). Alterar a descoberta pública não restringe o histórico pessoal.
 - País → zona → cidade: mudar um nível limpa os níveis dependentes. A cidade permite pesquisa por texto; a seleção ativa mantém-se visível.
-- «Limpar filtros» mostra todos os países. É possível regressar a Portugal no seletor.
+- Na descoberta, Portugal aparece como escolha principal e o seletor «Outros países» fica no cabeçalho dos filtros. «Limpar filtros» repõe Portugal, sem zona nem cidade; nas vistas pessoais, repõe todos os países.
+- No dashboard pessoal, o seletor apresenta apenas países com concertos já vistos pelo utilizador autenticado, independentemente do país/zona/cidade atualmente selecionados. Mantém a opção de resumo de todos os países e só apresenta «País por classificar» quando há histórico nessa situação. No modo de espetáculos, usa os eventos pessoais passados com estado `going` ou `attended`.
+- `GET /api/geography?scope=me&type=1` exige sessão, usa exclusivamente o utilizador do token e devolve as opções pessoais com `Cache-Control: private, no-store`. A escolha de outro país continua a disponibilizar as cidades desse país. O frontend e a API precisam de ser publicados em conjunto para ativar esta restrição.
 - A navegação da Home/dashboard para a pesquisa mantém os filtros no URL; uma seleção explícita no URL prevalece sobre a preferência guardada.
 - Alterar os filtros reinicia a paginação e cancela pedidos anteriores. As páginas mantidas em memória voltam a carregar ao regressar se a preferência mudou.
 - Na criação/edição de locais, os administradores podem criar e corrigir cidades, incluindo país, distrito, município e uma exceção de zona. Os nomes completos distinguem localidades homónimas.
