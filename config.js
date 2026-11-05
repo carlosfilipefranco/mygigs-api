@@ -23,7 +23,7 @@ const config = {
 	},
 	listPerPage: 20,
 	seo: {
-		siteUrl: process.env.SEO_SITE_URL || process.env.SITE_URL || "https://mygigs-04.web.app"
+		siteUrl: process.env.SEO_SITE_URL || process.env.SITE_URL || "https://nagrade.pt"
 	}
 };
 
