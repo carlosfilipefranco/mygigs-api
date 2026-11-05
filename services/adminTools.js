@@ -314,14 +314,16 @@ async function mergeSetlistsIntoTargetGig(query, sourceGigId, targetGigId, targe
 	for (const sourceSetlist of sourceSetlists) {
 		const result = await query(
 			`
-			INSERT INTO setlist_song (setlist_id, song_id, position, encore)
-			SELECT ?, ss.song_id, ss.position, ss.encore
+			INSERT INTO setlist_song (setlist_id, song_id, position, encore, set_position, set_name)
+			SELECT ?, ss.song_id, ss.position, ss.encore, ss.set_position, ss.set_name
 			FROM setlist_song ss
 			LEFT JOIN setlist_song existing
 				ON existing.setlist_id = ?
 				AND existing.song_id = ss.song_id
 				AND existing.position = ss.position
 				AND COALESCE(existing.encore, 0) = COALESCE(ss.encore, 0)
+				AND existing.set_position <=> ss.set_position
+				AND existing.set_name <=> ss.set_name
 			WHERE ss.setlist_id = ?
 			  AND existing.setlist_id IS NULL
 			`,

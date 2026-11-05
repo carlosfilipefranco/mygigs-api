@@ -9,6 +9,7 @@ const reviewPreview = require("./reviewPreview");
 const { editionDate, upcomingGig, gigSortDate, upcomingEvent, eventEditionDate } = require("./concertDates");
 const festivalProgram = require("./festivalProgram");
 const { normalizeCityName } = require("./city");
+const { getSetlist } = require("./concertSetlist");
 
 function hasOwn(object, key) {
 	return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -381,47 +382,7 @@ async function get(id, userId = null) {
 	}
 
 	// Procurar setlist local
-	const setlistRows = await db.query(
-		`
-    SELECT
-        s.id AS setlist_id,
-        ss.song_id,
-        ss.position,
-        ss.encore,
-        song.name AS song_name
-    FROM setlist s
-    JOIN setlist_song ss ON ss.setlist_id = s.id
-    JOIN song ON ss.song_id = song.id
-    WHERE s.gig_id = ?
-    ORDER BY ss.encore IS NULL, ss.encore, ss.position
-    `,
-		[id]
-	);
-
-	if (setlistRows.length > 0) {
-		const setsMap = new Map();
-
-		for (const row of setlistRows) {
-			const key = row.encore ?? 0;
-			if (!setsMap.has(key)) {
-				setsMap.set(key, []);
-			}
-			setsMap.get(key).push({ name: row.song_name });
-		}
-
-		const orderedKeys = Array.from(setsMap.keys()).sort((a, b) => a - b);
-
-		const sets = orderedKeys.map((encore) => ({
-			...(encore > 0 ? { encore } : {}),
-			song: setsMap.get(encore).map((s, i) => ({ ...s, number: i + 1 }))
-		}));
-
-		gig.setlist = {
-			sets: {
-				set: sets
-			}
-		};
-	}
+	gig.setlist = await getSetlist(gig.id);
 
 	return gig;
 }

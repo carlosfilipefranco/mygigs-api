@@ -5,17 +5,13 @@ const fs = require("fs");
 const path = require("path");
 const { normalizeCityName, normalizeCityState } = require("./city");
 const { isFestivalVenueName } = require("./venueNames");
+const { flattenSetlistSongs } = require("./setlistSongs");
 
 const { getSetlist, fetchSetlist, refreshSetlist } = require("./concertSetlist");
 function apiKey() {
 	return serviceKey("SETLISTFM_API_KEY");
 }
 const OUTPUT_FILE = "./setlists_pt.json";
-
-function normalizeEncore(value) {
-	const parsed = Number(value);
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
 
 async function importSetlists(req, res) {
 	try {
@@ -57,28 +53,24 @@ async function importSetlists(req, res) {
 			let position = 1;
 			let songCount = 0;
 
-			for (const set of setlist.sets.set) {
-				const encore = normalizeEncore(set.encore);
-				for (const song of set.song || []) {
-					const songName = song.name?.trim();
-					if (!songName) continue;
+			for (const song of flattenSetlistSongs(setlist.sets.set)) {
+				const songName = song.name;
 
-					await db.query(`INSERT IGNORE INTO song (name, artist_id) VALUES (?, ?)`, [songName, artistId]);
+				await db.query(`INSERT IGNORE INTO song (name, artist_id) VALUES (?, ?)`, [songName, artistId]);
 
-					const songRows = await db.query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [songName, artistId]);
-					if (!Array.isArray(songRows) || songRows.length === 0) {
-						console.warn(`⚠️ Música '${songName}' não encontrada na BD após inserção`);
-						continue;
-					}
-
-					const songId = songRows[0].id;
-					if (!songId) continue;
-
-					await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [setlistId, songId, position, encore]);
-
-					position++;
-					songCount++;
+				const songRows = await db.query(`SELECT id FROM song WHERE name = ? AND artist_id = ? LIMIT 1`, [songName, artistId]);
+				if (!Array.isArray(songRows) || songRows.length === 0) {
+					console.warn(`⚠️ Música '${songName}' não encontrada na BD após inserção`);
+					continue;
 				}
+
+				const songId = songRows[0].id;
+				if (!songId) continue;
+
+				await db.query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore, set_position, set_name) VALUES (?, ?, ?, ?, ?, ?)`, [setlistId, songId, position, song.encore, song.set_position, song.set_name]);
+
+				position++;
+				songCount++;
 			}
 
 			console.log(`🎤 Gig ${gigId} com artista ${artistId} concluído. ${songCount} músicas adicionadas.`);

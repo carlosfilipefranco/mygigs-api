@@ -6,6 +6,7 @@ const { buildUniqueSlug } = require("./slug");
 const { syncEditionDates, getEditionIdsForEvent, syncEditionDatesForEditionIds } = require("./editionDates");
 const { ensureGigEvent } = require("./gigEvents");
 const { normalizeCityName, normalizeCityState } = require("./city");
+const { flattenSetlistSongs } = require("./setlistSongs");
 
 
 const API_BASE_URL = "https://api.setlist.fm/rest/1.0";
@@ -23,11 +24,6 @@ function normalizeText(value) {
 function normalizeNumber(value) {
 	const parsed = Number(value);
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function normalizeEncore(value) {
-	const parsed = Number(value);
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 function normalizeLimit(value) {
@@ -243,20 +239,6 @@ function getTotalPages(data) {
 	return 1;
 }
 
-function flattenSongs(setlist) {
-	const songs = [];
-	for (const set of setlist?.sets?.set || []) {
-		const encore = normalizeEncore(set?.encore);
-		for (const song of set?.song || []) {
-			const name = normalizeText(song?.name);
-			if (name) {
-				songs.push({ name, encore });
-			}
-		}
-	}
-	return songs;
-}
-
 function mapSetlist(raw) {
 	const date = parseSetlistDate(raw?.eventDate);
 	const city = raw?.venue?.city || {};
@@ -276,7 +258,7 @@ function mapSetlist(raw) {
 		lat: coords?.lat || null,
 		lng: coords?.long || null,
 		url: normalizeText(raw?.url),
-		songs: flattenSongs(raw),
+		songs: flattenSetlistSongs(raw?.sets?.set),
 		raw
 	};
 }
@@ -554,8 +536,7 @@ async function importSetlistSongs(entry, gigId, artistId, query = db.query) {
 			continue;
 		}
 
-		const encore = normalizeEncore(song.encore);
-		await query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore) VALUES (?, ?, ?, ?)`, [setlistResult.insertId, songRows[0].id, position, encore]);
+		await query(`INSERT INTO setlist_song (setlist_id, song_id, position, encore, set_position, set_name) VALUES (?, ?, ?, ?, ?, ?)`, [setlistResult.insertId, songRows[0].id, position, song.encore, song.set_position, song.set_name]);
 		position += 1;
 		songs += 1;
 	}
