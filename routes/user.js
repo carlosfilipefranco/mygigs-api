@@ -3,6 +3,29 @@ const router = express.Router();
 const user = require("../services/user");
 const authService = require("../services/auth");
 const { requireAuth } = require("../middleware/auth");
+const passwordReset = require("../services/passwordReset");
+const requestLimit = require("../middleware/requestLimit");
+
+const recoveryLimit = requestLimit({ max: 10, windowMs: 15 * 60 * 1000, key: req => req.ip });
+const resetLimit = requestLimit({ max: 30, windowMs: 15 * 60 * 1000, key: req => req.ip });
+
+router.post("/forgot-password", recoveryLimit, async (req, res, next) => {
+	res.set("Cache-Control", "no-store");
+	try {
+		const startedAt = Date.now();
+		const result = await passwordReset.requestReset(req.body || {});
+		// Evitar uma resposta imediata para emails desconhecidos ou pedidos repetidos.
+		await new Promise(resolve => setTimeout(resolve, Math.max(0, 1000 - (Date.now() - startedAt))));
+		res.json(result);
+	} catch (error) { next(error); }
+});
+
+router.post("/reset-password", resetLimit, async (req, res, next) => {
+	res.set("Cache-Control", "no-store");
+	try {
+		res.json(await passwordReset.resetPassword(req.body || {}));
+	} catch (error) { next(error); }
+});
 
 /* POST register */
 router.post("/register", async function (req, res, next) {
@@ -49,7 +72,7 @@ router.post("/google", async function (req, res, next) {
 router.post("/session", requireAuth, async function (req, res, next) {
 	try {
 		const currentUser = await user.get(req.user.id);
-		if (!currentUser) {
+		if (!currentUser || Number(currentUser.auth_version) !== (req.user.authVersion ?? 0)) {
 			return res.status(401).json({ message: "Session is no longer valid" });
 		}
 		res.set("Cache-Control", "no-store");

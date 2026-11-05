@@ -1,7 +1,8 @@
 const auth = require("../services/auth");
+const db = require("../services/db");
 
 // Middleware obrigatório — falha se não houver token
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
 	const authHeader = req.headers["authorization"];
 	if (!authHeader) return res.status(401).json({ message: "No token provided" });
 
@@ -11,8 +12,15 @@ function requireAuth(req, res, next) {
 	const decoded = auth.verifyToken(token);
 	if (!decoded) return res.status(401).json({ message: "Invalid or expired token" });
 
-	req.user = decoded;
-	next();
+	try {
+		const users = await db.query("SELECT auth_version FROM user WHERE id = ?", [decoded.id]);
+		// Tokens anteriores à recuperação continuam válidos até à primeira redefinição.
+		if (!users.length || Number(users[0].auth_version) !== (decoded.authVersion ?? 0)) {
+			return res.status(401).json({ message: "Invalid or expired token" });
+		}
+		req.user = decoded;
+		next();
+	} catch (error) { next(error); }
 }
 
 // Acesso público sem token; uma sessão enviada mas inválida deve devolver 401.
@@ -27,7 +35,8 @@ function optionalAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-	requireAuth(req, res, () => {
+	return requireAuth(req, res, (error) => {
+		if (error) return next(error);
 		if (req.user.role !== "admin") {
 			return res.status(403).json({ message: "Admin access required" });
 		}

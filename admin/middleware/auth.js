@@ -4,7 +4,7 @@ module.exports = async function isAdmin(req, res, next) {
 	if (!req.session?.admin?.id || req.session.admin.role !== "admin") return res.redirect("/admin/login");
 	try {
 		const user = await users.get(req.session.admin.id);
-		if (!user || user.role !== "admin") {
+		if (!user || user.role !== "admin" || Number(user.auth_version) !== (req.session.admin.authVersion ?? 0)) {
 			delete req.session.admin;
 			return res.redirect("/admin/login");
 		}

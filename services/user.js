@@ -70,6 +70,7 @@ async function login(email, password) {
 		name: user.name,
 		email: user.email,
 		image: user.image || null,
+		auth_version: Number(user.auth_version || 0),
 		role: user.role || "user"
 	};
 }
@@ -103,7 +104,7 @@ async function loginWithGoogle(payload) {
 	const googleImage = tokenPayload?.picture?.trim() || null;
 	const fallbackName = email.split("@")[0];
 	const safeName = (googleName || fallbackName || "Utilizador").slice(0, 255);
-	const users = await db.query(`SELECT id, name, email, image, role, password_hash FROM user WHERE email = ? LIMIT 1`, [email]);
+	const users = await db.query(`SELECT id, name, email, image, role, password_hash, auth_version FROM user WHERE email = ? LIMIT 1`, [email]);
 
 	if (users.length) {
 		const user = users[0];
@@ -121,6 +122,7 @@ async function loginWithGoogle(payload) {
 			name: user.name || safeName,
 			email: user.email,
 			image,
+			auth_version: Number(user.auth_version || 0),
 			role: user.role || "user"
 		};
 	}
@@ -158,7 +160,7 @@ function getGoogleAudience() {
 }
 
 async function get(id) {
-	const users = await db.query(`SELECT id, name, email, image, role, created_at FROM user WHERE id = ?`, [id]);
+	const users = await db.query(`SELECT id, name, email, image, role, created_at, auth_version FROM user WHERE id = ?`, [id]);
 
 	return users.length ? users[0] : null;
 }

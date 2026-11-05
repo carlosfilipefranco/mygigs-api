@@ -3,7 +3,7 @@ const { requiredSecret } = require("./securityConfig");
 
 function generateToken(user) {
 	return jwt.sign(
-		{ id: user.id, email: user.email, role: user.role || "user" },
+		{ id: user.id, email: user.email, role: user.role || "user", authVersion: Number(user.auth_version || 0) },
 		requiredSecret("JWT_SECRET"),
 		{ algorithm: "HS256" }
 	);

@@ -1,12 +1,12 @@
 // Limite por utilizador e por processo; não guarda tokens nem conteúdo dos pedidos.
-module.exports = function requestLimit({ max, windowMs }) {
+module.exports = function requestLimit({ max, windowMs, key: requestKey = req => req.user.id }) {
 	const buckets = new Map();
 	return (req, res, next) => {
 		const now = Date.now();
 		if (buckets.size >= 1000) {
 			for (const [key, bucket] of buckets) if (bucket.resetAt <= now) buckets.delete(key);
 		}
-		const key = String(req.user.id);
+		const key = String(requestKey(req));
 		let bucket = buckets.get(key);
 		if (!bucket || bucket.resetAt <= now) {
 			if (buckets.size >= 10000 && !bucket) return res.status(503).json({ message: "Tenta novamente mais tarde." });

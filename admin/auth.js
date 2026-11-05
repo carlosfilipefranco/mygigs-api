@@ -15,7 +15,7 @@ router.post("/login", async (req, res) => {
 		}
 
 		await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
-		req.session.admin = { id: user.id, role: "admin" };
+		req.session.admin = { id: user.id, role: "admin", authVersion: user.auth_version };
 		await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
 		res.redirect("/admin");
 	} catch (err) {
