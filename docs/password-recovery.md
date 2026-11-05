@@ -1,8 +1,8 @@
 # Recuperação de palavra-passe
 
 O formulário de entrada tem uma ligação para `/recuperar-palavra-passe`.
-A pessoa indica o email e permanece na mesma página: aparecem o campo do código
-recebido e os campos da nova palavra-passe. O email contém um código de seis
+A pessoa permanece na mesma página e avança por três etapas: indicar o email,
+confirmar o código recebido e escolher uma nova palavra-passe. O email contém um código de seis
 algarismos, o logótipo do Na Grade e instruções para voltar ao formulário.
 Não contém links de recuperação. Contas criadas com Google também podem definir
 uma palavra-passe própria através deste fluxo.
@@ -55,6 +55,13 @@ uma palavra-passe própria através deste fluxo.
   por código, guardado na BD e partilhado entre réplicas. O incremento é
   confirmado antes de devolver o erro; pedidos concorrentes são serializados
   pelo bloqueio do utilizador na transação.
+- `POST /api/user/verify-reset-code` recebe `{ "email": "...", "code": "012345" }`
+  e confirma o código antes de mostrar a etapa da nova palavra-passe. Partilha
+  os limites de tentativas com a redefinição. O código é validado novamente na
+  alteração final e só então é consumido; a confirmação não cria uma sessão.
+  Códigos inválidos ou expirados devolvem 400 com `code: INVALID_RESET_CODE`.
+  Nesse caso, o frontend regressa à etapa do código, incluindo quando este
+  expira durante a escolha da palavra-passe. Esta etapa não exige nova migração.
 - O consumo do código, a mudança da palavra-passe e o incremento de
   `auth_version` são feitos na mesma transação. O código deixa de poder ser
   utilizado e as sessões anteriores da API e do backoffice são invalidadas.
@@ -66,7 +73,7 @@ uma palavra-passe própria através deste fluxo.
   de cinco envios por hora, controlados na BD. Por IP e por processo: 10 pedidos
   de recuperação e 30 tentativas de redefinição por 15 minutos. Para múltiplas
   réplicas, os limites por IP devem passar para armazenamento partilhado.
-- O formulário apresenta a contagem até ao reenvio e permite alterar o email.
+- O formulário apresenta a contagem até ao reenvio na etapa do código.
   O email e a data do pedido são guardados em `sessionStorage` para retomar o
   formulário após recarregar a página na mesma aba, durante os 10 minutos.
   Código e palavra-passe não são persistidos; são limpos ao sair do ecrã.

@@ -20,11 +20,24 @@ router.post("/forgot-password", recoveryLimit, async (req, res, next) => {
 	} catch (error) { next(error); }
 });
 
+router.post("/verify-reset-code", resetLimit, async (req, res, next) => {
+	res.set("Cache-Control", "no-store");
+	try {
+		res.json(await passwordReset.verifyResetCode(req.body || {}));
+	} catch (error) {
+		if (error.code === "INVALID_RESET_CODE") return res.status(400).json({ message: error.message, code: error.code });
+		next(error);
+	}
+});
+
 router.post("/reset-password", resetLimit, async (req, res, next) => {
 	res.set("Cache-Control", "no-store");
 	try {
 		res.json(await passwordReset.resetPassword(req.body || {}));
-	} catch (error) { next(error); }
+	} catch (error) {
+		if (error.code === "INVALID_RESET_CODE") return res.status(400).json({ message: error.message, code: error.code });
+		next(error);
+	}
 });
 
 /* POST register */

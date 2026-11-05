@@ -62,12 +62,46 @@ async function requestReset(payload = {}) {
 	return { message: requestMessage };
 }
 
+function invalidCodeError() {
+	return Object.assign(new Error(invalidMessage), { statusCode: 400, code: "INVALID_RESET_CODE" });
+}
+
+function validateCode(code) {
+	if (typeof code !== "string" || !/^\d{6}$/.test(code)) {
+		throw invalidCodeError();
+	}
+}
+
+// Chamado dentro de uma transação; mantém os mesmos bloqueios e limites em ambas as etapas.
+async function findValidCode(query, email, code) {
+	const users = await query("SELECT id FROM user WHERE email = ? LIMIT 1 FOR UPDATE", [email]);
+	if (!users.length) return null;
+	const userId = users[0].id;
+	const resets = await query(`SELECT token_hash, failed_attempts, expires_at > UTC_TIMESTAMP() AS active
+		FROM user_password_reset WHERE user_id = ? FOR UPDATE`, [userId]);
+	const reset = resets[0];
+	if (!reset?.active || Number(reset.failed_attempts) >= 5) return null;
+	const hash = codeHash(userId, code);
+	if (!timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(reset.token_hash, "hex"))) {
+		await query("UPDATE user_password_reset SET failed_attempts = failed_attempts + 1 WHERE user_id = ?", [userId]);
+		// O erro é devolvido apenas depois do commit para preservar a contagem de tentativas.
+		return null;
+	}
+	return { userId, hash };
+}
+
+async function verifyResetCode(payload = {}) {
+	const email = normalizeEmail(payload.email);
+	validateCode(payload.code);
+	const valid = await db.transaction(query => findValidCode(query, email, payload.code));
+	if (!valid) throw invalidCodeError();
+	return { message: "Código confirmado. Escolhe uma nova palavra-passe." };
+}
+
 async function resetPassword(payload = {}) {
 	const email = normalizeEmail(payload.email);
 	const { code, password } = payload;
-	if (typeof code !== "string" || !/^\d{6}$/.test(code)) {
-		throw Object.assign(new Error(invalidMessage), { statusCode: 400 });
-	}
+	validateCode(code);
 	if (typeof password !== "string" || password.length < 8) {
 		throw Object.assign(new Error("Usa pelo menos 8 caracteres na nova palavra-passe."), { statusCode: 400 });
 	}
@@ -75,27 +109,17 @@ async function resetPassword(payload = {}) {
 		throw Object.assign(new Error("Escolhe uma palavra-passe mais curta e sem o prefixo google-."), { statusCode: 400 });
 	}
 	const changed = await db.transaction(async query => {
-		const users = await query("SELECT id FROM user WHERE email = ? LIMIT 1 FOR UPDATE", [email]);
-		if (!users.length) return false;
-		const userId = users[0].id;
-		const resets = await query(`SELECT token_hash, failed_attempts, expires_at > UTC_TIMESTAMP() AS active
-			FROM user_password_reset WHERE user_id = ? FOR UPDATE`, [userId]);
-		const reset = resets[0];
-		if (!reset?.active || Number(reset.failed_attempts) >= 5) return false;
-		const hash = codeHash(userId, code);
-		if (!timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(reset.token_hash, "hex"))) {
-			await query("UPDATE user_password_reset SET failed_attempts = failed_attempts + 1 WHERE user_id = ?", [userId]);
-			// Devolver o erro apenas depois do commit para preservar a contagem de tentativas.
-			return false;
-		}
+		const valid = await findValidCode(query, email, code);
+		if (!valid) return false;
+		const { userId, hash } = valid;
 		const passwordHash = await bcrypt.hash(password, 10);
 		const consumed = await query("DELETE FROM user_password_reset WHERE user_id = ? AND token_hash = ? AND expires_at > UTC_TIMESTAMP()", [userId, hash]);
 		if (consumed.affectedRows !== 1) return false;
 		await query("UPDATE user SET password_hash = ?, auth_version = auth_version + 1 WHERE id = ?", [passwordHash, userId]);
 		return true;
 	});
-	if (!changed) throw Object.assign(new Error(invalidMessage), { statusCode: 400 });
+	if (!changed) throw invalidCodeError();
 	return { message: "Palavra-passe atualizada. Inicia sessão com a nova palavra-passe." };
 }
 
-module.exports = { requestReset, resetPassword };
+module.exports = { requestReset, verifyResetCode, resetPassword };
