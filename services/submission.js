@@ -4,6 +4,7 @@ const venueService = require("./venue");
 const festivalService = require("./festival");
 const editionService = require("./edition");
 const eventService = require("./event");
+const submissionFile = require("./submissionFile");
 
 const ALLOWED_ENTITY_TYPES = new Set(["artist", "venue", "festival", "edition", "event"]);
 const ALLOWED_STATUSES = new Set(["pending", "approved", "rejected"]);
@@ -82,13 +83,21 @@ async function getById(id) {
 }
 
 function hydrateSubmission(row) {
+	const payload = parsePayload(row.payload);
+	if (payload.submission_kind === "concert_list" && payload.file) {
+		const { key, ...file } = payload.file;
+		payload.file = file;
+	}
 	return {
 		...row,
-		payload: parsePayload(row.payload)
+		payload
 	};
 }
 
 async function create(userId, input) {
+	if (parsePayload(input?.payload)?.submission_kind === "concert_list") {
+		throw Object.assign(new Error("Envia a listagem através do upload de ficheiros."), { statusCode: 400 });
+	}
 	const entityType = normalizeEntityType(input?.entity_type || input?.entityType);
 	if (!entityType) {
 		throw new Error("Invalid suggestion type");
@@ -112,6 +121,30 @@ async function create(userId, input) {
 		id: result.insertId,
 		message: "Sugestão enviada para revisão."
 	};
+}
+
+async function createFile(userId, input) {
+	const note = typeof input?.note === "string" ? input.note.trim() : "";
+	if (note.length > 2000) throw Object.assign(new Error("A nota pode ter até 2000 caracteres."), { statusCode: 400 });
+	const file = await submissionFile.store(input?.file);
+	try {
+		const result = await db.query(`INSERT INTO user_submission (user_id, entity_type, submission_action, status, payload)
+			VALUES (?, 'event', 'create', 'pending', ?)`,
+			[userId, JSON.stringify({ submission_kind: "concert_list", file, note })]);
+		return { id: result.insertId, message: "Listagem enviada para análise pelo administrador." };
+	} catch (error) {
+		await submissionFile.remove(file.key).catch(() => {});
+		throw error;
+	}
+}
+
+async function getFile(id) {
+	const rows = await db.query("SELECT payload FROM user_submission WHERE id = ? LIMIT 1", [id]);
+	const payload = parsePayload(rows[0]?.payload);
+	if (payload.submission_kind !== "concert_list" || !payload.file?.key) {
+		throw Object.assign(new Error("Ficheiro não encontrado."), { statusCode: 404 });
+	}
+	return { path: submissionFile.filePath(payload.file.key), name: payload.file.name };
 }
 
 async function getMultiple(status = "pending", limit = 50) {
@@ -194,7 +227,7 @@ async function approve(id, adminId, input = {}) {
 	);
 
 	return {
-		message: "Sugestão aprovada.",
+		message: submission.payload.submission_kind === "concert_list" ? "Listagem marcada como analisada." : "Sugestão aprovada.",
 		result: approvalResult
 	};
 }
@@ -225,6 +258,8 @@ async function reject(id, adminId, input = {}) {
 
 async function applySuggestion(submission) {
 	const payload = submission.payload || {};
+	// As listagens são analisadas manualmente; aprová-las não cria concertos automaticamente.
+	if (payload.submission_kind === "concert_list") return null;
 
 	if (submission.entity_type === "artist") {
 		const artists = Array.isArray(payload.artists) ? payload.artists.map((name) => `${name}`.trim()).filter(Boolean) : [];
@@ -260,6 +295,8 @@ async function applySuggestion(submission) {
 
 module.exports = {
 	create,
+	createFile,
+	getFile,
 	getMultiple,
 	getMine,
 	approve,

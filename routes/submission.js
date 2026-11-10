@@ -3,6 +3,19 @@ const router = express.Router();
 const submission = require("../services/submission");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
 
+router.get("/:id/file", requireAdmin, async (req, res, next) => {
+	try {
+		const file = await submission.getFile(req.params.id);
+		res.set({ "Content-Type": "application/octet-stream", "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" });
+		res.download(file.path, file.name, (error) => {
+			if (!error) return;
+			if (res.headersSent) return next(error);
+			if (error.code === "ENOENT") return res.status(404).json({ message: "Ficheiro não encontrado." });
+			next(error);
+		});
+	} catch (error) { next(error); }
+});
+
 /* POST user suggestion */
 router.post("/", requireAuth, async function (req, res, next) {
 	try {

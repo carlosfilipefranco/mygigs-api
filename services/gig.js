@@ -966,7 +966,7 @@ async function getLatestMedia(type = "1", geography = {}) {
 		 INNER JOIN venue v ON v.id = g.venue_id
 		 LEFT JOIN user u ON u.id = gm.user_id
 		 WHERE gm.type = ? AND g.type = ?${geo.clause}
-		 ORDER BY gm.id DESC LIMIT ${limit}`,
+		 ORDER BY ${mediaType === "link" ? "g.date DESC, g.id DESC, gm.id DESC" : "gm.id DESC"} LIMIT ${limit}`,
 		[mediaType, Number(type), ...geo.params]
 	);
 	const [photos, reviews] = await Promise.all([latest("image", 8), latest("link", 4)]);

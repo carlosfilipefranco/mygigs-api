@@ -4,6 +4,11 @@ const adminTools = require("../services/adminTools");
 const setlistFmImport = require("../services/setlistFmImport");
 const { requireAdmin } = require("../middleware/auth");
 
+router.get("/users", requireAdmin, async (req, res, next) => {
+	try { res.set("Cache-Control", "no-store").json(await adminTools.getUsers(req.query)); }
+	catch (error) { next(error); }
+});
+
 router.get("/artist-duplicates", requireAdmin, async function (req, res, next) {
 	try {
 		res.json(await adminTools.getArtistDuplicates(req.query.type, req.query.limit));

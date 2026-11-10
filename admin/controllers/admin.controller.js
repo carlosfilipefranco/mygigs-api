@@ -1,5 +1,15 @@
 const fetch = require("node-fetch");
 const { API_BASE_URL } = require("../config");
+const adminTools = require("../../services/adminTools");
+
+exports.users = async (req, res, next) => {
+	try {
+		const users = await adminTools.getUsers(req.query);
+		res.set("Cache-Control", "no-store").render("users", {
+			users, search: String(req.query.search || "").trim().slice(0, 150), active: "users"
+		});
+	} catch (error) { next(error); }
+};
 
 exports.dashboard = async (req, res) => {
 	try {

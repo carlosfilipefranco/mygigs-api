@@ -1,0 +1,31 @@
+<section class="content pt-3">
+	<div class="container-fluid">
+		<h1>Utilizadores registados</h1>
+		<p><%= users.total %> utilizadores<%= search ? ' na pesquisa' : '' %></p>
+		<form method="get" action="/admin/users" class="d-flex gap-2 mb-3">
+			<input class="form-control" type="search" name="search" value="<%= search %>" maxlength="150" placeholder="Pesquisar por nome ou email" aria-label="Pesquisar por nome ou email" />
+			<button type="submit" class="btn btn-primary">Pesquisar</button>
+		</form>
+		<div class="table-responsive">
+			<table class="table table-striped">
+				<thead><tr><th scope="col">Nome</th><th scope="col">Email</th><th scope="col">Perfil</th><th scope="col">Registo</th></tr></thead>
+				<tbody>
+					<% users.data.forEach(user => { %>
+						<tr>
+							<td><%= user.name %></td>
+							<td><%= user.email %></td>
+							<td><%= user.role === 'admin' ? 'Administrador' : 'Utilizador' %></td>
+							<td><%= user.created_at ? new Date(user.created_at).toLocaleDateString('pt-PT', { timeZone: 'Europe/Lisbon' }) : '—' %></td>
+						</tr>
+					<% }) %>
+				</tbody>
+			</table>
+		</div>
+		<% if (!users.data.length) { %><p>Não foram encontrados utilizadores.</p><% } %>
+		<nav class="d-flex align-items-center gap-3" aria-label="Paginação de utilizadores">
+			<% if (users.page > 1) { %><a href="/admin/users?page=<%= users.page - 1 %>&amp;search=<%= encodeURIComponent(search) %>" class="btn btn-outline-primary">Anterior</a><% } %>
+			<span>Página <%= users.page %></span>
+			<% if (users.page * users.page_size < users.total) { %><a href="/admin/users?page=<%= users.page + 1 %>&amp;search=<%= encodeURIComponent(search) %>" class="btn btn-outline-primary">Seguinte</a><% } %>
+		</nav>
+	</div>
+</section>

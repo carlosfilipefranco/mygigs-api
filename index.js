@@ -61,6 +61,7 @@ app.set("view engine", "ejs");
 
 // Static files do BackOffice
 app.use("/admin/static", express.static(path.join(__dirname, "admin/public")));
+app.use("/uploads/.submissions", (req, res) => res.sendStatus(404));
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
 // ------------------
