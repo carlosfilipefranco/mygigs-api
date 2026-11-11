@@ -4,6 +4,12 @@ function editionDate(alias = "gig", field = "date_start") {
 		INNER JOIN edition ed ON ed.id = cde.edition_id WHERE cdg.gig_id = ${alias}.id)`;
 }
 
+// O histórico pessoal inclui concertos sem data que não pertencem a uma edição.
+function historicalGig(alias = "gig") {
+	return `(${alias}.date < CURDATE() OR (${alias}.date IS NULL AND NOT EXISTS
+		(SELECT 1 FROM event_gig cdg INNER JOIN edition_event cde ON cde.event_id = cdg.event_id WHERE cdg.gig_id = ${alias}.id)))`;
+}
+
 function upcomingGig(alias = "gig") {
 	return `(${alias}.date >= CURDATE() OR (${alias}.date IS NULL AND ${editionDate(alias, "date_end")} >= CURDATE()))`;
 }
@@ -20,4 +26,4 @@ function upcomingEvent(alias = "event") {
 	return `(${alias}.date >= CURDATE() OR (${alias}.date IS NULL AND ${eventEditionDate(alias, "date_end")} >= CURDATE()))`;
 }
 
-module.exports = { editionDate, upcomingGig, gigSortDate, eventEditionDate, upcomingEvent };
+module.exports = { editionDate, historicalGig, upcomingGig, gigSortDate, eventEditionDate, upcomingEvent };

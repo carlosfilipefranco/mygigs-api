@@ -1,6 +1,6 @@
 const db = require("./db");
 const { getUserPhotos } = require("./userPhotos");
-const { editionDate, upcomingGig, gigSortDate } = require("./concertDates");
+const { editionDate, historicalGig, upcomingGig, gigSortDate } = require("./concertDates");
 const bcrypt = require("bcryptjs");
 const { randomBytes } = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
@@ -180,11 +180,11 @@ async function getPublicProfile(id) {
 		db.query(
 			`
 			SELECT
-				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN gig.id END) AS attended_gigs,
+				COUNT(DISTINCT CASE WHEN ${historicalGig()} THEN gig.id END) AS attended_gigs,
 				COUNT(DISTINCT CASE WHEN ${upcomingGig()} THEN gig.id END) AS upcoming_gigs,
-				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN gig.artist_id END) AS artists_seen,
-				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN edition.id END) AS festival_editions,
-				COUNT(DISTINCT CASE WHEN gig.date < CURDATE() THEN event_gig.event_id END) AS total_events
+				COUNT(DISTINCT CASE WHEN ${historicalGig()} THEN gig.artist_id END) AS artists_seen,
+				COUNT(DISTINCT CASE WHEN ${historicalGig()} THEN edition.id END) AS festival_editions,
+				COUNT(DISTINCT CASE WHEN ${historicalGig()} THEN event_gig.event_id END) AS total_events
 			FROM user_gig
 			INNER JOIN gig ON user_gig.gig_id = gig.id
 			LEFT JOIN event_gig ON event_gig.gig_id = gig.id
@@ -205,7 +205,7 @@ async function getPublicProfile(id) {
 			WHERE user_gig.user_id = ?
 			  AND user_gig.status = 'going'
 			  AND gig.type = 1
-			  AND gig.date < CURDATE()
+			  AND ${historicalGig()}
 			GROUP BY artist.id, artist.name, artist.slug, artist.image
 			ORDER BY gig_count DESC, artist.name ASC
 			`,
@@ -229,7 +229,7 @@ async function getPublicProfile(id) {
 			WHERE user_gig.user_id = ?
 			  AND user_gig.status = 'going'
 			  AND gig.type = 1
-			  AND gig.date < CURDATE()
+			  AND ${historicalGig()}
 			GROUP BY festival.id, festival.name, festival.slug, festival.image
 			ORDER BY edition_count DESC, total_events DESC, festival.name ASC
 			`,
@@ -248,7 +248,7 @@ async function getPublicProfile(id) {
 			WHERE user_gig.user_id = ?
 			  AND user_gig.status = 'going'
 			  AND gig.type = 1
-			  AND gig.date < CURDATE()
+			  AND ${historicalGig()}
 			ORDER BY gig.date DESC, gig.id DESC
 			LIMIT 12
 			`,
@@ -283,7 +283,7 @@ async function getPublicProfile(id) {
 			WHERE user_gig.user_id = ?
 			  AND user_gig.status = 'going'
 			  AND gig.type = 1
-			  AND gig.date < CURDATE()
+			  AND ${historicalGig()}
 			GROUP BY country.code, country.name
 			ORDER BY gig_count DESC, country.name ASC
 			`,
@@ -327,7 +327,7 @@ async function getCountryGigs(id, countryCode, page = 1) {
 	if (!users.length) return null;
 	const from = `FROM gig
 		INNER JOIN city ON city.id = gig.city_id
-		WHERE city.country_code = ? AND gig.type = 1 AND gig.date < CURDATE()
+		WHERE city.country_code = ? AND gig.type = 1 AND ${historicalGig()}
 		AND EXISTS (SELECT 1 FROM user_gig ug WHERE ug.gig_id = gig.id AND ug.user_id = ? AND ug.status = 'going')`;
 	const totals = await db.query(`SELECT COUNT(*) AS total ${from}`, [code, userId]);
 	const total = Number(totals[0].total);
@@ -340,7 +340,7 @@ async function getCountryGigs(id, countryCode, page = 1) {
 		INNER JOIN artist ON artist.id = gig.artist_id
 		INNER JOIN venue ON venue.id = gig.venue_id
 		LEFT JOIN venue_alias va ON va.id = gig.venue_alias_id AND va.venue_id = gig.venue_id
-		WHERE city.country_code = ? AND gig.type = 1 AND gig.date < CURDATE()
+		WHERE city.country_code = ? AND gig.type = 1 AND ${historicalGig()}
 		AND EXISTS (SELECT 1 FROM user_gig ug WHERE ug.gig_id = gig.id AND ug.user_id = ? AND ug.status = 'going')
 		ORDER BY gig.date DESC, gig.id DESC LIMIT ${pageSize} OFFSET ${(pageNumber - 1) * pageSize}`, [code, userId]);
 	return { gigs, meta: { page: pageNumber, page_size: pageSize, total, pages } };

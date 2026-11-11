@@ -6,7 +6,7 @@ const config = require("../config");
 const { selectVenue, findVenueByName, selectedAlias, assertPhysicalVenueName } = require("./venueNames");
 const { getEditionIdsForGig, syncEditionDatesForEditionIds } = require("./editionDates");
 const reviewPreview = require("./reviewPreview");
-const { editionDate, upcomingGig, gigSortDate, upcomingEvent, eventEditionDate } = require("./concertDates");
+const { editionDate, historicalGig, upcomingGig, gigSortDate, upcomingEvent, eventEditionDate } = require("./concertDates");
 const festivalProgram = require("./festivalProgram");
 const { normalizeCityName } = require("./city");
 const { getSetlist } = require("./concertSetlist");
@@ -406,7 +406,7 @@ function buildPeriodFilter(period, field = "gig.date", options = {}) {
 	}
 	if (period === "past") {
 		if (includeNullOnPast) {
-			return `(${field} < CURDATE() OR (${field} IS NULL AND NOT EXISTS (SELECT 1 FROM event_gig cdg INNER JOIN edition_event cde ON cde.event_id = cdg.event_id WHERE cdg.gig_id = gig.id)))`;
+			return historicalGig();
 		}
 		return `${field} < CURDATE()`;
 	}
