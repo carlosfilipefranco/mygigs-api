@@ -1,3 +1,4 @@
+const notifications = require("./notifications");
 const db = require("./db");
 const { buildUniqueSlug, resolveEntityIdByIdentifier } = require("./slug");
 const { syncEditionDates } = require("./editionDates");
@@ -188,6 +189,7 @@ async function saveProgram(editionIdentifier, slots, type = 1, venue = null) {
 				continue;
 			}
 			let gigId = existing?.id;
+			const beforeNotification = gigId ? await notifications.gigSnapshot(query, gigId) : null;
 			if (!gigId) {
 				const result = await query(`INSERT INTO gig (artist_id, venue_id, venue_alias_id, city_id, date, type, position)
 					VALUES (?, ?, ?, ?, ?, ?, ?)`, [artistId, edition.venue_id, edition.venue_alias_id, edition.city_id, date, Number(type), Number(slot.position) || 0]);
@@ -198,6 +200,7 @@ async function saveProgram(editionIdentifier, slots, type = 1, venue = null) {
 			}
 			const target = await placeFestivalGig(query, edition, gigId, date, slot);
 			if (slot.position !== undefined) await query(`UPDATE gig SET position = ? WHERE id = ?`, [Number(slot.position) || 0, gigId]);
+			await notifications.publishGig(query, gigId, beforeNotification);
 			if (target.created) summary.created_events++;
 			summary.id ||= target.id;
 		}

@@ -95,6 +95,7 @@ app.use("/api/festival", festival);
 app.use("/api/edition", edition);
 app.use("/api/setlist", setlist);
 app.use("/api/user", user);
+app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/user-gig", userGig);
 app.use("/api/user-event", userEvent);
 app.use("/api/admin-tools", adminTools);

@@ -1,3 +1,4 @@
+const notifications = require("./notifications");
 const db = require("./db");
 const { geographyFilter } = require("./geography");
 const { getUserPhotos } = require("./userPhotos");
@@ -719,7 +720,8 @@ async function create(gigs) {
 				const [day, month, year] = gig.date.split("-");
 				date = `${year}-${month}-${day}`;
 			}
-			await query(`INSERT INTO gig (artist_id, venue_id, city_id, position, date, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?)`, [artistId, venueId, cityId, index, date, selectedVenue.alias_id]);
+			const created = await query(`INSERT INTO gig (artist_id, venue_id, city_id, position, date, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?)`, [artistId, venueId, cityId, index, date, selectedVenue.alias_id]);
+			await notifications.publishGig(query, created.insertId);
 		}
 		return { message: "finished" };
 	});
@@ -761,6 +763,7 @@ async function update(id, gig) {
 			throw new Error("Gig não encontrado");
 		}
 
+		const beforeNotification = await notifications.gigSnapshot(query, gigId);
 		const linkedEditionIds = await getEditionIdsForGig(gigId, query);
 		const nextArtistId = hasOwn(gig, "artist_id") ? normalizeNumber(gig.artist_id) : undefined;
 		const nextVenueId = hasOwn(gig, "venue_id") ? normalizeNumber(gig.venue_id) : undefined;
@@ -856,6 +859,7 @@ async function update(id, gig) {
 				end_time: hasOwn(gig, "end_time") ? nextEndTime : undefined
 			});
 			await syncEditionDatesForEditionIds(linkedEditionIds, query);
+			await notifications.publishGig(query, gigId, beforeNotification);
 			return { message: "Concerto atualizado sem alterar as marcações." };
 		}
 
@@ -900,6 +904,7 @@ async function update(id, gig) {
 
 		await syncEditionDatesForEditionIds(linkedEditionIds, query);
 
+		await notifications.publishGig(query, gigId, beforeNotification);
 		return { message: "gig updated successfully" };
 	}, { lockName: "festival-program" });
 }

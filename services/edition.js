@@ -1,3 +1,4 @@
+const notifications = require("./notifications");
 const db = require("./db");
 const { selectVenue, selectedAlias } = require("./venueNames");
 const helper = require("../helper");
@@ -562,6 +563,7 @@ async function create(edition) {
 		const dates = officialDates(edition, rows[0]);
 		const slug = await buildUniqueSlug({ query }, "edition", edition.name, rows[0]?.id || null);
 		let id = rows[0]?.id;
+		const beforeNotification = id ? await notifications.editionSnapshot(query, id) : null;
 		if (id) {
 			await query(`UPDATE edition SET name=?, slug=?, festival_id=?, image=?, city_id=?, venue_id=?, venue_alias_id=?, date_start=?, date_end=?, dates_confirmed=? WHERE id=?`, [edition.name, slug, edition.festival_id, edition.image || null, venue.city_id, venue.id, venue.alias_id, dates.start, dates.end, dates.confirmed, id]);
 		} else {
@@ -569,6 +571,7 @@ async function create(edition) {
 			id = result.insertId;
 		}
 		await syncEditionDates(id, query);
+		await notifications.publishEdition(query, id, beforeNotification);
 		return { id, message: "Edition created successfully" };
 	});
 }
@@ -597,6 +600,7 @@ async function update(id, edition) {
 		const resolvedId = await resolveEntityIdByIdentifier({ query }, "edition", id);
 		const rows = await query(`SELECT venue_id, venue_alias_id, date_start, date_end, dates_confirmed FROM edition WHERE id = ? FOR UPDATE`, [resolvedId]);
 		if (!rows.length) throw Object.assign(new Error("Edição não encontrada."), { statusCode: 404 });
+		const beforeNotification = await notifications.editionSnapshot(query, resolvedId);
 		const dates = officialDates(edition, rows[0]);
 		if (dates.confirmed) {
 			const conflicts = await query(`SELECT g.id FROM gig g INNER JOIN event_gig eg ON eg.gig_id = g.id INNER JOIN edition_event ee ON ee.event_id = eg.event_id WHERE ee.edition_id = ? AND (g.date < ? OR g.date > ?) LIMIT 1`, [resolvedId, dates.start, dates.end]);
@@ -609,6 +613,7 @@ async function update(id, edition) {
 		const slug = await buildUniqueSlug({ query }, "edition", edition.name, resolvedId);
 		await query(`UPDATE edition SET name=?, slug=?, image=?, city_id=?, venue_id=?, venue_alias_id=?, date_start=?, date_end=?, dates_confirmed=? WHERE id=?`, [edition.name, slug, edition.image || null, venue.city_id, venue.id, venue.alias_id, dates.start, dates.end, dates.confirmed, resolvedId]);
 		await syncEditionDates(resolvedId, query);
+		await notifications.publishEdition(query, resolvedId, beforeNotification);
 		return { message: "Edition updated successfully" };
 	});
 }

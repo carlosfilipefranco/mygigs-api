@@ -1,3 +1,4 @@
+const notifications = require("./notifications");
 const db = require("./db");
 const { geographyFilter } = require("./geography");
 const helper = require("../helper");
@@ -522,6 +523,7 @@ async function create(event) {
 			const resultGig = await query(`INSERT INTO gig (date, city_id, venue_id, artist_id, type, start_time, end_time, venue_alias_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [event.date, cityId, venueId, slot.artist_id, type, slot.start_time, slot.end_time, selectedVenue.alias_id]);
 			const stageId = resolveStageId(slot, stageLookup);
 			await query(`INSERT INTO event_gig (event_id, gig_id, stage_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)`, [eventId, resultGig.insertId, stageId, slot.start_time, slot.end_time]);
+			await notifications.publishGig(query, resultGig.insertId);
 		}
 		if (editionId) {
 			await query(`INSERT INTO edition_event (edition_id, event_id) VALUES (?, ?)`, [editionId, eventId]);
@@ -606,6 +608,8 @@ async function update(id, event) {
 		if (!currentRows.length) throw new Error("Event not found");
 		const linkedEditionIds = await getEditionIdsForEvent(resolvedId, query);
 		const currentGigs = await query(`SELECT eg.gig_id, g.artist_id FROM event_gig eg INNER JOIN gig g ON g.id = eg.gig_id WHERE eg.event_id = ?`, [resolvedId]);
+		const beforeNotifications = new Map();
+		for (const row of currentGigs) beforeNotifications.set(Number(row.gig_id), await notifications.gigSnapshot(query, row.gig_id));
 		const incomingSlots = normalizeArtistSlots(event.artists);
 		const allowedGigIds = new Set(currentGigs.map((gig) => Number(gig.gig_id)));
 		if (Array.isArray(event.gigs) && event.gigs.some((gig) => !allowedGigIds.has(Number(gig?.id)))) {
@@ -761,6 +765,9 @@ async function update(id, event) {
 		}
 
 		await syncEditionDatesForEditionIds(linkedEditionIds, query);
+		for (const gigId of new Set(existingGigByArtist.values())) {
+			await notifications.publishGig(query, gigId, beforeNotifications.get(Number(gigId)) || null);
+		}
 
 		return { message };
 	});

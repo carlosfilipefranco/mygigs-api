@@ -1,3 +1,4 @@
+const { withNotificationActor } = require("../services/notificationContext");
 const auth = require("../services/auth");
 const db = require("../services/db");
 
@@ -19,7 +20,7 @@ async function requireAuth(req, res, next) {
 			return res.status(401).json({ message: "Invalid or expired token" });
 		}
 		req.user = decoded;
-		next();
+		withNotificationActor(decoded.id, next);
 	} catch (error) { next(error); }
 }
 

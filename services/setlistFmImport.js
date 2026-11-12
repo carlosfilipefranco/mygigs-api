@@ -1,3 +1,4 @@
+const notifications = require("./notifications");
 const { serviceKey } = require("./securityConfig");
 const fetch = require("node-fetch");
 const db = require("./db");
@@ -649,6 +650,8 @@ async function persistEntries(entries, payload) {
 					summary.created_songs += setlistResult.songs;
 				}
 			}
+
+			if (action === "created_gig") await notifications.publishGig(query, gigId);
 
 			results.push({
 				setlistfm_id: entry.setlistfm_id,
