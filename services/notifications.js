@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
 const db = require('./db');
+const webPush = require('./webPush');
 const { notificationActor } = require('./notificationContext');
 const { upcomingGig } = require('./concertDates');
 
@@ -144,11 +145,13 @@ async function deliver(query, kind, targets, title, body, path, actorId = notifi
 	if (!targets.length) return;
 	const unique = [...new Map(targets.map(target => [target.join(':'), target])).values()];
 	const predicate = unique.map(() => '(f.entity_type = ? AND f.entity_id = ?)').join(' OR ');
+	const eventKey = randomUUID();
 	await query(`INSERT INTO user_notification (user_id, event_key, kind, title, body, path)
 		SELECT DISTINCT f.user_id, ?, ?, ?, ?, ? FROM user_follow f
 		INNER JOIN user_notification_preferences p ON p.user_id = f.user_id
 		WHERE p.enabled = 1 AND p.${kind} = 1 AND (${predicate})${actorId ? ' AND f.user_id <> ?' : ''}`,
-		[randomUUID(), kind, title.slice(0, 255), body.slice(0, 2000), path, ...unique.flat(), ...(actorId ? [actorId] : [])]);
+		[eventKey, kind, title.slice(0, 255), body.slice(0, 2000), path, ...unique.flat(), ...(actorId ? [actorId] : [])]);
+	await webPush.enqueue(query, eventKey);
 }
 
 async function publishGig(query, id, before = null, actorId = notificationActor()) {

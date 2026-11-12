@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const notifications = require('../services/notifications');
+const webPush = require('../services/webPush');
 const { requireAuth } = require('../middleware/auth');
 
 router.use(requireAuth);
@@ -7,6 +8,10 @@ router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); 
 const handle = action => async (req, res, next) => {
 	try { res.json(await action(req)); } catch (error) { next(error); }
 };
+
+router.get('/push/config', handle(() => webPush.publicConfiguration()));
+router.post('/push/subscriptions', handle(req => webPush.subscribe(req.user.id, req.body?.subscription)));
+router.delete('/push/subscriptions/:id', handle(req => webPush.unsubscribe(req.user.id, req.params.id)));
 
 router.get('/settings', handle(req => notifications.settings(req.user.id)));
 router.put('/settings', handle(req => notifications.savePreferences(req.user.id, req.body)));

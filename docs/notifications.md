@@ -28,8 +28,8 @@ interesses; reativar não recupera novidades ocorridas durante a pausa.
 O convite inicial é mostrado aos utilizadores que ainda não têm
 `onboarding_completed`. Tanto «Agora não» como a conclusão da configuração
 guardam esta escolha na conta. Utilizadores já existentes recebem o convite na
-primeira sessão após a disponibilização da funcionalidade. Não há pedidos de
-permissão do navegador, email ou push nesta versão.
+primeira sessão após a disponibilização da funcionalidade. As push são opcionais por dispositivo; a configuração e a entrega estão em
+`docs/web-push.md`. Não há envio por email.
 
 ## API autenticada
 
