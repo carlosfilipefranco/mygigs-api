@@ -335,7 +335,7 @@ async function get(id, userId = null) {
 
 	gig.attendees = await db.query(
 		`
-		SELECT user.id, user.name, user.image
+		SELECT user.public_id, user.name, user.image
 		FROM user_gig ug
 		INNER JOIN user ON user.id = ug.user_id
 		WHERE ug.gig_id = ?
@@ -348,7 +348,7 @@ async function get(id, userId = null) {
 
 	// 🔥 Buscar media (imagens, videos, links)
 	const mediaRows = await db.query(
-		`SELECT gm.id, gm.gig_id, gm.url, gm.type, gm.user_id, u.name AS user_name
+		`SELECT gm.id, gm.gig_id, gm.url, gm.type, u.public_id AS user_public_id, u.name AS user_name
 		 FROM gig_media gm
 		 LEFT JOIN user u ON u.id = gm.user_id
 		 WHERE gm.gig_id = ? ORDER BY gm.id DESC`,
@@ -963,7 +963,7 @@ async function getLatestMedia(type = "1", geography = {}) {
 
 	const geo = geographyFilter(geography, "g.city_id");
 	const latest = (mediaType, limit) => db.query(
-		`SELECT gm.id, gm.url, gm.user_id, u.name AS user_name,
+		`SELECT gm.id, gm.url, u.public_id AS user_public_id, u.name AS user_name,
 		        g.id AS gig_id, g.date, a.name AS artist, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue
 		 FROM gig_media gm
 		 INNER JOIN gig g ON g.id = gm.gig_id

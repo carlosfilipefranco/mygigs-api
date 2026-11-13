@@ -126,9 +126,9 @@ router.delete("/me", requireAuth, async function (req, res, next) {
 });
 
 /* Fotografias públicas de concertos adicionadas pelo utilizador. */
-router.get("/:id/photos", async function (req, res, next) {
+router.get("/:publicId/photos", async function (req, res, next) {
 	try {
-		const photos = await user.getPublicPhotos(req.params.id, req.query.page);
+		const photos = await user.getPublicPhotos(req.params.publicId, req.query.page);
 		if (!photos) return res.status(404).json({ message: "User not found" });
 		res.json(photos);
 	} catch (err) {
@@ -136,9 +136,9 @@ router.get("/:id/photos", async function (req, res, next) {
 	}
 });
 
-router.get("/:id/countries/:code/gigs", async function (req, res, next) {
+router.get("/:publicId/countries/:code/gigs", async function (req, res, next) {
 	try {
-		const result = await user.getCountryGigs(req.params.id, req.params.code, req.query.page);
+		const result = await user.getCountryGigs(req.params.publicId, req.params.code, req.query.page);
 		if (!result) return res.status(404).json({ message: "User not found" });
 		res.json(result);
 	} catch (err) {
@@ -147,9 +147,9 @@ router.get("/:id/countries/:code/gigs", async function (req, res, next) {
 });
 
 /* GET public user profile */
-router.get("/:id", async function (req, res, next) {
+router.get("/:publicId", async function (req, res, next) {
 	try {
-		const profile = await user.getPublicProfile(req.params.id);
+		const profile = await user.getPublicProfile(req.params.publicId);
 		if (!profile) {
 			return res.status(404).json({ message: "User not found" });
 		}

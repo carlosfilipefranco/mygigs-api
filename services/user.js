@@ -3,6 +3,7 @@ const { getUserPhotos } = require("./userPhotos");
 const { editionDate, historicalGig, upcomingGig, gigSortDate } = require("./concertDates");
 const bcrypt = require("bcryptjs");
 const { randomBytes } = require("crypto");
+const { isPublicId, withPublicId } = require("./userPublicId");
 const { OAuth2Client } = require("google-auth-library");
 const fs = require("fs/promises");
 const path = require("path");
@@ -34,16 +35,14 @@ async function create(user) {
 	// Hash seguro
 	const passwordHash = await bcrypt.hash(password, 10);
 
-	const result = await db.query(
-		`
-    INSERT INTO user (name, email, password_hash)
-    VALUES (?, ?, ?)
-    `,
-		[name, email, passwordHash]
-	);
+	const { result, publicId } = await withPublicId(publicId => db.query(
+		`INSERT INTO user (public_id, name, email, password_hash) VALUES (?, ?, ?, ?)`,
+		[publicId, name, email, passwordHash]
+	));
 
 	return {
 		id: result.insertId,
+		public_id: publicId,
 		name,
 		email,
 		image: null,
@@ -67,6 +66,7 @@ async function login(email, password) {
 
 	return {
 		id: user.id,
+		public_id: user.public_id,
 		name: user.name,
 		email: user.email,
 		image: user.image || null,
@@ -104,7 +104,7 @@ async function loginWithGoogle(payload) {
 	const googleImage = tokenPayload?.picture?.trim() || null;
 	const fallbackName = email.split("@")[0];
 	const safeName = (googleName || fallbackName || "Utilizador").slice(0, 255);
-	const users = await db.query(`SELECT id, name, email, image, role, password_hash, auth_version FROM user WHERE email = ? LIMIT 1`, [email]);
+	const users = await db.query(`SELECT id, public_id, name, email, image, role, password_hash, auth_version FROM user WHERE email = ? LIMIT 1`, [email]);
 
 	if (users.length) {
 		const user = users[0];
@@ -119,6 +119,7 @@ async function loginWithGoogle(payload) {
 
 		return {
 			id: user.id,
+			public_id: user.public_id,
 			name: user.name || safeName,
 			email: user.email,
 			image,
@@ -128,16 +129,14 @@ async function loginWithGoogle(payload) {
 	}
 
 	const generatedPasswordHash = await bcrypt.hash(randomBytes(48).toString("base64url"), 10);
-	const result = await db.query(
-		`
-		INSERT INTO user (name, email, image, password_hash)
-		VALUES (?, ?, ?, ?)
-		`,
-		[safeName, email, googleImage, generatedPasswordHash]
-	);
+	const { result, publicId } = await withPublicId(publicId => db.query(
+		`INSERT INTO user (public_id, name, email, image, password_hash) VALUES (?, ?, ?, ?, ?)`,
+		[publicId, safeName, email, googleImage, generatedPasswordHash]
+	));
 
 	return {
 		id: result.insertId,
+		public_id: publicId,
 		name: safeName,
 		email,
 		image: googleImage,
@@ -160,21 +159,21 @@ function getGoogleAudience() {
 }
 
 async function get(id) {
-	const users = await db.query(`SELECT id, name, email, image, role, created_at, auth_version FROM user WHERE id = ?`, [id]);
+	const users = await db.query(`SELECT id, public_id, name, email, image, role, created_at, auth_version FROM user WHERE id = ?`, [id]);
 
 	return users.length ? users[0] : null;
 }
 
-async function getPublicProfile(id) {
-	const userId = normalizeUserId(id);
-	if (!userId) {
-		return null;
-	}
+async function getPublicUser(publicId) {
+	if (!isPublicId(publicId)) return null;
+	const users = await db.query(`SELECT id, public_id, name, image, created_at FROM user WHERE public_id = ? LIMIT 1`, [publicId]);
+	return users[0] || null;
+}
 
-	const users = await db.query(`SELECT id, name, image, created_at FROM user WHERE id = ? LIMIT 1`, [userId]);
-	if (!users.length) {
-		return null;
-	}
+async function getPublicProfile(publicId) {
+	const user = await getPublicUser(publicId);
+	if (!user) return null;
+	const { id: userId, ...publicUser } = user;
 
 	const [statsRows, topArtists, festivalStats, recentGigs, upcomingGigs, countryStats] = await Promise.all([
 		db.query(
@@ -293,7 +292,7 @@ async function getPublicProfile(id) {
 
 	const stats = statsRows?.[0] || {};
 	return {
-		user: users[0],
+		user: publicUser,
 		stats: {
 			attended_gigs: Number(stats.attended_gigs || 0),
 			upcoming_gigs: Number(stats.upcoming_gigs || 0),
@@ -314,17 +313,16 @@ async function getPublicProfile(id) {
 	};
 }
 
-async function getCountryGigs(id, countryCode, page = 1) {
-	const userId = normalizeUserId(id);
-	if (!userId) return null;
+async function getCountryGigs(publicId, countryCode, page = 1) {
+	const user = await getPublicUser(publicId);
+	if (!user) return null;
+	const userId = user.id;
 	const code = String(countryCode || "").trim().toUpperCase();
 	const requestedPage = Number(page);
 	if (!/^[A-Z]{2}$/.test(code)) throw Object.assign(new Error("País inválido."), { statusCode: 400 });
 	if (!Number.isInteger(requestedPage) || requestedPage < 1 || requestedPage > 100000) {
 		throw Object.assign(new Error("Página inválida."), { statusCode: 400 });
 	}
-	const users = await db.query(`SELECT id FROM user WHERE id = ? LIMIT 1`, [userId]);
-	if (!users.length) return null;
 	const from = `FROM gig
 		INNER JOIN city ON city.id = gig.city_id
 		WHERE city.country_code = ? AND gig.type = 1 AND ${historicalGig()}
@@ -346,12 +344,10 @@ async function getCountryGigs(id, countryCode, page = 1) {
 	return { gigs, meta: { page: pageNumber, page_size: pageSize, total, pages } };
 }
 
-async function getPublicPhotos(id, page = 1) {
-	const userId = normalizeUserId(id);
-	if (!userId) return null;
-	const users = await db.query(`SELECT id FROM user WHERE id = ? LIMIT 1`, [userId]);
-	if (!users.length) return null;
-	return getUserPhotos(userId, page, { musicOnly: true });
+async function getPublicPhotos(publicId, page = 1) {
+	const user = await getPublicUser(publicId);
+	if (!user) return null;
+	return getUserPhotos(user.id, page, { musicOnly: true });
 }
 
 async function updateProfile(id, payload = {}) {
@@ -362,7 +358,7 @@ async function updateProfile(id, payload = {}) {
 		throw error;
 	}
 
-	const users = await db.query(`SELECT id, name, email, image, role FROM user WHERE id = ? LIMIT 1`, [userId]);
+	const users = await db.query(`SELECT id, public_id, name, email, image, role FROM user WHERE id = ? LIMIT 1`, [userId]);
 	if (!users.length) {
 		const error = new Error("User not found");
 		error.statusCode = 404;
@@ -374,6 +370,7 @@ async function updateProfile(id, payload = {}) {
 
 	return {
 		id: users[0].id,
+		public_id: users[0].public_id,
 		name: users[0].name,
 		email: users[0].email,
 		image,

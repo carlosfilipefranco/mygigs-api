@@ -1,7 +1,7 @@
 const db = require("./db");
 
 const pageSize = 20;
-const commentSelect = `SELECT c.id, c.gig_id, c.user_id, c.body,
+const commentSelect = `SELECT c.id, c.gig_id, u.public_id AS user_public_id, c.body,
 	UNIX_TIMESTAMP(c.created_at) * 1000 AS created_at_ms,
 	COALESCE(u.name, 'Conta eliminada') AS user_name, u.image AS user_image
 	FROM gig_comment c LEFT JOIN user u ON u.id = c.user_id`;

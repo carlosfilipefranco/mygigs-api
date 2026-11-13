@@ -14,7 +14,7 @@ async function getUserPhotos(userId, page = 1, { musicOnly = false } = {}) {
 		LEFT JOIN user u ON u.id = gm.user_id
 		WHERE gm.type = 'image' AND gm.user_id = ?${musicOnly ? " AND g.type = 1" : ""}`;
 	const [rows, totals] = await Promise.all([
-		db.query(`SELECT gm.id, gm.url, gm.user_id, u.name AS user_name,
+		db.query(`SELECT gm.id, gm.url, u.public_id AS user_public_id, u.name AS user_name,
 			g.id AS gig_id, g.date, a.name AS artist,
 			COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue
 			${from} ORDER BY gm.id DESC LIMIT ${limit + 1} OFFSET ${offset}`, [userId]),
