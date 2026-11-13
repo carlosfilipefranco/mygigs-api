@@ -37,7 +37,7 @@ const adminAuthRouter = require("./admin/auth");
 // ------------------
 // MIDDLEWARE
 // ------------------
-app.use(cors());
+app.use(cors({ exposedHeaders: ["Retry-After"] }));
 // Autenticar e limitar uploads antes de ler o corpo, que pode conter uma imagem grande.
 app.use("/api/upload", require("./routes/upload"));
 app.use(express.json({ limit: "5mb" }));
@@ -107,7 +107,10 @@ app.use("/api/submission", submission);
 app.use((err, req, res, next) => {
 	const statusCode = err.statusCode || 500;
 	console.error(err.message, err.stack);
-	res.status(statusCode).json({ message: err.message });
+	// Erros internos e de SQL nunca devem aparecer nas mensagens da aplicação.
+	const message = statusCode >= 500 || err.sql || err.sqlMessage
+		? "Ocorreu um erro inesperado. Tenta novamente mais tarde." : err.message;
+	res.status(statusCode).json({ message });
 });
 
 // ------------------

@@ -1,4 +1,5 @@
 const db = require("./db");
+const registration = require("./registration");
 const { getUserPhotos } = require("./userPhotos");
 const { editionDate, historicalGig, upcomingGig, gigSortDate } = require("./concertDates");
 const bcrypt = require("bcryptjs");
@@ -26,28 +27,8 @@ module.exports = {
 	remove
 };
 
-async function create(user) {
-	const { name, email, password } = user;
-	if (typeof password !== "string" || !password || password.startsWith("google-")) {
-		throw Object.assign(new Error("Escolhe outra palavra-passe."), { statusCode: 400 });
-	}
-
-	// Hash seguro
-	const passwordHash = await bcrypt.hash(password, 10);
-
-	const { result, publicId } = await withPublicId(publicId => db.query(
-		`INSERT INTO user (public_id, name, email, password_hash) VALUES (?, ?, ?, ?)`,
-		[publicId, name, email, passwordHash]
-	));
-
-	return {
-		id: result.insertId,
-		public_id: publicId,
-		name,
-		email,
-		image: null,
-		role: "user"
-	};
+async function create(payload) {
+	return registration.completeRegistration(payload);
 }
 
 async function login(email, password) {

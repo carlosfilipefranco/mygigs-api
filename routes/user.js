@@ -4,6 +4,7 @@ const user = require("../services/user");
 const authService = require("../services/auth");
 const { requireAuth } = require("../middleware/auth");
 const passwordReset = require("../services/passwordReset");
+const registration = require("../services/registration");
 const requestLimit = require("../middleware/requestLimit");
 
 const recoveryLimit = requestLimit({ max: 10, windowMs: 15 * 60 * 1000, key: req => req.ip });
@@ -40,15 +41,32 @@ router.post("/reset-password", resetLimit, async (req, res, next) => {
 	}
 });
 
-/* POST register */
-router.post("/register", async function (req, res, next) {
+const registrationCodeLimit = requestLimit({ max: 10, windowMs: 15 * 60 * 1000, key: req => req.ip });
+const registrationLimit = requestLimit({ max: 30, windowMs: 15 * 60 * 1000, key: req => req.ip });
+
+function registrationError(err, res, next) {
+	const codes = new Set(["EMAIL_ALREADY_EXISTS", "INVALID_REGISTRATION_CODE", "INVALID_EMAIL", "INVALID_NAME", "INVALID_PASSWORD", "EMAIL_DELIVERY_FAILED", "REGISTRATION_RATE_LIMITED"]);
+	if (!codes.has(err.code)) return next(err);
+	if (err.retryAfter) res.set("Retry-After", String(err.retryAfter));
+	return res.status(err.statusCode).json({ message: err.message, code: err.code });
+}
+
+router.post("/registration-code", registrationCodeLimit, async (req, res, next) => {
+	res.set("Cache-Control", "no-store");
 	try {
-		const userCreated = await user.create(req.body);
+		res.json(await registration.requestCode(req.body || {}));
+	} catch (err) { registrationError(err, res, next); }
+});
+
+/* A conta e o token só são criados depois de consumir um código válido. */
+router.post("/register", registrationLimit, async function (req, res, next) {
+	res.set("Cache-Control", "no-store");
+	try {
+		const userCreated = await user.create(req.body || {});
 		const token = authService.generateToken(userCreated);
 		res.json({ ...userCreated, token });
 	} catch (err) {
-		console.error("Error while registering user", err.message);
-		next(err);
+		registrationError(err, res, next);
 	}
 });
 

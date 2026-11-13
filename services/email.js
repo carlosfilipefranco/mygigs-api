@@ -25,30 +25,52 @@ function configuration() {
 	return { apiKey, from };
 }
 
-async function sendPasswordReset(to, code) {
+async function registrationCodeContent(code) {
+	const templateRoot = path.join(__dirname, "../templates/emails");
+	const [html, logo] = await Promise.all([
+		ejs.renderFile(path.join(templateRoot, "registration-code.ejs"), { code }),
+		readFile(path.join(templateRoot, "assets/na-grade-logo.png"))
+	]);
+	return {
+		html,
+		text: `Confirma o teu email para criar a tua conta no Na Grade.\n\nO teu código de confirmação é: ${code}\n\nVolta ao site e introduz este código para concluir o registo.\n\nO código é válido durante 10 minutos e só pode ser utilizado uma vez. Não partilhes este código com ninguém.\n\nSe não fizeste este pedido, ignora este email. Nenhuma conta será criada sem a confirmação.`,
+		attachments: [{ filename: "na-grade-logo.png", content: logo.toString("base64"), content_id: "na-grade-logo" }]
+	};
+}
+
+async function sendCodeEmail(to, code, { content, subject, label, failureMessage }) {
 	const { apiKey, from } = configuration();
 	try {
-		const content = await passwordResetContent(code);
+		const rendered = await content(code);
 		const response = await fetch("https://api.resend.com/emails", {
 			method: "POST",
 			headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-			body: JSON.stringify({
-				from,
-				to: [to],
-				subject: "Recuperar palavra-passe — Na Grade",
-				...content
-			}),
+			body: JSON.stringify({ from, to: [to], subject, ...rendered }),
 			timeout: 10000,
 			redirect: "error"
 		});
 		if (!response.ok) {
 			// Não registar o corpo da resposta: pode conter o destinatário ou o código.
-			console.error("Password reset email rejected by provider", response.status);
+			console.error(`${label} email rejected by provider`, response.status);
 			throw new Error("Email delivery failed");
 		}
 	} catch {
-		throw Object.assign(new Error("Não foi possível enviar o email de recuperação."), { statusCode: 503 });
+		throw Object.assign(new Error(failureMessage), { statusCode: 503 });
 	}
 }
 
-module.exports = { configuration, sendPasswordReset, passwordResetContent };
+function sendPasswordReset(to, code) {
+	return sendCodeEmail(to, code, {
+		content: passwordResetContent, subject: "Recuperar palavra-passe — Na Grade",
+		label: "Password reset", failureMessage: "Não foi possível enviar o email de recuperação."
+	});
+}
+
+function sendRegistrationCode(to, code) {
+	return sendCodeEmail(to, code, {
+		content: registrationCodeContent, subject: "Confirmar email — Na Grade",
+		label: "Registration", failureMessage: "Não foi possível enviar o email de confirmação."
+	});
+}
+
+module.exports = { configuration, sendPasswordReset, passwordResetContent, sendRegistrationCode, registrationCodeContent };
