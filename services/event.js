@@ -1,6 +1,6 @@
 const notifications = require("./notifications");
 const db = require("./db");
-const { geographyFilter } = require("./geography");
+const { catalogFilter, gigDates, eventDates } = require("./catalogFilters");
 const helper = require("../helper");
 const config = require("../config");
 const { selectVenue, selectedAlias } = require("./venueNames");
@@ -286,7 +286,7 @@ async function getMultiple(page = 1, search = null, type = 1, period = null, use
 		orderBy = "event.date DESC";
 	}
 
-	const geo = geographyFilter(geography, "event.city_id");
+	const geo = catalogFilter(geography, "event.city_id", ...eventDates());
 	if (geo.predicate) { filters.push(geo.predicate); params.push(...geo.params); }
 	if (geography.mine === 1 || geography.mine === "1") {
 		if (!userId) return { data: [], meta: { page, count: 0 } };
@@ -544,7 +544,7 @@ async function create(event) {
 }
 
 async function dashboard(type = 1, geography = {}) {
-	const geo = geographyFilter(geography,'event.city_id');
+	const geo = catalogFilter(geography,'event.city_id',...eventDates());
 	const total_events = await db.query(`SELECT COUNT(*) AS total_events FROM event WHERE type = ?${geo.clause}`, [type,...geo.params]);
 	const events_by_year = await db.query(`SELECT YEAR(date) AS year, COUNT(*) AS event_count FROM event WHERE type = ?${geo.clause} GROUP BY YEAR(date) ORDER BY YEAR(date);`, [type,...geo.params]);
 

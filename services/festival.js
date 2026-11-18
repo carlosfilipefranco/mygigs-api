@@ -1,12 +1,12 @@
 const db = require("./db");
-const { geographyFilter } = require("./geography");
+const { catalogFilter, gigDates, eventDates } = require("./catalogFilters");
 const helper = require("../helper");
 const config = require("../config");
 const { resolveEntityIdByIdentifier, buildUniqueSlug } = require("./slug");
 
 async function getMultiple(page = 1, search = null, geography = {}) {
 	const offset = helper.getOffset(page, config.listPerPage);
-	const geo = geographyFilter(geography, 'geo_edition.city_id');
+	const geo = catalogFilter(geography, 'geo_edition.city_id', 'geo_edition.date_start', 'COALESCE(geo_edition.date_end, geo_edition.date_start)');
 	const filters = [], params = [];
 	if (search) { filters.push('LOWER(festival.name) LIKE ?'); params.push(`%${String(search).trim().toLowerCase()}%`); }
 	if (geo.predicate) { filters.push(`EXISTS (SELECT 1 FROM edition geo_edition WHERE geo_edition.festival_id=festival.id AND ${geo.predicate})`); params.push(...geo.params); }
@@ -17,7 +17,7 @@ async function getMultiple(page = 1, search = null, geography = {}) {
 }
 
 async function getUpcomingEditions(page = 1, limit = 8, geography = {}) {
-	const geo = geographyFilter(geography, "edition.city_id");
+	const geo = catalogFilter(geography, "edition.city_id", 'edition.date_start', 'COALESCE(edition.date_end, edition.date_start)');
 	const pageNumber = Math.max(1, Number(page) || 1);
 	const pageSize = Math.min(24, Math.max(1, Number(limit) || 8));
 	const offset = helper.getOffset(pageNumber, pageSize);

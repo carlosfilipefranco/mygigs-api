@@ -1,5 +1,5 @@
 const db = require('./db');
-const { geographyFilter } = require('./geography');
+const { catalogFilter, gigDates, eventDates } = require('./catalogFilters');
 const { upcomingGig, editionDate } = require('./concertDates');
 
 function eventType(input = '1') {
@@ -10,7 +10,7 @@ function eventType(input = '1') {
 function selection(kind, type, userId, geography = {}, { target = null, search = null, recent = false } = {}) {
 	const params = [];
 	if (kind === 'gig') {
-		const geo = geographyFilter(geography, 'g.city_id');
+		const geo = catalogFilter(geography, 'g.city_id', ...gigDates('g'));
 		const filters = ['g.type = ?'];
 		params.push(userId || null, type);
 		if (target) { filters.push('g.id = ?'); params.push(target); }
@@ -30,7 +30,7 @@ function selection(kind, type, userId, geography = {}, { target = null, search =
 			WHERE ${filters.join(' AND ')}${geo.clause}
 			ORDER BY g.id DESC LIMIT ${target ? 1 : 12}`, params);
 	}
-	const geo = geographyFilter(geography, 'e.city_id');
+	const geo = catalogFilter(geography, 'e.city_id', 'e.date_start', 'COALESCE(e.date_end, e.date_start)');
 	const filters = ['1=1'];
 	if (target) { filters.push('e.id = ?'); params.push(target); }
 	if (search) { filters.push('(e.name LIKE ? OR f.name LIKE ?)'); params.push(`%${search}%`, `%${search}%`); }

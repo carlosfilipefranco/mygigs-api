@@ -1,6 +1,6 @@
 const notifications = require("./notifications");
 const db = require("./db");
-const { geographyFilter } = require("./geography");
+const { catalogFilter, gigDates, eventDates } = require("./catalogFilters");
 const { getUserPhotos } = require("./userPhotos");
 const helper = require("../helper");
 const config = require("../config");
@@ -177,7 +177,7 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 		filters.push("ug.favorite = 1 AND ug.status = 'going' AND gig.date < CURDATE()");
 	}
 
-	const geo = geographyFilter(geography);
+	const geo = catalogFilter(geography);
 	if (geo.predicate) { filters.push(geo.predicate); params.push(...geo.params); }
 	const whereClause = `WHERE ${filters.join(" AND ")}`;
 	const queryParams = [userId, ...params];
@@ -449,7 +449,7 @@ async function dashboard(type = 1, userId = null, period = null, scope = null, g
 }
 
 async function globalDashboard(type, period = null, geography = {}) {
-	const geo = geographyFilter(geography);
+	const geo = catalogFilter(geography);
 	const periodClause = buildPeriodClause(period, "gig.date") + geo.clause;
 	const total_gigs = await db.query(`SELECT COUNT(*) AS total_gigs FROM gig WHERE type = ?${periodClause}`, [type, ...geo.params]);
 	const gigs_by_year = await db.query(`SELECT YEAR(COALESCE(gig.date, ${editionDate()})) AS year, COUNT(*) AS gig_count FROM gig WHERE type = ?${periodClause} GROUP BY year ORDER BY year;`, [type, ...geo.params]);
@@ -494,7 +494,7 @@ async function globalDashboard(type, period = null, geography = {}) {
 }
 
 async function userGigDashboard(type, userId, period = null, geography = {}) {
-	const geo = geographyFilter(geography);
+	const geo = catalogFilter(geography);
 	const periodClause = buildPeriodClause(period, "gig.date", { includeNullOnPast: true }) + geo.clause;
 	const total_gigs = await db.query(
 		`
@@ -590,7 +590,7 @@ async function userGigDashboard(type, userId, period = null, geography = {}) {
 
 async function userEventDashboard(type, userId, period = null, geography = {}) {
 	const countedStatuses = ["going", "attended"];
-	const geo = geographyFilter(geography, "event.city_id");
+	const geo = catalogFilter(geography, "event.city_id", ...eventDates());
 	const periodClause = buildPeriodClause(period, "event.date") + geo.clause;
 	const total_gigs = await db.query(
 		`
@@ -961,7 +961,7 @@ async function getLatestMedia(type = "1", geography = {}) {
 		throw error;
 	}
 
-	const geo = geographyFilter(geography, "g.city_id");
+	const geo = catalogFilter(geography, "g.city_id", ...gigDates('g'));
 	const latest = (mediaType, limit) => db.query(
 		`SELECT gm.id, gm.url, u.public_id AS user_public_id, u.name AS user_name,
 		        g.id AS gig_id, g.date, a.name AS artist, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue
@@ -987,7 +987,7 @@ async function getReviews(page = 1, type = "1", geography = {}) {
 		throw Object.assign(new Error("Tipo de espetáculo inválido."), { statusCode: 400 });
 	}
 	const pageSize = 20;
-	const geo = geographyFilter(geography, "g.city_id");
+	const geo = catalogFilter(geography, "g.city_id", ...gigDates('g'));
 	const rows = await db.query(
 		`SELECT gm.id, gm.url, u.public_id AS user_public_id, u.name AS user_name,
 		        g.id AS gig_id, g.date, a.name AS artist, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue

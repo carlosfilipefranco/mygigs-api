@@ -1,5 +1,6 @@
 const db = require("./db");
 const { geographyFilter } = require("./geography");
+const { dateRangeFilter, gigDates } = require("./catalogFilters");
 const helper = require("../helper");
 const config = require("../config");
 const { editionDate } = require("./concertDates");
@@ -21,6 +22,11 @@ async function getMultiple(page = 1, search = null, cityId = null, geography = {
 	if (cityId) {
 		if (!Number.isInteger(Number(cityId)) || Number(cityId) <= 0) fail("Cidade inválida.");
 		filters.push("venue.city_id = ?");params.push(Number(cityId));
+	}
+	const dates = dateRangeFilter(geography, ...gigDates('date_gig'));
+	if (dates.active) {
+		filters.push(`EXISTS (SELECT 1 FROM gig date_gig WHERE date_gig.venue_id = venue.id AND ${dates.predicate})`);
+		params.push(...dates.params);
 	}
 	const geo = geographyFilter(geography, "venue.city_id");
 	if (geo.predicate) { filters.push(geo.predicate); params.push(...geo.params); }
