@@ -13,6 +13,7 @@
 		"test:headliners": "node --test test/event-headliner.test.js",
 		"test:auth": "node --test test/auth-session.test.js",
 		"start": "node index.js",
+		"backup:db": "node scripts/backup-database.js",
 		"download:event-images": "node scripts/download-event-images.js",
 		"backfill:slugs": "node scripts/backfill-slugs.js",
 		"backfill:gig-events": "node scripts/backfill-gig-events.js",
