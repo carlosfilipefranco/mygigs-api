@@ -5,6 +5,8 @@ const festivalService = require("./festival");
 const editionService = require("./edition");
 const eventService = require("./event");
 const submissionFile = require("./submissionFile");
+const setlistFm = require("./setlistFmImport");
+const notifications = require("./notifications");
 
 const ALLOWED_ENTITY_TYPES = new Set(["artist", "venue", "festival", "edition", "event"]);
 const ALLOWED_STATUSES = new Set(["pending", "approved", "rejected"]);
@@ -57,8 +59,9 @@ function serializePayload(payload) {
 	return JSON.stringify(parsedPayload);
 }
 
-async function getById(id) {
-	const rows = await db.query(
+async function getById(id, query = db.query, lock = false) {
+	if (lock) await query("SELECT id FROM user_submission WHERE id = ? FOR UPDATE", [id]);
+	const rows = await query(
 		`
 		SELECT
 			us.*,
@@ -94,6 +97,30 @@ function hydrateSubmission(row) {
 	};
 }
 
+function invalid(message, statusCode = 400) {
+	throw Object.assign(new Error(message), { statusCode });
+}
+
+function normalizeConcertSuggestion(payload) {
+	const text = (value, label, max) => {
+		if (typeof value !== 'string' || !value.trim() || value.trim().length > max) invalid(`${label} inválido.`);
+		return value.trim();
+	};
+	const artist = text(payload.artist_name, 'Artista', 200);
+	const venue = text(payload.venue_name, 'Local', 300);
+	const date = payload.date;
+	if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) invalid('Indica uma data válida.');
+	const parsed = new Date(`${date}T12:00:00Z`);
+	if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) invalid('Indica uma data válida.');
+	return { submission_kind: 'concert', artist_name: artist, venue_name: venue, date };
+}
+
+function reviewMessage(input) {
+	const message = input.user_message ?? '';
+	if (typeof message !== 'string' || message.length > 1000) invalid('A mensagem pode ter até 1000 caracteres.');
+	return message.trim();
+}
+
 async function create(userId, input) {
 	if (parsePayload(input?.payload)?.submission_kind === "concert_list") {
 		throw Object.assign(new Error("Envia a listagem através do upload de ficheiros."), { statusCode: 400 });
@@ -108,7 +135,8 @@ async function create(userId, input) {
 		throw new Error("Invalid suggestion action");
 	}
 
-	const payload = serializePayload(input?.payload);
+	const rawPayload = parsePayload(input?.payload);
+	const payload = serializePayload(entityType === "event" && (rawPayload.submission_kind === "concert" || Number(rawPayload.type) !== 2) ? normalizeConcertSuggestion(rawPayload) : rawPayload);
 	const result = await db.query(
 		`
 		INSERT INTO user_submission (user_id, entity_type, submission_action, status, payload)
@@ -206,54 +234,68 @@ async function getMine(userId, status = null, limit = 50) {
 	};
 }
 
+
 async function approve(id, adminId, input = {}) {
-	const submission = await getById(id);
-	if (!submission) {
-		throw new Error("Suggestion not found");
+	const initial = await getById(id);
+	if (!initial) invalid('Sugestão não encontrada.', 404);
+	if (initial.status !== 'pending') invalid('Esta sugestão já foi analisada.', 409);
+	const message = reviewMessage(input);
+	const isConcert = initial.entity_type === 'event' && initial.payload.submission_kind === 'concert';
+	const isFile = initial.payload.submission_kind === 'concert_list';
+	let entries = [];
+	let eventIds = [];
+	if (isFile && !message) invalid('Escreve um comentário para o utilizador sobre a listagem.');
+	if (isConcert || isFile) {
+		const ids = input.setlistfm_ids || (input.setlistfm_id ? [input.setlistfm_id] : []);
+		const manualIds = input.event_ids || [];
+		if (!Array.isArray(ids) || !Array.isArray(manualIds) || ids.length + manualIds.length > 100) invalid('Seleciona até 100 concertos.');
+		if (manualIds.some(id => !Number.isSafeInteger(id) || id <= 0)) invalid('Evento inválido.');
+		eventIds = [...new Set(manualIds)];
+		const count = new Set(ids).size + eventIds.length;
+		if (!count || (isConcert && count !== 1)) invalid('Seleciona o concerto a aprovar ou cria-o manualmente.');
+		for (const id of [...new Set(ids)]) entries.push(await setlistFm.loadConcert(id));
 	}
-
-	if (submission.status !== "pending") {
-		throw new Error("Suggestion was already reviewed");
-	}
-
-	const approvalResult = await applySuggestion(submission);
-	await db.query(
-		`
-		UPDATE user_submission
-		SET status = 'approved', admin_note = ?, reviewed_by = ?, reviewed_at = NOW()
-		WHERE id = ?
-		`,
-		[input?.admin_note || input?.note || null, adminId, id]
-	);
-
-	return {
-		message: submission.payload.submission_kind === "concert_list" ? "Listagem marcada como analisada." : "Sugestão aprovada.",
-		result: approvalResult
-	};
+	return db.transaction(async query => {
+		const submission = await getById(id, query, true);
+		if (!submission || submission.status !== 'pending') invalid('Esta sugestão já foi analisada.', 409);
+		let result = (isConcert || isFile)
+			? (entries.length ? await setlistFm.persistEntries(entries, { type: 1, import_setlists: true }, query) : null)
+			: await applySuggestion(submission);
+		if (eventIds.length) {
+			const manualResults = [];
+			for (const eventId of eventIds) {
+				const rows = await query(`SELECT eg.gig_id, eg.event_id FROM event_gig eg INNER JOIN event e ON e.id = eg.event_id WHERE e.id = ? AND e.type = 1`, [eventId]);
+				if (!rows.length) invalid('O concerto criado manualmente já não está disponível.');
+				manualResults.push(...rows);
+			}
+			result = { ...result, results: [...(result?.results || []), ...manualResults] };
+		}
+		// Keep the original free-text request intact and record the moderation result.
+		const rows = await query('SELECT payload FROM user_submission WHERE id = ?', [id]);
+		const payload = parsePayload(rows[0].payload);
+		payload.review = { message, gig_ids: [...new Set(result?.results?.map(entry => entry.gig_id) || [])], setlistfm_ids: entries.map(entry => entry.setlistfm_id), event_ids: eventIds };
+		await query(`UPDATE user_submission SET status = 'approved', payload = ?, admin_note = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?`,
+			[JSON.stringify(payload), input.admin_note || input.note || null, adminId, id]);
+		await notifications.publishSubmissionReview(query, submission, true, result, message);
+		return { message: 'Sugestão aprovada. O utilizador será notificado.', result };
+	}, { lockName: (isConcert || isFile) ? 'setlistfm-import' : null });
 }
 
 async function reject(id, adminId, input = {}) {
-	const submission = await getById(id);
-	if (!submission) {
-		throw new Error("Suggestion not found");
-	}
-
-	if (submission.status !== "pending") {
-		throw new Error("Suggestion was already reviewed");
-	}
-
-	await db.query(
-		`
-		UPDATE user_submission
-		SET status = 'rejected', admin_note = ?, reviewed_by = ?, reviewed_at = NOW()
-		WHERE id = ?
-		`,
-		[input?.admin_note || input?.note || null, adminId, id]
-	);
-
-	return {
-		message: "Sugestão rejeitada."
-	};
+	const message = reviewMessage(input);
+	return db.transaction(async query => {
+		const submission = await getById(id, query, true);
+		if (!submission) invalid('Sugestão não encontrada.', 404);
+		if (submission.status !== 'pending') invalid('Esta sugestão já foi analisada.', 409);
+		if (submission.payload.submission_kind === 'concert_list' && !message) invalid('Escreve um comentário para o utilizador sobre a listagem.');
+		const rows = await query('SELECT payload FROM user_submission WHERE id = ?', [id]);
+		const payload = parsePayload(rows[0].payload);
+		payload.review = { message, gig_ids: [] };
+		await query(`UPDATE user_submission SET status = 'rejected', payload = ?, admin_note = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?`,
+			[JSON.stringify(payload), input.admin_note || input.note || null, adminId, id]);
+		await notifications.publishSubmissionReview(query, submission, false, null, message);
+		return { message: 'Sugestão rejeitada. O utilizador será notificado.' };
+	});
 }
 
 async function applySuggestion(submission) {

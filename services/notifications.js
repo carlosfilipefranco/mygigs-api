@@ -193,4 +193,20 @@ async function publishEdition(query, id, before, actorId = notificationActor()) 
 		`Edição atualizada: ${after.name}`, `Alterações: ${changes.join(', ')}. Consulta os detalhes da edição.`, `/edicoes/${id}`, actorId);
 }
 
-module.exports = { settings, savePreferences, search, follow, unfollow, list, unreadCount, markRead, markAllRead, gigSnapshot, publishGig, editionSnapshot, publishEdition };
+// Review outcomes go directly to the author, independently of followed interests.
+// The inbox is always updated; push delivery still respects the user's global setting.
+async function publishSubmissionReview(query, submission, approved, result, message = '') {
+	const payload = submission.payload || {};
+	const isFile = payload.submission_kind === 'concert_list';
+	const name = isFile ? payload.file?.name : payload.artist_name || payload.name;
+	const subject = isFile ? 'listagem de concertos' : 'sugestão';
+	const title = approved ? 'Sugestão aprovada' : 'Sugestão rejeitada';
+	const body = `A tua ${subject}${name ? ` «${name}»` : ''} foi ${approved ? 'aprovada' : 'rejeitada'}.${message ? ` ${message}` : ''}`;
+	const gigId = result?.results?.[0]?.gig_id || result?.gig_id;
+	const eventKey = randomUUID();
+	await query(`INSERT INTO user_notification (user_id, event_key, kind, title, body, path) VALUES (?, ?, 'submission_review', ?, ?, ?)`,
+		[submission.user_id, eventKey, title, body.slice(0, 2000), approved && gigId ? `/concertos/${gigId}` : '/notificacoes']);
+	await webPush.enqueue(query, eventKey);
+}
+
+module.exports = { settings, savePreferences, search, follow, unfollow, list, unreadCount, markRead, markAllRead, gigSnapshot, publishGig, editionSnapshot, publishEdition, publishSubmissionReview };

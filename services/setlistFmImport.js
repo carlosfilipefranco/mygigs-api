@@ -397,20 +397,20 @@ async function preview(payload = {}) {
 	};
 }
 
-// Pesquisa paginada para o formulário público: um único pedido à fonte por página.
+// Pesquisa paginada reservada a administradores: um único pedido à fonte por página.
 async function searchConcerts(payload = {}) {
 	const invalid = () => Object.assign(new Error("Indica um artista e filtros de pesquisa válidos."), { statusCode: 400 });
 	if (!payload || typeof payload.artist_name !== "string" || !payload.artist_name.trim() || payload.artist_name.length > 200) throw invalid();
 	const page = Number(payload.page ?? 1);
 	if (!Number.isInteger(page) || page < 1 || page > 1000) throw invalid();
-	for (const field of ["city_name", "country_code", "date_from", "date_to"]) {
+	for (const field of ["venue_name", "city_name", "country_code", "date_from", "date_to"]) {
 		if (payload[field] != null && (typeof payload[field] !== "string" || payload[field].length > 200)) throw invalid();
 	}
 	if (payload.country_code && !/^[a-z]{2}$/i.test(payload.country_code)) throw invalid();
 	if (payload.year != null && (!Number.isInteger(Number(payload.year)) || Number(payload.year) < 1000 || Number(payload.year) > 9999)) throw invalid();
 	if ((payload.date_from && !normalizeDate(payload.date_from)) || (payload.date_to && !normalizeDate(payload.date_to))) throw invalid();
 	const filters = {
-		artist_name: payload.artist_name, city_name: payload.city_name,
+		artist_name: payload.artist_name, venue_name: payload.venue_name, city_name: payload.city_name,
 		country_code: payload.country_code, year: payload.year,
 		date_from: payload.date_from, date_to: payload.date_to
 	};
@@ -429,7 +429,7 @@ async function searchConcerts(payload = {}) {
 	return { entries, page, has_more: page < getTotalPages(data) };
 }
 
-async function importConcert(setlistId) {
+async function loadConcert(setlistId) {
 	if (typeof setlistId !== "string" || !/^[a-f0-9]{8}$/i.test(setlistId)) {
 		throw Object.assign(new Error("Identificador do setlist.fm inválido."), { statusCode: 400 });
 	}
@@ -439,6 +439,11 @@ async function importConcert(setlistId) {
 	if (entry.setlistfm_id.toLowerCase() !== setlistId.toLowerCase() || !entry.date || !entry.artist_name || !entry.venue_name || !entry.city_name) {
 		throw Object.assign(new Error("Concerto não encontrado ou incompleto no setlist.fm."), { statusCode: 404 });
 	}
+	return entry;
+}
+
+async function importConcert(setlistId) {
+	const entry = await loadConcert(setlistId);
 	const result = await persistEntries([entry], { type: 1, import_setlists: true });
 	return {
 		message: result.summary.created_gigs ? "Concerto adicionado a partir do setlist.fm." : "Este concerto já existe.",
@@ -552,7 +557,7 @@ async function importEntries(payload = {}) {
 	return persistEntries(entries, payload);
 }
 
-async function persistEntries(entries, payload) {
+async function persistEntries(entries, payload, transactionQuery = null) {
 	const importSetlists = payload.import_setlists === true || payload.importSetlists === true;
 	const type = normalizeNumber(payload.type) || 1;
 	const targetEditionId = normalizeNumber(payload.edition_id || payload.editionId);
@@ -577,7 +582,7 @@ async function persistEntries(entries, payload) {
 	};
 	const results = [];
 
-	await db.transaction(async (query) => {
+	const persist = async (query) => {
 		const touchedEditionIds = new Set();
 		const prepared = [];
 		if (targetEventId) {
@@ -671,7 +676,9 @@ async function persistEntries(entries, payload) {
 			const editionIds = await getEditionIdsForEvent(targetEventId, query);
 			await syncEditionDatesForEditionIds(editionIds, query);
 		}
-	}, { lockName: "setlistfm-import" });
+	};
+	if (transactionQuery) await persist(transactionQuery);
+	else await db.transaction(persist, { lockName: "setlistfm-import" });
 
 	return {
 		message: "Setlist.fm import completed successfully",
@@ -684,5 +691,7 @@ module.exports = {
 	preview,
 	importEntries,
 	searchConcerts,
-	importConcert
+	importConcert,
+	loadConcert,
+	persistEntries
 };

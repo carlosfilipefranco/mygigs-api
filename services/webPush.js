@@ -97,8 +97,8 @@ async function claim() {
 		const tasks = await query(`SELECT d.id, d.attempts, d.lock_token, n.id AS notification_id, n.user_id, n.title, n.body, n.path,
 			s.id AS subscription_id, s.endpoint, s.p256dh, s.auth,
 			(n.read_at IS NULL AND n.created_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 DAY)
-			 AND s.user_id = n.user_id AND p.enabled = 1
-			 AND ((n.kind = 'new_concerts' AND p.new_concerts = 1) OR (n.kind = 'gig_changes' AND p.gig_changes = 1))) AS should_send
+			 AND s.user_id = n.user_id AND COALESCE(p.enabled, 1) = 1
+			 AND ((n.kind = 'new_concerts' AND p.new_concerts = 1) OR (n.kind = 'gig_changes' AND p.gig_changes = 1) OR n.kind = 'submission_review')) AS should_send
 			FROM user_push_delivery d INNER JOIN user_notification n ON n.id = d.notification_id
 			INNER JOIN user_push_subscription s ON s.id = d.subscription_id
 			LEFT JOIN user_notification_preferences p ON p.user_id = n.user_id WHERE d.id = ?`, [rows[0].id]);
