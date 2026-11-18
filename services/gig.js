@@ -978,6 +978,31 @@ async function getLatestMedia(type = "1", geography = {}) {
 	return { photos, reviews };
 }
 
+async function getReviews(page = 1, type = "1", geography = {}) {
+	const pageNumber = Number(page);
+	if (!Number.isSafeInteger(pageNumber) || pageNumber < 1 || pageNumber > 100000) {
+		throw Object.assign(new Error("Página inválida."), { statusCode: 400 });
+	}
+	if (!["1", "2"].includes(String(type))) {
+		throw Object.assign(new Error("Tipo de espetáculo inválido."), { statusCode: 400 });
+	}
+	const pageSize = 20;
+	const geo = geographyFilter(geography, "g.city_id");
+	const rows = await db.query(
+		`SELECT gm.id, gm.url, u.public_id AS user_public_id, u.name AS user_name,
+		        g.id AS gig_id, g.date, a.name AS artist, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue
+		 FROM gig_media gm
+		 INNER JOIN gig g ON g.id = gm.gig_id
+		 INNER JOIN artist a ON a.id = g.artist_id
+		 INNER JOIN venue v ON v.id = g.venue_id
+		 LEFT JOIN user u ON u.id = gm.user_id
+		 WHERE gm.type = 'link' AND g.type = ?${geo.clause}
+		 ORDER BY g.date DESC, g.id DESC, gm.id DESC LIMIT ${pageSize + 1} OFFSET ${(pageNumber - 1) * pageSize}`,
+		[Number(type), ...geo.params]
+	);
+	return { data: rows.slice(0, pageSize), hasMore: rows.length > pageSize, page: pageNumber };
+}
+
 async function getReviewPreview(gigId, reviewId) {
 	const rows = await db.query(`SELECT url FROM gig_media WHERE gig_id = ? AND id = ? AND type = 'link' LIMIT 1`, [gigId, reviewId]);
 	if (!rows.length) {
@@ -1079,6 +1104,7 @@ module.exports = {
 	images,
 	getMyPhotos,
 	getLatestMedia,
+	getReviews,
 	getReviewPreview,
 	addMedia,
 	updateMedia,
