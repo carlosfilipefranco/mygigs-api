@@ -71,3 +71,8 @@ node_modules/
 
 # Uploaded media is stored in the Railway volume
 /public/uploads/
+
+# Private snapshots created before reviewed catalogue corrections.
+/.backups/
+/reports
+/docs
