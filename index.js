@@ -90,6 +90,7 @@ app.use("/api/venue", venue);
 app.use("/api/city", city);
 app.use("/api/geography", require('./routes/geography'));
 app.use("/api/gig", gig);
+app.use("/api/home", require("./routes/home"));
 app.use("/api/event", event);
 app.use("/api/festival", festival);
 app.use("/api/edition", edition);
