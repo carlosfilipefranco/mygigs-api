@@ -110,7 +110,8 @@ app.use((err, req, res, next) => {
 	// Erros internos e de SQL nunca devem aparecer nas mensagens da aplicação.
 	const message = statusCode >= 500 || err.sql || err.sqlMessage
 		? "Ocorreu um erro inesperado. Tenta novamente mais tarde." : err.message;
-	res.status(statusCode).json({ message });
+	const pushCode = typeof err.pushCode === 'string' && /^PUSH_[A-Z_]+$/.test(err.pushCode) ? err.pushCode : null;
+	res.status(statusCode).json({ message, ...(pushCode ? { code: pushCode } : {}) });
 });
 
 // ------------------

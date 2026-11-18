@@ -7,7 +7,7 @@ let library;
 let workerTimer;
 let working = false;
 
-function fail(message, statusCode = 400) { throw Object.assign(new Error(message), { statusCode }); }
+function fail(message, statusCode = 400, pushCode = null) { throw Object.assign(new Error(message), { statusCode, ...(pushCode ? { pushCode } : {}) }); }
 
 function configuration() {
 	let saved = {};
@@ -24,7 +24,7 @@ function configuration() {
 		if (ecdh.getPublicKey().toString('base64url') !== publicKey) throw new Error();
 		const contact = new URL(subject);
 		if (!['https:', 'mailto:'].includes(contact.protocol)) throw new Error();
-	} catch { fail('A configuração de envio de push não é válida.', 503); }
+	} catch { fail('A configuração de envio de push não é válida.', 503, 'PUSH_CONFIG_INVALID'); }
 	return { publicKey, privateKey, subject };
 }
 
@@ -34,24 +34,24 @@ function publicConfiguration() {
 }
 
 function validateSubscription(input) {
-	if (!input || typeof input.endpoint !== 'string' || input.endpoint.length > 2048) fail('Subscrição inválida.');
+	if (!input || typeof input.endpoint !== 'string' || input.endpoint.length > 2048) fail('Subscrição inválida.', 400, 'PUSH_SUBSCRIPTION_INVALID');
 	let url;
-	try { url = new URL(input.endpoint); } catch { fail('Endereço de push inválido.'); }
+	try { url = new URL(input.endpoint); } catch { fail('Endereço de push inválido.', 400, 'PUSH_SUBSCRIPTION_INVALID'); }
 	// Only provider-owned public endpoints are accepted; never make requests to arbitrary URLs.
 	const host = url.hostname.toLowerCase();
 	const allowed = host === 'fcm.googleapis.com' || host === 'push.services.mozilla.com' || host.endsWith('.push.services.mozilla.com')
 		|| host === 'web.push.apple.com' || host.endsWith('.push.apple.com') || host.endsWith('.notify.windows.com');
-	if (!allowed || url.protocol !== 'https:' || url.username || url.password || url.hash || (url.port && url.port !== '443')) fail('Fornecedor de push não suportado.');
+	if (!allowed || url.protocol !== 'https:' || url.username || url.password || url.hash || (url.port && url.port !== '443')) fail('Fornecedor de push não suportado.', 400, 'PUSH_ENDPOINT_UNSUPPORTED');
 	for (const [key, length] of [['p256dh', 65], ['auth', 16]]) {
 		const value = input.keys?.[key];
-		if (typeof value !== 'string' || !/^[A-Za-z0-9_-]+={0,2}$/.test(value) || Buffer.from(value, 'base64url').length !== length) fail('Chaves de subscrição inválidas.');
+		if (typeof value !== 'string' || !/^[A-Za-z0-9_-]+={0,2}$/.test(value) || Buffer.from(value, 'base64url').length !== length) fail('Chaves de subscrição inválidas.', 400, 'PUSH_SUBSCRIPTION_KEYS_INVALID');
 	}
-	if (Buffer.from(input.keys.p256dh, 'base64url')[0] !== 4) fail('Chave de subscrição inválida.');
+	if (Buffer.from(input.keys.p256dh, 'base64url')[0] !== 4) fail('Chave de subscrição inválida.', 400, 'PUSH_SUBSCRIPTION_KEYS_INVALID');
 	return { endpoint: url.href, p256dh: input.keys.p256dh, auth: input.keys.auth };
 }
 
 async function subscribe(userId, input) {
-	if (!configuration()) fail('O envio de push ainda não está configurado.', 503);
+	if (!configuration()) fail('O envio de push ainda não está configurado.', 503, 'PUSH_NOT_CONFIGURED');
 	const subscription = validateSubscription(input);
 	const hash = createHash('sha256').update(subscription.endpoint).digest('hex');
 	return db.transaction(async query => {
@@ -60,7 +60,7 @@ async function subscribe(userId, input) {
 		const existing = await query('SELECT id, user_id FROM user_push_subscription WHERE endpoint_hash = ? FOR UPDATE', [hash]);
 		if (!existing.length || Number(existing[0].user_id) !== Number(userId)) {
 			const count = await query('SELECT COUNT(*) AS total FROM user_push_subscription WHERE user_id = ?', [userId]);
-			if (count[0].total >= 20) fail('Atingiste o limite de dispositivos com push activo.');
+			if (count[0].total >= 20) fail('Atingiste o limite de dispositivos com push activo.', 400, 'PUSH_DEVICE_LIMIT');
 		}
 		// A browser belongs to one account at a time. Drop queued deliveries on reassignment.
 		if (existing.length && Number(existing[0].user_id) !== Number(userId)) {

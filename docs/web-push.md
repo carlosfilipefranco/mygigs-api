@@ -74,3 +74,19 @@ Apple e Microsoft), para impedir pedidos a URLs arbitrários a partir do servido
 
 Referências: [biblioteca Web Push](https://github.com/web-push-libs/web-push),
 [Web Push na PWA iOS/iPadOS](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/).
+
+
+## Diagnóstico da ativação
+
+A aplicação distingue a obtenção da configuração, o pedido de permissão, o registo e ativação do service worker, a consulta/renovação/criação da subscrição e o registo do dispositivo na API. Um erro apresenta a etapa, uma explicação com a ação sugerida e um código; quando aplicável, inclui o estado HTTP. Não mostra URLs de endpoints push, chaves, tokens nem mensagens brutas de exceções. Falhas sem motivo reconhecido são assinaladas como `UNKNOWN_ERROR`.
+
+Os erros esperados da API incluem um `code` público e estável no JSON, além de `message`:
+
+- `PUSH_CONFIG_INVALID` (503): configuração VAPID inválida.
+- `PUSH_NOT_CONFIGURED` (503): envio push ainda não configurado.
+- `PUSH_ENDPOINT_UNSUPPORTED` (400): fornecedor do endpoint não aceite.
+- `PUSH_SUBSCRIPTION_INVALID` (400): subscrição ou endereço inválido.
+- `PUSH_SUBSCRIPTION_KEYS_INVALID` (400): chaves da subscrição inválidas.
+- `PUSH_DEVICE_LIMIT` (400): limite de 20 dispositivos da conta.
+
+As mensagens internas de SQL e os segredos continuam ocultos. O frontend reconhece também as mensagens públicas das versões anteriores da API. Para investigar um Android, recolher a etapa, o código, o estado HTTP (se existir), o modelo e o navegador/versão. Não recolher endpoints completos nem chaves de subscrição.
