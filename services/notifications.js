@@ -105,6 +105,12 @@ async function list(userId, before) {
 	return { data: data.slice(0, 30), hasMore: data.length > 30, ...await unreadCount(userId) };
 }
 
+async function getOne(userId, identifier) {
+	const rows = await db.query(`SELECT id, kind, title, body, path, created_at, read_at FROM user_notification WHERE user_id = ? AND id = ?`, [userId, positiveId(identifier)]);
+	if (!rows.length) fail('Notificação não encontrada.', 404);
+	return rows[0];
+}
+
 async function unreadCount(userId) {
 	const rows = await db.query('SELECT COUNT(*) AS unread FROM user_notification WHERE user_id = ? AND read_at IS NULL', [userId]);
 	return { unread: Number(rows[0].unread) };
@@ -193,20 +199,43 @@ async function publishEdition(query, id, before, actorId = notificationActor()) 
 		`Edição atualizada: ${after.name}`, `Alterações: ${changes.join(', ')}. Consulta os detalhes da edição.`, `/edicoes/${id}`, actorId);
 }
 
+async function submissionReviewContent(query, submission, approved, result, message = '') {
+	const payload = submission.payload || {};
+	const isFile = payload.submission_kind === 'concert_list';
+	const gigIds = [...new Set([
+		...(result?.results || []).map(entry => entry.gig_id), result?.gig_id,
+		...(payload.review?.gig_ids || [])
+	].map(Number).filter(id => Number.isSafeInteger(id) && id > 0))];
+	const gigs = approved && gigIds.length ? await query(`SELECT g.id, a.name AS artist,
+		DATE_FORMAT(g.date, '%d/%m/%Y') AS date, v.name AS venue, c.name AS city
+		FROM gig g INNER JOIN artist a ON a.id = g.artist_id
+		LEFT JOIN venue v ON v.id = g.venue_id LEFT JOIN city c ON c.id = g.city_id
+		WHERE g.id IN (${gigIds.map(() => '?').join(',')}) ORDER BY g.date, g.id LOCK IN SHARE MODE`, gigIds) : [];
+	const outcome = approved ? 'aprovada' : 'rejeitada';
+	const legacyArtists = (Array.isArray(payload.artists) ? payload.artists : []).map(artist => typeof artist === 'string' ? artist : artist?.artist_name || artist?.name).filter(Boolean).join(', ');
+	const name = isFile ? payload.file?.name : payload.artist_name || payload.name || legacyArtists;
+	const requestedDate = typeof payload.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(payload.date) ? payload.date.split('-').reverse().join('/') : '';
+	const requested = [name, requestedDate, payload.venue_name || payload.venue?.name].filter(Boolean).join(' · ');
+	const first = gigs[0];
+	const details = first ? [first.artist, first.date, first.venue, first.city].filter(Boolean).join(' · ') : isFile ? '' : requested;
+	const subject = isFile ? `listagem de concertos${name ? ` «${name}»` : ''}` : 'sugestão';
+	const extra = gigs.length > 1 ? ` E mais ${gigs.length - 1} ${gigs.length === 2 ? 'concerto aprovado' : 'concertos aprovados'}.` : '';
+	return {
+		title: `Sugestão ${outcome}${first ? `: ${first.artist}` : ''}`.slice(0, 255),
+		body: `A tua ${subject} foi ${outcome}.${details ? ` ${details}.` : ''}${extra}${message ? ` ${message}` : ''}`.slice(0, 2000),
+		path: first ? `/concertos/${first.id}` : '/notificacoes'
+	};
+}
+
 // Review outcomes go directly to the author, independently of followed interests.
 // The inbox is always updated; push delivery still respects the user's global setting.
 async function publishSubmissionReview(query, submission, approved, result, message = '') {
-	const payload = submission.payload || {};
-	const isFile = payload.submission_kind === 'concert_list';
-	const name = isFile ? payload.file?.name : payload.artist_name || payload.name;
-	const subject = isFile ? 'listagem de concertos' : 'sugestão';
-	const title = approved ? 'Sugestão aprovada' : 'Sugestão rejeitada';
-	const body = `A tua ${subject}${name ? ` «${name}»` : ''} foi ${approved ? 'aprovada' : 'rejeitada'}.${message ? ` ${message}` : ''}`;
-	const gigId = result?.results?.[0]?.gig_id || result?.gig_id;
+	const content = await submissionReviewContent(query, submission, approved, result, message);
 	const eventKey = randomUUID();
-	await query(`INSERT INTO user_notification (user_id, event_key, kind, title, body, path) VALUES (?, ?, 'submission_review', ?, ?, ?)`,
-		[submission.user_id, eventKey, title, body.slice(0, 2000), approved && gigId ? `/concertos/${gigId}` : '/notificacoes']);
+	const inserted = await query(`INSERT INTO user_notification (user_id, event_key, kind, title, body, path) VALUES (?, ?, 'submission_review', ?, ?, ?)`,
+		[submission.user_id, eventKey, content.title, content.body, content.path]);
 	await webPush.enqueue(query, eventKey);
+	return { id: inserted.insertId };
 }
 
-module.exports = { settings, savePreferences, search, follow, unfollow, list, unreadCount, markRead, markAllRead, gigSnapshot, publishGig, editionSnapshot, publishEdition, publishSubmissionReview };
+module.exports = { settings, savePreferences, search, follow, unfollow, list, getOne, unreadCount, markRead, markAllRead, gigSnapshot, publishGig, editionSnapshot, publishEdition, publishSubmissionReview, submissionReviewContent };

@@ -261,7 +261,13 @@ async function approve(id, adminId, input = {}) {
 		let result = (isConcert || isFile)
 			? (entries.length ? await setlistFm.persistEntries(entries, { type: 1, import_setlists: true }, query) : null)
 			: await applySuggestion(submission);
-		if (eventIds.length) {
+		// Older event suggestions return an event identifier rather than imported gig results.
+		if (submission.entity_type === 'event' && !isConcert && !isFile && result?.id) {
+			eventIds = [result.id];
+			const createdGigs = await query('SELECT gig_id, event_id FROM event_gig WHERE event_id = ? ORDER BY gig_id FOR UPDATE', [result.id]);
+			result = { ...result, results: createdGigs };
+		}
+		if (eventIds.length && (isConcert || isFile)) {
 			const manualResults = [];
 			for (const eventId of eventIds) {
 				const rows = await query(`SELECT eg.gig_id, eg.event_id FROM event_gig eg INNER JOIN event e ON e.id = eg.event_id WHERE e.id = ? AND e.type = 1`, [eventId]);

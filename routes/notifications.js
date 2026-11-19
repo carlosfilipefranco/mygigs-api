@@ -21,6 +21,7 @@ router.delete('/follows/:type/:id', handle(req => notifications.unfollow(req.use
 router.get('/unread', handle(req => notifications.unreadCount(req.user.id)));
 router.put('/read-all', handle(req => notifications.markAllRead(req.user.id, req.body?.through)));
 router.put('/:id/read', handle(req => notifications.markRead(req.user.id, req.params.id)));
+router.get('/:id', handle(req => notifications.getOne(req.user.id, req.params.id)));
 router.get('/', handle(req => notifications.list(req.user.id, req.query.before)));
 
 module.exports = router;
