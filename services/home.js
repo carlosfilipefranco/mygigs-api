@@ -33,15 +33,25 @@ function selection(kind, type, userId, geography = {}, { target = null, search =
 	const geo = catalogFilter(geography, 'e.city_id', 'e.date_start', 'COALESCE(e.date_end, e.date_start)');
 	const filters = ['1=1'];
 	if (target) { filters.push('e.id = ?'); params.push(target); }
+	if (recent) filters.push('DATE(e.date_start) > CURDATE()');
 	if (search) { filters.push('(e.name LIKE ? OR f.name LIKE ?)'); params.push(`%${search}%`, `%${search}%`); }
 	params.push(...geo.params);
+	// New lineup entries create gigs; editing their date, stage or time keeps the same ID.
+	const confirmations = recent ? `INNER JOIN (
+		SELECT ee.edition_id, MAX(g.id) AS latest_gig_id
+		FROM edition_event ee INNER JOIN event_gig eg ON eg.event_id = ee.event_id
+		INNER JOIN gig g ON g.id = eg.gig_id AND g.type = 1
+		GROUP BY ee.edition_id
+	) confirmations ON confirmations.edition_id = e.id` : '';
+	const orderBy = recent ? 'confirmations.latest_gig_id DESC, e.id DESC' : 'e.date_start DESC, e.id DESC';
 	return db.query(`SELECT 'edition' AS kind, e.id, e.name AS title, COALESCE(NULLIF(e.image, ''), f.image) AS image,
 		DATE_FORMAT(e.date_start, '%Y-%m-%d') AS date, DATE_FORMAT(e.date_end, '%Y-%m-%d') AS date_end,
 		v.name AS venue, c.name AS city
 		FROM edition e INNER JOIN festival f ON f.id = e.festival_id
+		${confirmations}
 		LEFT JOIN venue v ON v.id = e.venue_id LEFT JOIN city c ON c.id = e.city_id
 		WHERE ${filters.join(' AND ')}${geo.clause}
-		ORDER BY e.date_start DESC, e.id DESC LIMIT ${target ? 1 : 12}`, params);
+		ORDER BY ${orderBy} LIMIT ${target ? 1 : 12}`, params);
 }
 
 async function getFeatured(type, userId = null, geography = {}) {
@@ -53,11 +63,12 @@ async function getFeatured(type, userId = null, geography = {}) {
 
 async function highlights(input, userId, geography) {
 	const type = eventType(input);
-	const [featured, gigs] = await Promise.all([
+	const [featured, gigs, editions] = await Promise.all([
 		getFeatured(type, userId, geography),
-		selection('gig', type, userId, geography, { recent: true })
+		selection('gig', type, userId, geography, { recent: true }),
+		type === 1 ? selection('edition', type, userId, geography, { recent: true }) : []
 	]);
-	return { featured, gigs };
+	return { featured, gigs, editions };
 }
 
 async function options(input = {}) {
