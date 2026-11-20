@@ -7,7 +7,7 @@ async function getUsers({ search = "", page = 1 } = {}) {
 	const params = term ? [term, term] : [];
 	const [counts, data] = await Promise.all([
 		db.query(`SELECT COUNT(*) AS total FROM user ${where}`, params),
-		db.query(`SELECT id, name, email, role, created_at FROM user ${where}
+		db.query(`SELECT id, public_id, name, email, role, created_at FROM user ${where}
 			ORDER BY created_at DESC, id DESC LIMIT 50 OFFSET ${(currentPage - 1) * 50}`, params)
 	]);
 	return { data, total: Number(counts[0].total), page: currentPage, page_size: 50 };
