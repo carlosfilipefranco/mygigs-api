@@ -1,5 +1,6 @@
 const db = require('./db');
 const { catalogFilter, gigDates, eventDates } = require('./catalogFilters');
+const reviewPreview = require('./reviewPreview');
 const { upcomingGig, editionDate } = require('./concertDates');
 
 function eventType(input = '1') {
@@ -7,7 +8,7 @@ function eventType(input = '1') {
 	return Number(input);
 }
 
-function selection(kind, type, userId, geography = {}, { target = null, search = null, recent = false } = {}) {
+function selection(kind, type, userId, geography = {}, { target = null, search = null, recent = false, limit = 12, offset = 0 } = {}) {
 	const params = [];
 	if (kind === 'gig') {
 		const geo = catalogFilter(geography, 'g.city_id', ...gigDates('g'));
@@ -28,7 +29,26 @@ function selection(kind, type, userId, geography = {}, { target = null, search =
 			INNER JOIN venue v ON v.id = g.venue_id LEFT JOIN city c ON c.id = g.city_id
 			LEFT JOIN user_gig ug ON ug.gig_id = g.id AND ug.user_id = ?
 			WHERE ${filters.join(' AND ')}${geo.clause}
-			ORDER BY g.id DESC LIMIT ${target ? 1 : 12}`, params);
+			ORDER BY g.id DESC LIMIT ${target ? 1 : limit}${!target && offset ? ` OFFSET ${offset}` : ''}`, params);
+	}
+	if (kind === 'photo' || kind === 'review') {
+		const geo = catalogFilter(geography, 'g.city_id', ...gigDates('g'));
+		const filters = ['gm.type = ?', 'g.type = ?'];
+		params.push(kind === 'photo' ? 'image' : 'link', type);
+		if (target) { filters.push('gm.id = ?'); params.push(target); }
+		if (search) {
+			filters.push('(a.name LIKE ? OR v.name LIKE ? OR c.name LIKE ? OR gm.url LIKE ? OR u.name LIKE ?)');
+			params.push(...Array(5).fill(`%${search}%`));
+		}
+		params.push(...geo.params);
+		return db.query(`SELECT ? AS kind, gm.id, g.id AS gig_id, a.name AS title,
+			${kind === 'photo' ? 'gm.url' : 'a.image'} AS image, gm.url, u.name AS user_name,
+			DATE_FORMAT(g.date, '%Y-%m-%d') AS date,
+			COALESCE((SELECT va.name FROM venue_alias va WHERE va.id = g.venue_alias_id AND va.venue_id = v.id), v.name) AS venue, c.name AS city
+			FROM gig_media gm INNER JOIN gig g ON g.id = gm.gig_id INNER JOIN artist a ON a.id = g.artist_id
+			LEFT JOIN venue v ON v.id = g.venue_id LEFT JOIN city c ON c.id = g.city_id
+			LEFT JOIN user u ON u.id = gm.user_id WHERE ${filters.join(' AND ')}${geo.clause}
+			ORDER BY gm.id DESC LIMIT ${target ? 1 : limit}${!target && offset ? ` OFFSET ${offset}` : ''}`, [kind, ...params]);
 	}
 	const geo = catalogFilter(geography, 'e.city_id', 'e.date_start', 'COALESCE(e.date_end, e.date_start)');
 	const filters = ['1=1'];
@@ -51,7 +71,7 @@ function selection(kind, type, userId, geography = {}, { target = null, search =
 		${confirmations}
 		LEFT JOIN venue v ON v.id = e.venue_id LEFT JOIN city c ON c.id = e.city_id
 		WHERE ${filters.join(' AND ')}${geo.clause}
-		ORDER BY ${orderBy} LIMIT ${target ? 1 : 12}`, params);
+		ORDER BY ${orderBy} LIMIT ${target ? 1 : limit}${!target && offset ? ` OFFSET ${offset}` : ''}`, params);
 }
 
 async function getFeatured(type, userId = null, geography = {}) {
@@ -61,42 +81,76 @@ async function getFeatured(type, userId = null, geography = {}) {
 	return items[0] || null;
 }
 
+async function getSelections(type, userId = null, geography = {}) {
+	const rows = await db.query('SELECT slot, target_id FROM home_slide_selection WHERE event_type = ?', [type]);
+	const selections = { edition: null, photo: null, review: null };
+	await Promise.all(rows.filter(row => Object.hasOwn(selections, row.slot) && !(type === 2 && row.slot === 'edition')).map(async row => {
+		const items = await selection(row.slot, type, userId, geography, { target: row.target_id });
+		selections[row.slot] = items[0] || null;
+	}));
+	return selections;
+}
+
+async function configuration(type, userId = null) {
+	const [featured, selections] = await Promise.all([getFeatured(type, userId), getSelections(type, userId)]);
+	return { featured, selections };
+}
+
 async function highlights(input, userId, geography) {
 	const type = eventType(input);
-	const [featured, gigs, editions] = await Promise.all([
+	const [featured, gigs, editions, selections] = await Promise.all([
 		getFeatured(type, userId, geography),
 		selection('gig', type, userId, geography, { recent: true }),
-		type === 1 ? selection('edition', type, userId, geography, { recent: true }) : []
+		type === 1 ? selection('edition', type, userId, geography, { recent: true }) : [],
+		getSelections(type, userId, geography)
 	]);
-	return { featured, gigs, editions };
+	return { featured, gigs, editions, selections };
 }
 
 async function options(input = {}) {
 	const type = eventType(input.type);
 	const kind = input.kind || 'gig';
-	if (!['gig', 'edition'].includes(kind) || (type === 2 && kind === 'edition')) {
-		throw Object.assign(new Error('Escolhe um concerto ou uma edição de festival.'), { statusCode: 400 });
+	if (!['gig', 'edition', 'photo', 'review'].includes(kind) || (type === 2 && kind === 'edition')) {
+		throw Object.assign(new Error('Tipo de conteúdo inválido.'), { statusCode: 400 });
 	}
 	const search = typeof input.search === 'string' ? input.search.trim().slice(0, 150) : '';
-	return { data: await selection(kind, type, null, {}, { search }) };
+	const page = Number(input.page || 1);
+	if (!Number.isSafeInteger(page) || page < 1 || page > 100000) throw Object.assign(new Error('Página inválida.'), { statusCode: 400 });
+	const rows = await selection(kind, type, null, {}, { search, limit: 13, offset: (page - 1) * 12 });
+	return { data: rows.slice(0, 12), hasMore: rows.length > 12, page };
 }
 
 async function save(input = {}, userId) {
 	const type = eventType(input.type);
+	const slot = input.slot || 'featured';
+	if (!['featured', 'edition', 'photo', 'review'].includes(slot) || (type === 2 && slot === 'edition')) {
+		throw Object.assign(new Error('Slide inválido.'), { statusCode: 400 });
+	}
 	if (input.kind === null) {
-		await db.query('DELETE FROM home_featured WHERE event_type = ?', [type]);
-		return { featured: null };
+		if (slot === 'featured') await db.query('DELETE FROM home_featured WHERE event_type = ?', [type]);
+		else await db.query('DELETE FROM home_slide_selection WHERE event_type = ? AND slot = ?', [type, slot]);
+		return configuration(type, userId);
 	}
 	const target = Number(input.target_id);
-	if (!['gig', 'edition'].includes(input.kind) || (type === 2 && input.kind === 'edition') || !Number.isSafeInteger(target) || target < 1) {
-		throw Object.assign(new Error('Escolhe um concerto ou uma edição de festival.'), { statusCode: 400 });
+	const allowed = slot === 'featured' ? ['gig', ...(type === 1 ? ['edition'] : [])] : [slot];
+	if (!allowed.includes(input.kind) || !Number.isSafeInteger(target) || target < 1) {
+		throw Object.assign(new Error('Escolhe um conteúdo do tipo deste slide.'), { statusCode: 400 });
 	}
 	const rows = await selection(input.kind, type, userId, {}, { target });
 	if (!rows.length) throw Object.assign(new Error('O conteúdo escolhido já não está disponível.'), { statusCode: 404 });
-	await db.query(`INSERT INTO home_featured (event_type, target_kind, target_id, updated_by)
-		VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE target_kind = VALUES(target_kind), target_id = VALUES(target_id), updated_by = VALUES(updated_by)`,
-		[type, input.kind, target, userId]);
-	return { featured: rows[0] };
+	if (slot === 'review') {
+		try { reviewPreview.normalizeUrl(rows[0].url); }
+		catch { throw Object.assign(new Error('A ligação desta crítica não é válida.'), { statusCode: 400 }); }
+	}
+	if (slot === 'featured') {
+		await db.query(`INSERT INTO home_featured (event_type, target_kind, target_id, updated_by)
+			VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE target_kind = VALUES(target_kind), target_id = VALUES(target_id), updated_by = VALUES(updated_by)`,
+			[type, input.kind, target, userId]);
+	} else {
+		await db.query(`INSERT INTO home_slide_selection (event_type, slot, target_id, updated_by) VALUES (?, ?, ?, ?)
+			ON DUPLICATE KEY UPDATE target_id = VALUES(target_id), updated_by = VALUES(updated_by)`, [type, slot, target, userId]);
+	}
+	return configuration(type, userId);
 }
 
-module.exports = { highlights, options, save, getFeatured, eventType };
+module.exports = { highlights, options, save, getFeatured, getSelections, configuration, eventType };

@@ -8,7 +8,7 @@ router.get('/highlights', optionalAuth, async (req, res, next) => {
 });
 
 router.get('/featured', requireAdmin, async (req, res, next) => {
-	try { res.set('Cache-Control', 'no-store').json({ featured: await home.getFeatured(home.eventType(req.query.type), req.user.id) }); }
+	try { res.set('Cache-Control', 'no-store').json(await home.configuration(home.eventType(req.query.type), req.user.id)); }
 	catch (error) { next(error); }
 });
 
