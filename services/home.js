@@ -1,6 +1,7 @@
 const db = require('./db');
 const { catalogFilter, gigDates, eventDates } = require('./catalogFilters');
 const reviewPreview = require('./reviewPreview');
+const gigReviews = require('./gigReviews');
 const { upcomingGig, editionDate } = require('./concertDates');
 
 function eventType(input = '1') {
@@ -31,10 +32,16 @@ function selection(kind, type, userId, geography = {}, { target = null, search =
 			WHERE ${filters.join(' AND ')}${geo.clause}
 			ORDER BY g.id DESC LIMIT ${target ? 1 : limit}${!target && offset ? ` OFFSET ${offset}` : ''}`, params);
 	}
-	if (kind === 'photo' || kind === 'review') {
+	if (kind === 'review') {
+		return gigReviews.getReviews({ type, geography, mediaId: target, search, recent: true,
+			limit: target ? 1 : limit, offset: target ? 0 : offset }).then(rows => rows.map(row => ({
+			...row, kind: 'review', title: row.artist, image: row.artist_image
+		})));
+	}
+	if (kind === 'photo') {
 		const geo = catalogFilter(geography, 'g.city_id', ...gigDates('g'));
 		const filters = ['gm.type = ?', 'g.type = ?'];
-		params.push(kind === 'photo' ? 'image' : 'link', type);
+		params.push('image', type);
 		if (target) { filters.push('gm.id = ?'); params.push(target); }
 		if (search) {
 			filters.push('(a.name LIKE ? OR v.name LIKE ? OR c.name LIKE ? OR gm.url LIKE ? OR u.name LIKE ?)');
@@ -42,7 +49,7 @@ function selection(kind, type, userId, geography = {}, { target = null, search =
 		}
 		params.push(...geo.params);
 		return db.query(`SELECT ? AS kind, gm.id, g.id AS gig_id, a.name AS title,
-			${kind === 'photo' ? 'gm.url' : 'a.image'} AS image, gm.url, u.name AS user_name,
+			gm.url AS image, gm.url, u.name AS user_name,
 			DATE_FORMAT(g.date, '%Y-%m-%d') AS date,
 			COALESCE((SELECT va.name FROM venue_alias va WHERE va.id = g.venue_alias_id AND va.venue_id = v.id), v.name) AS venue, c.name AS city
 			FROM gig_media gm INNER JOIN gig g ON g.id = gm.gig_id INNER JOIN artist a ON a.id = g.artist_id

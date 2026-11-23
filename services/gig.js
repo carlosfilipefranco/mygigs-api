@@ -7,6 +7,7 @@ const config = require("../config");
 const { selectVenue, findVenueByName, selectedAlias, assertPhysicalVenueName } = require("./venueNames");
 const { getEditionIdsForGig, syncEditionDatesForEditionIds } = require("./editionDates");
 const reviewPreview = require("./reviewPreview");
+const gigReviews = require("./gigReviews");
 const { editionDate, historicalGig, upcomingGig, gigSortDate, upcomingEvent, eventEditionDate } = require("./concertDates");
 const festivalProgram = require("./festivalProgram");
 const { normalizeCityName } = require("./city");
@@ -974,7 +975,7 @@ async function getLatestMedia(type = "1", geography = {}) {
 		 ORDER BY ${mediaType === "link" ? "g.date DESC, g.id DESC, gm.id DESC" : "gm.id DESC"} LIMIT ${limit}`,
 		[mediaType, Number(type), ...geo.params]
 	);
-	const [photos, reviews] = await Promise.all([latest("image", 8), latest("link", 4)]);
+	const [photos, reviews] = await Promise.all([latest("image", 8), gigReviews.getReviews({ type, geography, limit: 4 })]);
 	return { photos, reviews };
 }
 
@@ -987,19 +988,7 @@ async function getReviews(page = 1, type = "1", geography = {}) {
 		throw Object.assign(new Error("Tipo de espetáculo inválido."), { statusCode: 400 });
 	}
 	const pageSize = 20;
-	const geo = catalogFilter(geography, "g.city_id", ...gigDates('g'));
-	const rows = await db.query(
-		`SELECT gm.id, gm.url, u.public_id AS user_public_id, u.name AS user_name,
-		        g.id AS gig_id, g.date, a.name AS artist, COALESCE((SELECT vn.name FROM venue_alias vn WHERE vn.id = g.venue_alias_id AND vn.venue_id = v.id), v.name) AS venue
-		 FROM gig_media gm
-		 INNER JOIN gig g ON g.id = gm.gig_id
-		 INNER JOIN artist a ON a.id = g.artist_id
-		 INNER JOIN venue v ON v.id = g.venue_id
-		 LEFT JOIN user u ON u.id = gm.user_id
-		 WHERE gm.type = 'link' AND g.type = ?${geo.clause}
-		 ORDER BY g.date DESC, g.id DESC, gm.id DESC LIMIT ${pageSize + 1} OFFSET ${(pageNumber - 1) * pageSize}`,
-		[Number(type), ...geo.params]
-	);
+	const rows = await gigReviews.getReviews({ type, geography, limit: pageSize + 1, offset: (pageNumber - 1) * pageSize });
 	return { data: rows.slice(0, pageSize), hasMore: rows.length > pageSize, page: pageNumber };
 }
 

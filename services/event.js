@@ -1,5 +1,6 @@
 const notifications = require("./notifications");
 const db = require("./db");
+const gigReviews = require("./gigReviews");
 const { catalogFilter, gigDates, eventDates } = require("./catalogFilters");
 const helper = require("../helper");
 const config = require("../config");
@@ -459,6 +460,7 @@ async function get(id, userId = null) {
 		type: event_type,
 		is_festival: isFestival,
 		headliner_artist_id: headlinerId,
+		reviews: await gigReviews.getReviews({ type: event_type, eventId: resolvedId, limit: 100 }),
 		stages: stageRows.map((stage) => ({
 			id: stage.id,
 			name: stage.name,
