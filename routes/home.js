@@ -7,6 +7,11 @@ router.get('/highlights', optionalAuth, async (req, res, next) => {
 	catch (error) { next(error); }
 });
 
+router.get('/recent-additions', async (req, res, next) => {
+	try { res.set('Cache-Control', 'no-store').json(await home.recentAdditions(req.query)); }
+	catch (error) { next(error); }
+});
+
 router.get('/featured', requireAdmin, async (req, res, next) => {
 	try { res.set('Cache-Control', 'no-store').json(await home.configuration(home.eventType(req.query.type), req.user.id)); }
 	catch (error) { next(error); }

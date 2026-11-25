@@ -114,6 +114,38 @@ async function highlights(input, userId, geography) {
 	return { featured, gigs, editions, selections };
 }
 
+const creationDay = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Lisbon', year: 'numeric', month: '2-digit', day: '2-digit' });
+
+async function recentAdditions(geography = {}) {
+	const geo = catalogFilter(geography, 'g.city_id', ...gigDates('g'));
+	const joins = `FROM gig g INNER JOIN artist a ON a.id = g.artist_id
+		INNER JOIN venue v ON v.id = g.venue_id INNER JOIN city c ON c.id = g.city_id`;
+	const where = `g.type = 1 AND ${upcomingGig('g')}${geo.clause}`;
+	const artists = await db.query(`SELECT g.artist_id, MAX(g.id) AS latest_id ${joins}
+		WHERE ${where} GROUP BY g.artist_id ORDER BY latest_id DESC LIMIT 4`, geo.params);
+	if (!artists.length) return { data: [] };
+	const rows = await db.query(`SELECT g.id, g.artist_id, a.name AS artist, a.slug AS artist_slug, a.image,
+		DATE_FORMAT(g.date, '%Y-%m-%d') AS date,
+		DATE_FORMAT(${editionDate('g')}, '%Y-%m-%d') AS edition_date_start,
+		DATE_FORMAT(${editionDate('g', 'date_end')}, '%Y-%m-%d') AS edition_date_end,
+		UNIX_TIMESTAMP(g.created_at) * 1000 AS created_at_ms,
+		COALESCE((SELECT va.name FROM venue_alias va WHERE va.id = g.venue_alias_id AND va.venue_id = v.id), v.name) AS venue,
+		c.name AS city ${joins} WHERE ${where} AND g.artist_id IN (${artists.map(() => '?').join(',')})
+		ORDER BY COALESCE(g.date, ${editionDate('g')}), g.id`, [...geo.params, ...artists.map(artist => artist.artist_id)]);
+	const data = artists.flatMap(artist => {
+		const latest = rows.find(row => row.id === artist.latest_id);
+		if (!latest) return [];
+		const day = latest.created_at_ms == null ? null : creationDay.format(new Date(Number(latest.created_at_ms)));
+		// Keep the complete latest day's additions together, including batches larger than a catalogue page.
+		const gigs = rows.filter(row => row.artist_id === artist.artist_id && (day == null ? row.id === latest.id
+			: row.created_at_ms != null && creationDay.format(new Date(Number(row.created_at_ms))) === day))
+			.map(({ created_at_ms, ...row }) => ({ ...row, created_at: created_at_ms == null ? null : new Date(Number(created_at_ms)).toISOString() }));
+		return [{ artist_id: latest.artist_id, artist: latest.artist, artist_slug: latest.artist_slug, image: latest.image,
+			created_at: latest.created_at_ms == null ? null : new Date(Number(latest.created_at_ms)).toISOString(), gigs }];
+	});
+	return { data };
+}
+
 async function options(input = {}) {
 	const type = eventType(input.type);
 	const kind = input.kind || 'gig';
@@ -160,4 +192,4 @@ async function save(input = {}, userId) {
 	return configuration(type, userId);
 }
 
-module.exports = { highlights, options, save, getFeatured, getSelections, configuration, eventType };
+module.exports = { highlights, recentAdditions, options, save, getFeatured, getSelections, configuration, eventType };
