@@ -187,6 +187,7 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 		`
 		SELECT
 			gig.id,
+			UNIX_TIMESTAMP(gig.created_at) * 1000 AS created_at_ms,
 			gig.date,
 			${editionDate()} AS edition_date_start, ${editionDate("gig", "date_end")} AS edition_date_end,
 			artist.id AS artist_id,
@@ -243,11 +244,13 @@ async function getMultiple(userId, page = 1, search = null, favorite = null, typ
 	);
 
 	const rowsWithUserGig = helper.emptyOrRows(rows).map((row) => {
+		const { created_at_ms, ...gig } = row;
 		const status = row?.status || "not_going";
 		const favorite = Number(row?.favorite || 0) === 1;
 
 		return {
-			...row,
+			...gig,
+			created_at: created_at_ms == null ? null : new Date(Number(created_at_ms)).toISOString(),
 			user_gig: userId
 				? {
 						status,
